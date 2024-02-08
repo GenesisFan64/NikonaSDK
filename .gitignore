@@ -1,2 +1,2 @@
-tools/AS/win32/
-tools/AS/linux/
+tools/AS/win32/*
+tools/AS/linux/*
