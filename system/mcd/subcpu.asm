@@ -477,7 +477,7 @@ spReadSectorsN:
 		movea.l	a2,a0			; a0 - Destination address
 		lea	(Sub_BiosArgs+8),a1	; a1 - Set head buffer
 		BIOS_CDCTRN			; Transfer sector
-		bcs.s	.waitTransfer		; If not done, branch
+; 		bcs.s	.waitTransfer		; If not done, branch
 		BIOS_CDCACK			; Acknowledge transfer
 		adda	d2,a2
 		add.l	#1,(Sub_BiosArgs)
@@ -534,7 +534,7 @@ spInitFS:
 ; d4-d7,a6
 ; --------------------------------------------------------
 
-; TODO: A ZERO SIZE CHECK
+; TODO: A ZERO-SIZE CHECK
 
 spSearchFile:
 ; 		movem.l	a1/a2/a6,-(a7)

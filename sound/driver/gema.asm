@@ -1,6 +1,6 @@
 ; ====================================================================
 ; --------------------------------------------------------
-; GEMA/Nikona sound driver v0.9
+; GEMA/Nikona sound driver v1.0
 ; (C)2023-2024 GenesisFan64
 ;
 ; Features:
@@ -38,6 +38,7 @@
 ; Macros
 ; --------------------------------------------------------
 
+; Shared for all DAC, PCM, PWM
 gSmpHead macro len,loop
 	dc.b ((len)&$FF),(((len)>>8)&$FF),(((len)>>16)&$FF)	; length
 	dc.b ((loop)&$FF),(((loop)>>8)&$FF),(((loop)>>16)&$FF)
@@ -72,10 +73,6 @@ RAM_ZCdFlag_D	equ RAM_ZSndBuff	; transferRom flag
 ;
 ; Uses:
 ; a0-a1,d0-d1
-;
-; NOTE:
-; Place the Z80 code separaetly from this file
-; on a safe place depending of the system.
 ; --------------------------------------------------------
 
 ; 		align $80
@@ -141,10 +138,9 @@ Sound_Update:
 	if PICO
 		rts		; entire Sound driver for Pico goes here
 	else
-
 	; ------------------------------------------------
 	; If transferRom wants to read from 68k RAM
-		tst.b	(RAM_ZCdFlag_D).w	; *Z80 WRITES HERE*
+		tst.b	(RAM_ZCdFlag_D).w	; *Z80 WRITES TO RAM*
 		beq.s	.no_task
 		clr.b	(RAM_ZCdFlag_D).w
 		moveq	#0,d7
@@ -253,7 +249,7 @@ sndReq_Exit:
 sndReq_scmd:
 		move.b	#-1,(a6,d6.w)			; write command-start flag
 		addq.b	#1,d6				; next fifo pos
-		andi.b	#MAX_ZCMND-1,d6			; COMMAND BUFFSIZE
+		andi.b	#MAX_ZCMND-1,d6
 		bra.s	sndReq_sbyte
 sndReq_slong:
 		bsr	sndReq_sbyte
@@ -267,7 +263,7 @@ sndReq_sword:
 sndReq_sbyte:
 		move.b	d7,(a6,d6.w)			; write byte
 		addq.b	#1,d6				; next fifo pos
-		andi.b	#MAX_ZCMND-1,d6			; COMMAND BUFFSIZE
+		andi.b	#MAX_ZCMND-1,d6
 		move.b	d6,(a5)				; update commZWrite
 		rts
 
@@ -433,27 +429,6 @@ gemaPlayTrack:
 		bra 	sndReq_Exit
 
 ; --------------------------------------------------------
-; gemaPlayQuick
-;
-; Play a sequence, pick free slot, starting at block 0
-;
-; Input:
-; d0.b - Track number
-; --------------------------------------------------------
-
-gemaPlayQuick:
-		bsr	sndReq_Enter
-		move.w	#$02,d7		; Command $02
-		bsr	sndReq_scmd
-		move.b	d0,d7		; d0.b Sequence number
-		bsr	sndReq_sbyte
-		moveq	#0,d7		; Start at block 0
-		bsr	sndReq_sbyte
-		move.b	#-1,d7		; Auto-slot mode
-		bsr	sndReq_sbyte
-		bra 	sndReq_Exit
-
-; --------------------------------------------------------
 ; gemaStopTrack
 ;
 ; Play a sequence with arguments
@@ -461,7 +436,7 @@ gemaPlayQuick:
 ; Input:
 ; d0.b - Sequence number
 ; d1.b - Playback slot number
-;        If -1: use auto-search
+;        If -1: stop all slots with the same number
 ; --------------------------------------------------------
 
 gemaStopTrack:
@@ -475,24 +450,6 @@ gemaStopTrack:
 		bra 	sndReq_Exit
 
 ; --------------------------------------------------------
-; gemaStopAll
-;
-; Stop ALL tracks from ALL buffers.
-;
-; No arguments.
-; --------------------------------------------------------
-
-gemaStopAll:
-	if PICO
-		rts
-	else
-		bsr	sndReq_Enter
-		move.w	#$08,d7		; Command $08
-		bsr	sndReq_scmd
-		bra 	sndReq_Exit
-	endif
-
-; --------------------------------------------------------
 ; gemaSetBeats
 ;
 ; Sets global subbeats
@@ -502,7 +459,7 @@ gemaStopAll:
 
 gemaSetBeats:
 		bsr	sndReq_Enter
-		move.w	#$0C,d7		; Command $0C
+		move.w	#$06,d7		; Command $06
 		bsr	sndReq_scmd
 		move.w	d0,d7
 		bsr	sndReq_sword

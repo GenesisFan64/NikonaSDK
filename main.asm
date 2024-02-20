@@ -20,8 +20,9 @@
 ;   MARS - Sega 32X
 ; MARSCD - Sega CD32X
 ;   PICO - Sega Pico
-; The code builds to stock Genesis by default,
-; ONLY CHOOSE ONE TARGET AT THE TIME.
+; * ONLY CHOOSE ONE TARGET AT THE TIME *
+;
+; By default the code builds to stock Genesis
 ;
 ; CDREGION - SEGACD/CD32X ONLY, Set ROM region:
 ;            0=Japan 1=USA 2=Europe
@@ -55,16 +56,18 @@
 ; and Pico in case you are not interested on the add-ons.
 ;
 ; RESERVED RAM ADDRESSES:
-; $FFFB00-$FFFD00 | Stack a7
+; $FFFB00-$FFFD00 | Stack area a7
 ; $FFFD00-$FFFDFF | RESERVED for the Sega CD Vector jumps
 ;                   FREE if running on cartridge
 ;                   (Genesis,32X,Pico)
-; $FFFE00-$FFFEFF | RESERVED for Sega CD, BIOS uses this area
-;                   temporals
+; $FFFE00-$FFFEFF | RESERVED for Sega CD, BIOS uses this
+;                   area as temporals
 ;                   ** Not sure if this can be used after
 ;                   during the application **
-; $FFFF00-$FFFFFF | RESERVED for the Sound Driver,
+; $FFFF00-$FFFFFF | RESERVED for the Sound Driver:
 ;                   The Z80 driver writes to this area
+;                   AND posibilly for the PICO 68k
+;                   driver version of GEMA
 ; --------------------------------------------------------
 
 MAX_SysCode	equ $2000	; Task routines ** CD/32X/CD32X ONLY **
@@ -265,17 +268,24 @@ Md_SysCode_e:
 ; --------------------------------------------------------
 
 	if MCD|MARSCD=0
-Z80_STPOS:
+
 	if MARS
 		phase $880000+*		; 32X cartridge: $880000+ area
 	endif
-Z80_CODE:	include "sound/driver/gema_zdrv.asm"
+Z80_CODE:
+	if MARS
+		dephase
+	endif
+		include "sound/driver/gema_zdrv.asm"
+	if MARS
+		phase $880000+*		; 32X cartridge: $880000+ area
+	endif
 Z80_CODE_END:
 	if MARS
 		dephase
-		phase (Z80_CODE_END-Z80_CODE)+Z80_STPOS
 	endif
-	endif
+
+	endif	; end MCD|MARSCD=0
 
 ; ===========================================================================
 ; ----------------------------------------------------------------
@@ -288,12 +298,13 @@ Z80_CODE_END:
 
 	if MCD|MARSCD
 		align $8000
+; 		dephase
 		binclude "system/mcd/fshead.bin"	; Include ISO header
 		iso_setfs 0,IsoFileList,IsoFileList_e	; TWO pointers to the filelist:
 		iso_setfs 1,IsoFileList,IsoFileList_e
 IsoFileList:
 		iso_file "SUB_DATA.BIN",MCD_SUBDATA,MCD_SUBDATA_e
-		iso_file "MARSCODE.BIN",MARS_RAMCODE,MARS_RAMCODE_E
+		iso_file "MARSCODE.BIN",MARS_RAMCODE,MARS_RAMCODE_eof
 		iso_file "DATABNKD.BIN",MCD_DBANK0,MCD_DBANK0_e
 		iso_file "MARSD_00.BIN",MARSDATA_DEFAULT,MARSDATA_DEFAULT_E
 		iso_file "SCREEN00.BIN",Md_Screen00,Md_Screen00_e
@@ -332,10 +343,11 @@ MARS_RAMCODE:
 	if MARS|MARSCD
 		include "system/mars/code.asm"
 	endif
+MARS_RAMCODE_E:
 	if MCD|MARSCD
 		align $800
+MARS_RAMCODE_eof:
 	endif
-MARS_RAMCODE_E:
 
 ; ====================================================================
 ; --------------------------------------------------------
@@ -349,6 +361,10 @@ MARS_RAMCODE_E:
 
 	screen_code Md_Screen00,Md_Screen00_e,"game/screen_0/code.asm"
 ; 	screen_code Md_Screen01,Md_Screen01_e,"game/screen_1/code.asm"
+
+; ====================================================================
+; DATA SECTION
+; ====================================================================
 
 ; ====================================================================
 ; ----------------------------------------------------------------
@@ -389,13 +405,13 @@ MARS_RAMCODE_E:
 
 	data_bkset MCD_DBANK0,-1
 mdbank0:
-		include "sound/tracks.asm"		; GEMA: Track data
-		include "sound/instr.asm"		; GEMA: FM instruments
-		include "sound/smpl_dac.asm"		; (MCD/CD32X ONLY) GEMA: DAC samples
 		include "game/screen_0/data_bank.asm"
 	if MCD|MARSCD
 		include "game/screen_0/data_dma.asm"	; SEGA CD / CD32X ONLY.
 	endif
+		include "sound/tracks.asm"		; GEMA: Track data
+		include "sound/instr.asm"		; GEMA: FM instruments
+		include "sound/smpl_dac.asm"		; (MCD/CD32X ONLY) GEMA: DAC samples
 mdbank0_e:
 	data_bkend MCD_DBANK0,MCD_DBANK0_e,mdbank0_e-mdbank0
 
@@ -464,9 +480,8 @@ mdbank0_e:
 
 ROM_END:
 	if MCD|MARSCD
-; 		align $800
-; 		rompad (ROM_END&$FFFF00)+$10
-.here:		rompad .here&$FF0000+$10000
+		rompad (ROM_END&$FFFF00)+$10
+; .here:		rompad .here&$FF0000+$10000
 	else
 		align $8000			; Cartridge padding
 	endif

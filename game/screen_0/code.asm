@@ -220,8 +220,14 @@ sizeof_thisbuff		ds.l 0
 		move.w	(a5)+,d0
 		move.w	(a5)+,d1
 		move.w	(a5)+,d2
-		bra	gemaPlayTrack
-		bra.s	.show_me
+		bsr	gemaPlayTrack
+		move.w	(RAM_GemaArg0).w,d0
+		move.w	d0,d1
+		add.w	d1,d1
+		lea	.extnal_beats(pc),a0
+		move.w	(a0,d1.w),d0
+		bra	gemaSetBeats
+; 		bra.s	.show_me
 .option1_args:
 		move.w	on_hold(a6),d7
 		move.w	d7,d6
@@ -268,227 +274,6 @@ sizeof_thisbuff		ds.l 0
 
 .option_3:
 		rts
-
-
-; ------------------------------------------------------
-
-; .steal_vars:
-; 	if PICO=0
-; 		lea	(RAM_ChnlLinks),a6
-; 		lea	(z80_cpu+tblPSG+6),a5
-; 		move.w	#MAX_TBLSIZE,d6
-; 		move.w	#$0100,(z80_bus).l		; Request Z80 Stop
-; .wait:		btst	#0,(z80_bus).l			; Wait for Z80
-; 		bne.s	.wait
-; 	; PSG LINKS
-; 		moveq	#0,d5
-; 		moveq	#4-2,d7				; PSG1-3
-; .psg_go:
-; 		move.b	(a5),d5
-; 		move.w	d5,(a6)+
-; 		adda	d6,a5
-; 		dbf	d7,.psg_go
-; 		adda	#2,a5				; skip -1
-; 		move.b	(a5),d5
-; 		move.w	#0,(z80_bus).l
-; 		move.w	d5,(a6)+
-; 		adda	d6,a5
-; 		lea	(z80_cpu+tblFM+6),a5
-; 		move.w	#$0100,(z80_bus).l		; Request Z80 Stop
-; .wait2:		btst	#0,(z80_bus).l			; Wait for Z80
-; 		bne.s	.wait2
-; 	; FM LINKS
-; 		moveq	#6-2,d7				; FM1-6
-; 		moveq	#0,d5
-; .fm_go:
-; 		move.b	(a5),d5
-; 		move.w	d5,(a6)+
-; 		adda	d6,a5
-; 		dbf	d7,.fm_go
-; 		move.b	(a5),d5
-; 		move.w	#0,(z80_bus).l
-; 		move.w	d5,(a6)+
-; 		adda	d6,a5
-; 		lea	(z80_cpu+tblPCM+6),a5
-; 		move.w	#$0100,(z80_bus).l		; Request Z80 Stop
-; .wait3:		btst	#0,(z80_bus).l			; Wait for Z80
-; 		bne.s	.wait3
-; 	; PCM LINKS
-; 		moveq	#8-2,d7				; PCM1-8
-; 		moveq	#0,d5
-; .pcm_go:
-; 		move.b	(a5),d5
-; 		move.w	d5,(a6)+
-; 		adda	d6,a5
-; 		dbf	d7,.pcm_go
-; 		move.b	(a5),d5
-; 		move.w	#0,(z80_bus).l
-; 		move.w	d5,(a6)+
-; 		lea	(z80_cpu+tblPWM+6),a5
-; 		move.w	#$0100,(z80_bus).l		; Request Z80 Stop
-; .wait4:		btst	#0,(z80_bus).l			; Wait for Z80
-; 		bne.s	.wait4
-; 	; PCM LINKS
-; 		moveq	#7-2,d7				; PCM1-8
-; 		moveq	#0,d5
-; .pwm_go:
-; 		move.b	(a5),d5
-; 		move.w	d5,(a6)+
-; 		adda	d6,a5
-; 		dbf	d7,.pwm_go
-; 		move.b	(a5),d5
-; 		move.w	#0,(z80_bus).l
-; 		move.w	d5,(a6)+
-;
-; ; 		lea	(RAM_ChnlLinks).w,a3
-; ; 		lea	str_Notes(pc),a2
-; ; 	; PSG labels
-; ; 		move.l	#locate(5,5,0),d2
-; ; 		moveq	#4-1,d3
-; ; .next_psg:
-; ; 		move.l	a2,a0
-; ; 		moveq	#0,d1
-; ; 		move.w	(a3)+,d1
-; ; 		beq.s	.zvalid_psg
-; ; 		sub.w	#36*2,d1
-; ; 		lsl.w	#2,d1
-; ; 		add.l	d1,a0
-; ; .zvalid_psg:
-; ; 		move.l	d2,d0
-; ; 		bsr	Video_Print
-; ; 		add.l	#$000400,d2
-; ; 		dbf	d3,.next_psg
-; ; 	; FM labels
-; ; 		move.l	#locate(5,7,0),d2
-; ; 		moveq	#6-1,d3
-; ; .next_fm:
-; ; 		lea	str_Notes_FM(pc),a0
-; ; 		lea	str_Octv_FM(pc),a1
-; ; 		moveq	#0,d0
-; ; 		move.w	(a3)+,d0
-; ; 		beq.s	.zvalid_fm
-; ; 		move.w	d0,d1
-; ; 		move.l	a0,d4
-; ; 		andi.w	#%11100000,d0
-; ; 		lsr.w	#4,d0
-; ; 		adda	d0,a1
-; ; 		move.l	d2,d0
-; ; 		move.l	a1,a0
-; ; 		add.l	#$000200,d0
-; ; 		bsr	Video_Print
-; ; 		move.l	d4,a0
-; ; 		adda	#4,a0
-; ; 		andi.w	#%00011111,d1
-; ; 		lsl.w	#1,d1
-; ; 		add.l	d1,a0
-; ; .zvalid_fm:
-; ; 		move.l	d2,d0
-; ; 		bsr	Video_Print
-; ; 		add.l	#$000400,d2
-; ; 		dbf	d3,.next_fm
-; ; 	; PCM labels
-; ; 		move.l	#locate(5,9,0),d2
-; ; 		moveq	#4-1,d3
-; ; .next_pcm0:
-; ; 		move.l	a2,a0
-; ; 		moveq	#0,d1
-; ; 		move.w	(a3)+,d1
-; ; 		beq.s	.zvalid_pcm0
-; ; 		sub.w	#36,d1
-; ; 		lsl.w	#2,d1
-; ; 		add.l	d1,a0
-; ; .zvalid_pcm0:
-; ; 		move.l	d2,d0
-; ; 		bsr	Video_Print
-; ; 		add.l	#$000400,d2
-; ; 		dbf	d3,.next_pcm0
-; ; 		move.l	#locate(5,10,0),d2
-; ; 		moveq	#4-1,d3
-; ; .next_pcm1:
-; ; 		move.l	a2,a0
-; ; 		moveq	#0,d1
-; ; 		move.w	(a3)+,d1
-; ; 		beq.s	.zvalid_pcm1
-; ; 		sub.w	#36,d1
-; ; 		lsl.w	#2,d1
-; ; 		add.l	d1,a0
-; ; .zvalid_pcm1:
-; ; 		move.l	d2,d0
-; ; 		bsr	Video_Print
-; ; 		add.l	#$000400,d2
-; ; 		dbf	d3,.next_pcm1
-;
-; ; 		lea	str_ShowPsg(pc),a0
-; ; 		move.l	#locate(5,5,0),d0
-; ; 		bsr	Video_Print
-; ; 		lea	str_ShowFm(pc),a0
-; ; 		move.l	#locate(5,7,0),d0
-; ; 		bsr	Video_Print
-; ; 		lea	str_ShowPcm(pc),a0
-; ; 		move.l	#locate(5,9,0),d0
-; ; 		bsr	Video_Print
-; ; 		lea	str_ShowPwm(pc),a0
-; ; 		move.l	#locate(5,12,0),d0
-; ; 		bsr	Video_Print
-;
-;
-; 	endif
-; 		rts
-
-	; C
-
-; 		lea	(RAM_GemaArg0).w,a5
-; 		move.w	on_press(a6),d7
-; 		btst	#bitJoyRight,d7
-; 		beq.s	.n_right
-; 		addq.w	#1,(a5)
-; 		bsr.s	.show_me
-; .n_right:
-; 		move.w	on_press(a6),d7
-; 		btst	#bitJoyLeft,d7
-; 		beq.s	.n_left
-; 		tst.w	(a5)
-; 		beq.s	.n_left
-; 		subq.w	#1,(a5)
-; 		bsr.s	.show_me
-; .n_left:
-; 		move.w	on_press(a6),d7
-; 		btst	#bitJoyC,d7
-; 		beq.s	.n_cplay
-; 		move.w	(a5),d0
-; 		move.w	d0,d1
-; 		add.w	d1,d1
-; 		lea	.extnal_beats(pc),a0
-; 		move.w	(a0,d1.w),d0
-; 		bsr	gemaSetBeats
-; 		move.w	(a5),d0
-; 		moveq	#0,d1
-; 		moveq	#0,d2
-; 		bsr	gemaPlayTrackM
-; .n_cplay:
-; 		move.w	on_press(a6),d7
-; 		btst	#bitJoyStart,d7
-; 		beq.s	.n_stplay
-; 		bsr	gemaTest
-; .n_stplay:
-; 		move.w	on_press(a6),d7
-; 		btst	#bitJoyB,d7
-; 		beq.s	.n_bplay
-; 		move.w	(a5),d0
-; 		bsr	gemaStopTrack
-; .n_bplay:
-; 		move.w	on_press(a6),d7
-; 		btst	#bitJoyMode,d7
-; 		beq.s	.n_aplay
-; 		moveq	#1,d0
-; 		bsr	Video_MarsGfxMode
-; 	if MCD|MARSCD
-; 		move.w	#$0002,(sysmcd_reg+mcd_dcomm_m).l
-; 		move.w	#$0010,d0
-; 		bsr	System_McdSubTask
-; 	endif
-; 		nop
-; .n_aplay:
 
 ; ------------------------------------------------------
 ; CUSTOM BEATS FOR EACH TRACK
@@ -931,8 +716,8 @@ str_TesterInit:
 		dc.b "    gemaTest",$0A
 		dc.b "    gemaPlayTrack",$0A
 		dc.b "    gemaStopTrack",$0A
-		dc.b "    gemaPlayQuick",$0A
-		dc.b "    TEST 5",$0A
+		dc.b "    gemaFadeOut",$0A
+		dc.b "    gemaFadeIn",$0A
 		dc.b "    TEST 6",$0A
 		dc.b "    TEST 7",$0A
 		dc.b "    TEST 8",$0A

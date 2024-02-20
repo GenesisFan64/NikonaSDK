@@ -1,11 +1,11 @@
 ; ====================================================================
 ; --------------------------------------------------------
-; GEMA/Nikona Z80 code v0.9
+; GEMA/Nikona Z80 code v1.0
 ; (C)2023-2024 GenesisFan64
 ; --------------------------------------------------------
 
 		phase 0
-		cpu Z80		; Enter Z80
+		cpu Z80		; Enter Z80 CPU
 
 ; --------------------------------------------------------
 ; SETTINGS
@@ -13,17 +13,17 @@
 
 ; !! = leave as-is unless you know what you are doing.
 
-MAX_TRFRPZ	equ 8		; !! Max transferRom packets(bytes) | **AFFECTS WAVE QUALITY**
-MAX_TRKCHN	equ 32		; !! Max internal shared tracker channel slots | *** LIMTED to 32 ***
-MAX_RCACH	equ 20h		; !! Max storage for ROM pattern data | *** 1-BIT SIZES ONLY, MUST BE ALIGNED ***
+MAX_TRFRPZ	equ 8		; !! Max transferRom packets(bytes) **AFFECTS WAVE QUALITY**
+MAX_TRKCHN	equ 32		; !! Max internal shared tracker channel slots *** LIMTED to 32 ***
+MAX_RCACH	equ 20h		; !! Max storage for ROM pattern data *** 1-BIT SIZES ONLY, MUST BE ALIGNED ***
+MAX_BUFFNTRY	equ 4*2		; !! nikona_BuffList buffer entry size
 
 MAX_TBLSIZE	equ 18h		; Max size for chip tables
-MAX_TRKINDX	equ 26		; Max channel indexes PER buffer: 4PSG+6FM+8PCM+8PWM
+MAX_TRKINDX	equ 26		; Max channel indexes per buffer: 4PSG+6FM+8PCM+8PWM
 MAX_BLOCKS	equ 8		; Max Cache'd ROM blocks per track
-SIZE_BUFFLIST	equ 4*2
 
-ZSET_TESTME	equ 0		; Set to 1 to "hear"-test the DAC playback
-MAX_ZCMND	equ 40h		; Size of commands array, 1-bit SIZES ONLY
+MAX_ZCMND	equ 20h		; Size of commands array, ** 1-bit SIZES ONLY **
+ZSET_TESTME	equ 0		; Set to 1 to check the DAC playback for quality by ear
 
 ; --------------------------------------------------------
 ; Structs
@@ -32,11 +32,11 @@ MAX_ZCMND	equ 40h		; Size of commands array, 1-bit SIZES ONLY
 ; trkBuff struct: 00h-30h
 ; unused bytes are free.
 ;
-; trk_Status: %ERPx xxx0
+; trk_Status: %ERP- ---0
 ; E - enabled
 ; R - Init|Restart track
 ; P - refill-on-playback
-; 0 - Use global sub-beat
+; 0 - Use global sub-beats
 trk_Status	equ 00h	; ** Track Status and Flags (MUST BE at 00h)
 trk_SeqId	equ 01h ; ** Track ID to play.
 trk_SetBlk	equ 02h	; ** Start on this block
@@ -51,15 +51,17 @@ trk_rowPause	equ 0Eh	; Row-pause timer
 trk_tickTmr	equ 0Fh	; Ticks timer
 trk_currBlk	equ 10h	; Current block
 trk_Priority	equ 11h ; Priority level for this buffer
-trk_BankIns	equ 12h ;
-trk_BankHeads	equ 13h ;
-trk_BankBlk	equ 14h	;
+trk_BankIns	equ 12h ; Instrument bank
+trk_BankHeads	equ 13h ; Header bank
+trk_BankBlk	equ 14h	; Block bank
 trk_MaxChnl	equ 15h ; MAX channels used in this track
-trk_RomPattRead	equ 16h ; [3b] ROM current pattern data to be cache'd
-trk_RomPatt	equ 19h ; [3b] ROM BASE pattern data
-trk_RomInst	equ 1Ch ; [3b] ROM instrument data
-trk_RomBlks	equ 1Fh ; [3b] ROM blocks data
-trk_ChnIndx	equ 22h	; CHANNEL INDEXES START HERE
+trk_VolMaster	equ 16h ; Master volume for this track slot (00-max), +80h update
+trk_VolFade	equ 17h	; Fade request byte
+trk_RomPattRead	equ 18h ; [3b] ROM current pattern data to be cache'd
+trk_RomPatt	equ 1Bh ; [3b] ROM BASE pattern data
+trk_RomInst	equ 1Eh ; [3b] ROM instrument data
+trk_RomBlks	equ 21h ; [3b] ROM blocks data
+trk_ChnIndx	equ 24h	; CHANNEL INDEXES START HERE
 
 ; chnBuff struct, 8 bytes ONLY
 ;
@@ -70,7 +72,7 @@ trk_ChnIndx	equ 22h	; CHANNEL INDEXES START HERE
 ; v  - Volume*
 ; i  - Intrument*
 ; n  - Note*
-; * cleared afterwards.
+
 chnl_Flags	equ 0	; Playback flags ** DON'T MOVE **
 chnl_Chip	equ 1	; Current Chip ID + priority for this channel
 chnl_Note	equ 2
@@ -122,8 +124,8 @@ PTMR		equ 56
 ; Code starts here
 ; --------------------------------------------------------
 
-		di			; Disable interrputs
-		im	1		; Interrupt mode 1
+		di			; Disable interrputs first
+		im	1		; Set Interrupt mode 1
 		ld	sp,2000h	; Set stack at the end of Z80
 		jr	z80_init	; Jump to z80_init
 
@@ -133,7 +135,7 @@ PTMR		equ 56
 ;
 ; Writes wave data to DAC using data stored
 ; on the wave buffer, call this routine every 6 or 8
-; opcodes to keep the samplerate stable.
+; instructions to keep the samplerate stable.
 ;
 ; Input (EXX):
 ;  c - WAVE buffer MSB
@@ -149,12 +151,12 @@ PTMR		equ 56
 ;
 ; call dac_on to enable wave playback, locks FM6
 ; and
-; call dac_off to disable and enable FM6.
+; call dac_off to disable wave and unlock FM6.
 ; --------------------------------------------------------
 
 ; Samplerate is at 16000hz with minimal quality loss.
 ; 		org 8
-dac_me:		exx			; Swap regs <-- Changes between EXX(play) and RET(stop)
+dac_me:		exx			; * swap regs <-- Changes between EXX(play) and RET(stop)
 		ex	af,af'		; Swap af
 		ld	b,l		; Save pitch .00 to b
 		ld	l,h		; l - xx.00 to 00xx
@@ -167,7 +169,7 @@ dac_me:		exx			; Swap regs <-- Changes between EXX(play) and RET(stop)
 		ld	l,b		; Get .00 back from b to l
 		add	hl,de		; Pitch increment hl
 		ex	af,af'		; Return af
-		exx			; Return the other regs
+		exx			; * swap regs
 		ret
 
 ; --------------------------------------------------------
@@ -184,19 +186,16 @@ gemaMstrListPos:
 ;
 ; Checks if the WAVE cache needs refilling to keep
 ; it playing.
-;
-; *** THIS BREAKS ALL REGISTERS IF REFILL
-; IS REQUESTED ***
 ; --------------------------------------------------------
 
 ; 		org 20h
 dac_fill:	push	af		; <-- Changes between PUSH AF(play) and RET(stop)
-		ld	a,(dDacFifoMid)	; a - Get mid-way value
-		exx
+		ld	a,(dDacFifoMid)	; a - Get half-way value
+		exx			; * swap regs
 		xor	h		; Grab LSB.00
-		exx
+		exx			; * swap regs
 		and	80h		; Check if bit changed
-		call	nz,dac_refill	; If yes: Refill and update LSB to check
+		call	nz,dac_refill	; If yes, Refill and update LSB to check
 		pop	af
 		ret
 
@@ -204,12 +203,12 @@ dac_fill:	push	af		; <-- Changes between PUSH AF(play) and RET(stop)
 ; 02Eh - User read/write values
 commZWrite	db 0			; 2Eh: cmd fifo wptr (from 68k)
 commZRomBlk	db 0			; 2Fh: 68k ROM block flag
-cdRamLen	db 0			; 30h: Lenght + status
+cdRamLen	db 0			; 30h: Size + status flag
 cdRamDst	db 0,0			; 31h: ** Z80 destination
-cdRamSrc	db 0,0			; 33h: ** Source
+cdRamSrc	db 0,0			; 33h: ** 68k 24-bit source
 cdRamSrcB	db 0			; 35h: **
-mcdBlock	db 0			; 36h: flag to BLOCK SCD comm
-marsBlock	db 0			; 37h: flag to BLOCK PWM transfers.
+mcdBlock	db 0			; 36h: Flag to BLOCK SCD comm
+marsBlock	db 0			; 37h: Flag to BLOCK PWM transfers.
 
 ; --------------------------------------------------------
 ; Z80 Interrupt at 0038h
@@ -230,7 +229,7 @@ freeFlag	db 0
 ; --------------------------------------------------------
 
 ; 		org 40h
-commZfifo	ds MAX_ZCMND			; Buffer for commands: 40h bytes
+commZfifo	ds MAX_ZCMND			; Buffer for commands from 68k side
 
 ; --------------------------------------------------------
 ; Initialize
@@ -247,16 +246,16 @@ z80_init:
 drv_loop:
 		rst	8
 		call	get_tick		; Check tick on VBlank
-		rst	20h			; Refill wave
+		rst	20h			; Refill wave here
 		rst	8
 		ld	b,0			; b - Reset current flags (beat|tick)
 		ld	a,(tickCnt)		; Decrement tick counter
 		sub	1
-		jr	c,.noticks
+		jr	c,.noticks		; If non-zero, no tick passed.
 		ld	(tickCnt),a
 		call	chip_env		; Process PSG and YM
 		call	get_tick		; Check for another tick
-		ld 	b,01b			; Set TICK (01b) flag, and clear BEAT
+		ld 	b,01b			; Set TICK and clear BEAT flags (01b)
 .noticks:
 		ld	a,(sbeatAcc+1)		; check beat counter (scaled by tempo)
 		sub	1
@@ -266,7 +265,7 @@ drv_loop:
 		set	1,b			; Set BEAT (10b) flag
 .nobeats:
 		rst	8
-		ld	a,b			; Any beat/tick change?
+		ld	a,b			; Any beat/tick bits set?
 		or	a
 		jr	z,.neither
 		ld	(currTickBits),a	; Save BEAT/TICK bits
@@ -284,18 +283,18 @@ drv_loop:
 	endif
 		call	get_tick
 .next_cmd:
-		ld	a,(commZWrite)		; Check command READ and WRITE indexes
-		ld	b,a
+		ld	a,(commZWrite)		; Check if commZ R/W indexes
+		ld	b,a			; are in the same spot a == b
 		ld	a,(commZRead)
-		cp	b
-		jr	z,drv_loop		; If both are equal: no requests
+		cp	b			; If equal, loop back.
+		jr	z,drv_loop
 		rst	8
-		call	.grab_arg
-		cp	-1			; Got -1? (Start of command)
-		jr	nz,drv_loop
+		call	.grab_arg		; Read staring flag -1
+		cp	-1			; Got START -1?
+		jr	nz,drv_loop		; If not, end of commands
 		call	.grab_arg		; Read command number
-		add	a,a			; * 2
-		ld	hl,.list		; Then jump to one of these...
+		add	a,a			; ID * 2
+		ld	hl,.list		; Index-jump...
 		ld	d,0
 		ld	e,a
 		add	hl,de
@@ -318,17 +317,17 @@ drv_loop:
 		ld	d,a
 		rst	8
 		ld	a,(commZRead)
-		cp	d
+		cp	d		; commZ R/W indexes are the same?
 		jr	z,.getcbytel	; wait until these counters change.
 		ld	d,0
 		ld	e,a
-		ld	hl,commZfifo
+		ld	hl,commZfifo	; Read commZ list + index
 		add	hl,de
 		rst	8
 		inc	a
-		and	MAX_ZCMND-1		; ** command list limit
+		and	MAX_ZCMND-1	; ** commZ list buffer limit
 		ld	(commZRead),a
-		ld	a,(hl)		; a - the byte we got
+		ld	a,(hl)		; a - got this byte from the buffer
 		pop	hl
 		pop	de
 		ret
@@ -340,26 +339,17 @@ drv_loop:
 		dw .cmnd_1		; 01h - Set Master tracklist
 		dw .cmnd_2		; 02h - Play by track number
 		dw .cmnd_3		; 03h - Stop by track number
-		dw .cmnd_0		; 04h -
-		dw .cmnd_0		; 05h -
-		dw .cmnd_0		; 06h -
+		dw .cmnd_0		; 04h - ** Fade in or out
+		dw .cmnd_0		; 05h - ** Set maximum volume to slot
+		dw .cmnd_6		; 06h - Set GLOBAL sub-beats
 		dw .cmnd_0		; 07h -
-		dw .cmnd_8		; 08h - Stop ALL
-		dw .cmnd_0		; 09h -
-		dw .cmnd_0		; 0Ah -
-		dw .cmnd_0		; 0Bh -
-		dw .cmnd_C		; 0Ch - Set GLOBAL sub-beats
-		dw .cmnd_0		; 0Dh -
-		dw .cmnd_0		; 0Eh -
-		dw .cmnd_0		; 0Fh -
+; 		dw .cmnd_8		; 08h - Stop ALL
 
 ; --------------------------------------------------------
 ; Command 00h
 ;
 ; Reserved for TESTING purposes.
 ; --------------------------------------------------------
-
-; TEST COMMAND
 
 .cmnd_0:
 ; 		ld	a,DacIns_TEST>>16
@@ -382,21 +372,21 @@ drv_loop:
 ; --------------------------------------------------------
 ; Command 01h:
 ;
-; Set Tracks MASTER list.
+; Set the Track MASTER-list.
 ; --------------------------------------------------------
 
 .cmnd_1:
-		ld	hl,gemaMstrListPos+3
-		call	.grab_arg	; $000000xx
+		ld	hl,gemaMstrListPos+3	; 32-bit bigendian-address
+		call	.grab_arg		; $000000xx
 		ld	(hl),a
 		dec	hl
-		call	.grab_arg	; $0000xx00
+		call	.grab_arg		; $0000xx00
 		ld	(hl),a
 		dec	hl
-		call	.grab_arg	; $00xx0000
+		call	.grab_arg		; $00xx0000
 		ld	(hl),a
 		dec	hl
-		call	.grab_arg	; $0000xx00
+		call	.grab_arg		; $xx000000**
 		ld	(hl),a
 		jp	.next_cmd
 
@@ -405,23 +395,24 @@ drv_loop:
 ;
 ; Make new track by sequence number
 ;
-; SeqID,BlockPos,SlotIndex(-1 searchfree)
+; Arguments:
+; SeqID,BlockPos,SlotIndex(If -1 autofill)
 ; --------------------------------------------------------
 
 .cmnd_2:
-		call	.grab_arg	; d0: Sequence ID
-		ld	c,a		; copy to c
-		call	.grab_arg	; d1: Block from
-		ld	b,a
+		call	.grab_arg		; d0: Sequence ID
+		ld	c,a			; copy as c
+		call	.grab_arg		; d1: Block from
+		ld	b,a			; copy as b
 		rst	8
-		call	.grab_arg	; d2: Slot index
-		ld	iy,nikona_BuffList
-		cp	-1
+		call	.grab_arg		; d2: Slot index
+		ld	iy,nikona_BuffList	; iy - Slot buffer list
+		cp	-1			; if d2 == -1, search free slot
 		jr	z,.srch_mode
-		cp	(nikona_BuffList_e-nikona_BuffList)/SIZE_BUFFLIST	; <-- limit trick
+		cp	(nikona_BuffList_e-nikona_BuffList)/MAX_BUFFNTRY	; If maxed out slots
 		jp	nc,.next_cmd
-		add	a,a		; ** MANUAL SIZE_BUFFLIST
-		add	a,a		; id*8
+		add	a,a			; ** MANUAL MAX_BUFFNTRY
+		add	a,a			; id*8
 		add	a,a
 		ld	d,0
 		ld	e,a
@@ -435,27 +426,27 @@ drv_loop:
 		ld	d,0
 .next:
 		ld	a,(iy)
-		cp	-1
-		jp	z,.next_cmd		; Failed search
-		ld	h,(iy+1)
+		cp	-1			; End of list?
+		jp	z,.next_cmd		; Then skip, no free slot.
+		ld	h,(iy+1)		; hl - Current track slot
 		ld	l,a
 		rst	8
-		ld	a,(hl)			; trk_Status: Track is active != 0?
+		ld	a,(hl)			; trk_Status: Is this slot free == 0?
 		or	a
 		jr	z,.wrtto_slot
-		ld	de,SIZE_BUFFLIST
+		ld	de,MAX_BUFFNTRY		; Search the next slot from the buff list
 		add	iy,de
 		rst	8
 		jr	.next
 .wrtto_slot:
-		ld	(hl),0C0h	; ** Write trk_Status flags: Enable+Restart
+		ld	(hl),0C0h		; ** Write trk_Status flags: Enable+Restart
 		inc	hl
 		rst	8
-		ld	(hl),c		; ** write trk_SeqId
+		ld	(hl),c			; ** write trk_SeqId
 		inc	hl
-		ld	(hl),b		; ** write trk_SetBlk
+		ld	(hl),b			; ** write trk_SetBlk
 		ld	a,c
-		call	get_RomTrcks
+		call	get_RomTrcks		; ** ROM READ: Get track list
 		jp	.next_cmd
 
 ; --------------------------------------------------------
@@ -467,16 +458,16 @@ drv_loop:
 ; --------------------------------------------------------
 
 .cmnd_3:
-		call	.grab_arg	; d0: Sequence ID
-		ld	c,a		; copy to c
-		call	.grab_arg	; d1: Slot index
-		ld	iy,nikona_BuffList
-		cp	-1
+		call	.grab_arg		; d0: Sequence ID
+		ld	c,a			; copy to c
+		call	.grab_arg		; d1: Slot index
+		ld	iy,nikona_BuffList	; iy - Slot buffer list
+		cp	-1			; if -1, search for all with same ID
 		jr	z,.srch_del
-		cp	(nikona_BuffList_e-nikona_BuffList)/SIZE_BUFFLIST	; <-- limit trick
+		cp	(nikona_BuffList_e-nikona_BuffList)/MAX_BUFFNTRY	; If maxed out slots
 		jp	nc,.next_cmd
-		add	a,a		; ** MANUAL SIZE_BUFFLIST
-		add	a,a		; id*8
+		add	a,a			; ** MANUAL MAX_BUFFNTRY
+		add	a,a			; id*8
 		add	a,a
 		ld	d,0
 		ld	e,a
@@ -498,52 +489,11 @@ drv_loop:
 		jp	.srch_del
 
 .wrtto_del:
-		ld	(hl),-1		; Flags | Enable+Restart bits
+		ld	(hl),-1		; -1 flag, stop channel and clear slot
 		inc	hl
 		ld	(hl),-1		; Reset seqId
 		rst	8
 		ret
-
-; --------------------------------------------------------
-; Command 08h:
-;
-; Stop ALL tracks
-; --------------------------------------------------------
-
-.cmnd_8:
-		ld	ix,nikona_BuffList
-.next_sall:
-		ld	a,(ix)
-		cp	-1
-		jp	z,.next_cmd
-		ld	h,(ix+1)
-		ld	l,a
-		ld	a,(hl)		; *** trk_Status
-		bit	7,a
-		jr	z,.not_on
-		ld	(hl),-1		; *** trk_Status: -1 request
-		inc	hl
-		ld	(hl),-1		; Reset seqId
-.not_on:
-		ld	de,SIZE_BUFFLIST
-		add	ix,de
-		jp	.next_sall
-
-; --------------------------------------------------------
-; Command 0Ch:
-;
-; Set global sub-beats
-; --------------------------------------------------------
-
-.cmnd_C:
-		call	.grab_arg	; d0.w: $00xx
-		ld	c,a
-		call	.grab_arg	; d0.w: $xx00
-		ld	(sbeatPtck+1),a
-		ld	a,c
-		ld	(sbeatPtck),a
-		jp	.next_cmd
-
 
 ; ------------------------------------------------
 ; c - Sequence ID to search
@@ -556,7 +506,7 @@ drv_loop:
 		ret	z
 		ld	h,(iy+1)
 		ld	l,a
-		ld	de,SIZE_BUFFLIST
+		ld	de,MAX_BUFFNTRY
 		add	iy,de
 		push	hl
 		pop	ix
@@ -573,6 +523,21 @@ drv_loop:
 		xor	a
 		ret
 
+; --------------------------------------------------------
+; Command 06h:
+;
+; Set global sub-beats
+; --------------------------------------------------------
+
+.cmnd_6:
+		call	.grab_arg	; d0.w: $00xx
+		ld	c,a
+		call	.grab_arg	; d0.w: $xx00
+		ld	(sbeatPtck+1),a
+		ld	a,c
+		ld	(sbeatPtck),a
+		jp	.next_cmd
+
 ; ====================================================================
 ; ----------------------------------------------------------------
 ; MAIN Playback section
@@ -584,44 +549,46 @@ drv_loop:
 ; --------------------------------------------------------
 
 upd_track:
-		rst	20h
-		call	get_tick
-		ld	iy,nikona_BuffList
+		rst	20h			; Refill wave
+		call	get_tick		; Check for tick flag
+		ld	iy,nikona_BuffList	; iy - slot buffer List
 .trk_buffrs:
-		ld	a,(iy)
+		ld	a,(iy)			; if -1, end here.
 		cp	-1
 		ret	z
 		rst	8
 		push	iy
-		ld	l,(iy)
-		ld	h,(iy+1)
 		call	.read_track
 		pop	iy
-		ld	de,SIZE_BUFFLIST
+		ld	de,MAX_BUFFNTRY
 		add	iy,de
 		jr	.trk_buffrs
+
 ; ----------------------------------------
 ; iy - Track buffer
+; ----------------------------------------
 
 .read_track:
+		ld	l,(iy)			; hl - current track slot
+		ld	h,(iy+1)
 		rst	8
 		push	hl
-		pop	iy
+		pop	iy			; change iy to hl
 		ld	b,(iy+trk_Status)	; b - Track status and settings
 		bit	7,b			; bit7: Track active?
-		ret	z
+		ret	z			; Return if not.
 		ld	a,b
-		cp	-1			; Mid-silence request?
-		ret	z
+		cp	-1			; Flag is -1?
+		ret	z			; Return if mid-flag
 		rst	8
 		ld	a,(currTickBits)	; a - Tick/Beat bits
 		bit	0,b			; bit0: This track uses Beats?
 		jr	z,.sfxmd
 		bit	1,a			; BEAT passed?
-		ret	z			;
+		ret	z			; No BEAT.
 .sfxmd:
 		bit	0,a			; TICK passed?
-		ret	z
+		ret	z			; No TICK.
 		rst	8
 	; *** Start reading notes ***
 		bit	6,b			; bit6: Restart/First time?
@@ -631,8 +598,8 @@ upd_track:
 		ld	a,(iy+trk_tickTmr)	; TICK ex-timer for this track
 		dec	a
 		ld	(iy+trk_tickTmr),a
-		or	a
-		ret	nz			; If TICK != 0, Exit
+		or	a			; Check a
+		ret	nz			; If Tick timer != 0, exit.
 		rst	8
 		ld	a,(iy+trk_TickSet)	; Set new tick timer
 		ld	(iy+trk_tickTmr),a
@@ -640,15 +607,15 @@ upd_track:
 		ld	b,(iy+(trk_Rows+1))
 		ld	a,c			; Check rowcount
 		or	b
-		jr	nz,.row_active
-		rst	8
-		ld	a,(iy+trk_currBlk)	; If bc == 0: Next block
+		jr	nz,.row_active		; If bc != 0: row is currenly playing.
+		rst	8			; If bc == 0 ...
+		ld	a,(iy+trk_currBlk)	; Next block
 		inc	a
 		ld 	(iy+trk_currBlk),a
-		call	.set_track
+		call	.set_track		; Read track data ** ROM ACCESS **
 		cp	-1			; Track finished?
 		ret	z
-		ld	c,(iy+trk_Rows)
+		ld	c,(iy+trk_Rows)		; Set new rowcount to bc
 		ld	b,(iy+(trk_Rows+1))
 .row_active:
 		rst	8
@@ -656,18 +623,18 @@ upd_track:
 		ld	h,(iy+((trk_Read+1)))
 
 ; --------------------------------
-; Main reading loop
+; Main read-loop
 ; --------------------------------
 
 .next_note:
 		ld	a,(iy+trk_rowPause)	; Check rowtimer
 		or	a
 		jr	nz,.decrow
-		ld	a,(hl)			; Check if timer or note
+		ld	a,(hl)			; Check if byte is a timer or a note
 		or	a
 		jr	z,.exit			; If == 00h: exit
-		jp	m,.has_note		; 80h-0FFh: note data
-		ld	(iy+trk_rowPause),a
+		jp	m,.has_note		; If 80h-0FFh: Note data
+		ld	(iy+trk_rowPause),a	; If 01h-07Fh: Row-pause timer
 
 ; --------------------------------
 ; Exit
@@ -675,17 +642,53 @@ upd_track:
 
 .exit:
 		rst	8
-		call	.inc_cpatt
-		ld	(iy+trk_Read),l		; Update read location
+		call	.inc_cpatt		; * Increment patt pos
+		ld	(iy+trk_Read),l		; Update READ location
 		ld	(iy+((trk_Read+1))),h
 		jr	.decrow_e
 .decrow:
-		dec	(iy+trk_rowPause)
+		dec	(iy+trk_rowPause)	; Decrement row-pause timer
 .decrow_e:
-		dec	bc			; Decrement this row
-		ld	(iy+trk_Rows),c		; Write last row and exit.
+		dec	bc			; Decrement rowcount
+		ld	(iy+trk_Rows),c		; Write last row to memory
 		ld	(iy+(trk_Rows+1)),b
-		ret
+; 		ld	c,(iy+trk_VolMaster)
+; 		bit	7,c
+; 		ret	z			; No volume changes.
+;
+; 		ld	ix,trkChnls
+; 		rst	8
+; 		push	iy			; Do volume changes for this slot
+; 		pop	hl
+; 		ld	de,trk_ChnIndx
+; 		add	hl,de			; hl - track indexes
+; 		ld	b,(iy+trk_MaxChnl)
+;
+; .next_indx:
+; 		ld	a,(hl)
+; 		or	a
+; 		jr	z,.no_indxv
+; 		push	ix
+; 		add	a,a			; * 8
+; 		add	a,a
+; 		add	a,a
+; 		ld	e,a
+; 		add	ix,de
+; 		ld	a,(ix+chnl_Vol)
+; 		add	a,c
+; 		ld	e,40h
+; 		cp	a
+; 		jr	c,.max_out
+; 		ld	a,c
+; .max_out
+; 		ld	(ix+chnl_Vol),a
+; 		pop	ix
+; .no_indxv:
+; 		rst	8
+; 		inc	hl
+; 		nop
+; 		djnz	.next_indx
+		ret				; Exit.
 
 ; --------------------------------
 ; New note request
@@ -698,44 +701,41 @@ upd_track:
 .has_note:
 		rst	8
 		push	bc			; Save rowcount
-
-		ld	c,a
-		call	.inc_cpatt
-		push	hl
+		ld	c,a			; Copy patt byte control to c
+		call	.inc_cpatt		; * Increment patt pos
+		push	hl			; Save hl patt pos
 		push	iy
 		pop	hl
-		ld	ix,trkChnls
-		ld	de,trk_ChnIndx
+		ld	ix,trkChnls		; ix - Channels buffer
+		ld	de,trk_ChnIndx		; <-- this also clears d
 		rst	8
-		add	hl,de
-		ld	a,c
-		and	00011111b
-		ld	e,a
-		add	hl,de
-		ld	a,(hl)		; Check index byte
+		add	hl,de			; hl - Track's index points buffer
+		ld	a,c			; Get patt note position
+		and	00011111b		; Filter index bits
+		ld	e,a			; Save as e
+		add	hl,de			; Increment more by this pos
+		ld	a,(hl)			; Check if this index is occupied.
 		or	a
-		jr	z,.srch_new	; If == 0, new index
-		and	00011111b
+		jr	z,.srch_new		; If == 0, new index
+		and	00011111b		; If already used, read that channel
 		add	a,a
 		add	a,a
 		add	a,a
 		ld	e,a
 		add	ix,de
-; 		ld	a,(ix+chnl_Flags)
-; 		and	10000000b
-; 		jr	z,$
 		jr	.cont_chnl
+
 ; Make NEW channel
 ; ix - channel list start
 .srch_new:
 		rst	8
-		ld	b,MAX_TRKCHN-1
-		ld	d,0
+		ld	b,MAX_TRKCHN-1	; Max channels to check - 1
+		ld	d,0		; Reset out index
 .next_chnl:
-		ld	a,(ix)			; chnl_Flags
-		or	a
+		ld	a,(ix)		; Read chnl_Flags
+		or	a		; If plus, track channel is free
 		jp	p,.chnl_free
-		inc	ix			; <-- manual increment
+		inc	ix		; Search next channel, increment by 8
 		inc	ix
 		inc	ix
 		inc	ix
@@ -744,72 +744,73 @@ upd_track:
 		inc	ix
 		inc	ix
 		inc	ix
-		inc	d
+		inc	d		; Increment out index
 		djnz	.next_chnl
 .chnl_free:
 		rst	8
-		ld	a,d
-		and	00011111b
-		or	10000000b
-		ld	(hl),a			; Set index slot
-		set	7,(ix+chnl_Flags)	; Enable this channel
+		ld	a,d			; Read index we got
+		and	00011111b		; Filter bits
+		or	10000000b		; + set as used
+		ld	(hl),a			; Write index slot
+		set	7,(ix+chnl_Flags)	; Enable channel on the list
 .cont_chnl:
-		pop	hl
-		rst	8
+		pop	hl			; Recover patt pos
 	; ix - current channel
-		ld	b,(ix+chnl_Type)	; b - Current TYPE byte
-		bit	6,c			; Next byte is new type?
+		rst	8
+		ld	b,(ix+chnl_Type)	; b - current TYPE byte
+		bit	6,c			; This byte has new TYPE setting?
 		jr	z,.old_type
 		ld	a,(hl)
 		ld	(ix+chnl_Type),a	; Update TYPE byte
 		ld	b,a			; Set to b
-		call	.inc_cpatt
+		call	.inc_cpatt		; Next patt pos
 .old_type:
 	; b - evinEVIN
 	;     E-effect/V-volume/I-instrument/N-note
 	;     evin: byte is already stored on track-channel buffer
 	;     EVIN: next byte(s) contain a new value. for eff:2 bytes
+
 		rst	8
-		bit	0,b
+		bit	0,b			; New NOTE?
 		jr	z,.no_note
-		ld	a,(hl)
+		ld	a,(hl)			; Set NOTE and increment patt
 		ld	(ix+chnl_Note),a
 		call	.inc_cpatt
 .no_note:
-		bit	1,b
+		bit	1,b			; New INS?
 		jr	z,.no_ins
-		ld	a,(hl)
+		ld	a,(hl)			; Set INS and increment patt
 		ld	(ix+chnl_Ins),a
 		call	.inc_cpatt
 .no_ins:
-		bit	2,b
+		bit	2,b			; New VOL?
 		jr	z,.no_vol
-		ld	a,(hl)
+		ld	a,(hl)			; Set VOL and increment patt
 		ld	(ix+chnl_Vol),a
 		call	.inc_cpatt
 .no_vol:
-		bit	3,b
+		bit	3,b			; New EFFECT?
 		jr	z,.no_eff
-		ld	a,(hl)
+		ld	a,(hl)			; Set EFFECT ID, incr patt
 		ld	(ix+chnl_EffId),a
 		call	.inc_cpatt
 		rst	8
-		ld	a,(hl)
+		ld	a,(hl)			; Set EFFECT ARG, incr patt
 		ld	(ix+chnl_EffArg),a
 		call	.inc_cpatt
 .no_eff:
-		ld	a,b		; Merge the Impulse recycle bits into main bits
+		ld	a,b			; Merge the Impulse evin bits into main EVIN bits
 		rrca
 		rrca
 		rrca
 		rrca
-		and	00001111b
-		ld	c,a
+		and	00001111b		; Filter bits
+		ld	c,a			; Save as c
 		ld	a,b
-		and	00001111b
-		or	c
+		and	00001111b		; Filter again
+		or	c			; Merge c with a
 		rst	8
-		ld	c,a
+		ld	c,a			; Save bit flags
 		ld	a,(ix+chnl_Flags)
 		or	c
 		ld	(ix+chnl_Flags),a
@@ -818,11 +819,13 @@ upd_track:
 	; Jump, Ticks, etc.
 		pop	bc		; Restore rowcount
 		ld	a,(ix+chnl_Flags)
-		and	1000b		; Only check for the EFFECT bit
+		and	1000b		; ONLY check for the EFFECT bit
 		jp	z,.next_note
 		ld	a,(ix+chnl_EffId)
 		or	a		; 00h = invalid effect
 		jp	z,.next_note
+
+	; TODO: cambiar esto por jumps
 		cp	1		; Effect A: Tick set
 		call	z,.eff_A
 		cp	2		; Effect B: Position Jump
@@ -881,7 +884,7 @@ upd_track:
 ; ----------------------------------------
 
 .inc_cpatt:
-		ld	e,(iy+trk_Cach)
+		ld	e,(iy+trk_Cach)	; Read curret cache LSB
 		ld	a,l
 		inc	a
 		and	MAX_RCACH-1
@@ -1254,7 +1257,7 @@ init_RomTrcks:
 
 ; ============================================================
 ; --------------------------------------------------------
-; Convert notes to soundchips
+; Process track channels to the sound chips
 ; --------------------------------------------------------
 
 set_chips:
@@ -1267,15 +1270,13 @@ set_chips:
 		jr	z,proc_chips
 		rst	8
 		push	iy
-		ld	l,(iy)
-		ld	h,(iy+1)
 		call	tblbuff_read
 		pop	iy
-		ld	de,SIZE_BUFFLIST
+		ld	de,MAX_BUFFNTRY
 		add	iy,de
 		jr	.trk_buffrs
 proc_chips:
-		rst	20h
+		rst	20h			; Refill wave
 		rst	8
 		ld	iy,tblPSGN		; PSG Noise
 		call	dtbl_singl
@@ -1291,13 +1292,14 @@ proc_chips:
 		rst	8
 		ld	iy,tblPWM		; 32X PWM
 		jp	dtbl_multi
-		ret
 
 ; ----------------------------------------
 ; Read current track
 ;
 ; iy - Buffer
 tblbuff_read:
+		ld	l,(iy)
+		ld	h,(iy+1)
 		call	get_tick
 		rst	8
 		push	hl
@@ -1442,21 +1444,16 @@ tblbuff_read:
 ;      -1 - Not found
 ; ----------------------------------------
 
-; TODO: wave timing is a little off here.
-
 .grab_link:
-; 		rst	8
-; 		nop	; wave sync
-; 		nop
 		ld	a,(hl)			; Check INSTRUMENT type
-		and	11110000b		; Filter 0F0h
-		jp	p,.set_asfull		; If non 80h: Invalid
+		and	11110000b		; Filter bits
 		ld	e,a			; e - NEW chip
 		ld	a,(ix+chnl_Chip)	; a - our current chip
-		and	11110000b		; Filter bits
+		and	11110000b		; Filter bits too.
 		jp	z,.new_chip		; If 0: It's a NEW chip
 		cp 	e			; Same chip as NEW?
-		jp	z,.srch_link		;
+		jp	z,.srch_link		; then re-use the slot
+		rst	8
 		ld	d,a			; d - Chip to silence
 		push	de
 		call	.srch_link		; Search our link (first)
@@ -1535,9 +1532,7 @@ tblbuff_read:
 		ld	a,(hl)			; Read LSB
 		cp	c
 		jr	nz,.refill
-
 ; ----------------------
-
 .rnot_psg:
 		xor	a
 		ret
@@ -1657,7 +1652,7 @@ tblbuff_read:
 		jr	z,.l_hiprio
 		rst	8
 .set_asfull:
-		ld	a,-1		; Return -1, can't use instrument.
+		ld	a,-1			; Return -1, can't use instrument.
 		ret
 
 ; Pick chip table
@@ -1737,17 +1732,16 @@ dtbl_singl:
 ; 		rst	8
 
 dtbl_frommul:
-		ld	e,(iy)
+		ld	e,(iy)		; Read link
 		ld	d,(iy+1)
-		ld	a,d
+		ld	a,d		; If no-zero, active
 		or	e
 		jr	nz,.linked
-		ld	a,(iy+2)	; Any 80h+ Flag?
+		ld	a,(iy+2)	; Silence request?
 		or	a
-		ret	p
-		ld	a,(iy+2)	; a - chip type
+		ret	p		; Return if not.
 		rst	8
-		ld	(iy+2),0	; Reset priority
+		ld	(iy+2),0	; Reset request on memory
 
 ; ----------------------------------------
 ; chip-silence request
@@ -1798,7 +1792,7 @@ dtbl_frommul:
 		ld	b,0
 		ld	c,(iy+05h)
 		add	ix,bc
-		ld	(ix),100b	; key-off
+		ld	(ix),100b	; key-cut
 		ret
 
 ; --------------------------------
@@ -1827,7 +1821,6 @@ dtbl_frommul:
 		pop	hl
 		ld	de,10h
 		add	hl,de
-
 ; 		ld	l,(iy+03h)	; trk_Instr
 ; 		ld	h,(iy+04h)
 
@@ -1878,14 +1871,13 @@ dtbl_frommul:
 		dw .mk_dac
 		dw .mk_pcm
 		dw .mk_pwm
-; 		dw 0	; TODO
 
 ; --------------------------------
 
 .mk_psgn:
 		ld	a,(ix+chnl_Note)
 		push	ix
-		ld	ix,psgcom+3	; <-- direct ix point
+		ld	ix,psgcom+3	; <-- steal PSG3
 		rst	8
 		cp	-2
 		jr	z,.kycut_psgn
@@ -1953,24 +1945,26 @@ dtbl_frommul:
 		ret
 ; -1
 .kyoff_psgn:
-		ld	a,000b
-		ld	(psgHatMode),a	; ** GLOBAL SETTING
+		call	.kypsgn_hatoff
 .kyoff_psg:
-		rst	8
 		ld	c,010b
 		ld	(ix),c
 		pop	ix
 		jp	.chnl_ulnkoff
 ; -2
 .kycut_psgn:
-		ld	a,000b
-		ld	(psgHatMode),a	; ** GLOBAL SETTING
+		call	.kypsgn_hatoff
 .kycut_psg:
-		rst	8
 		ld	c,100b
 		ld	(ix),c
 		pop	ix
 		jp	.chnl_ulnkcut
+
+.kypsgn_hatoff:
+		ld	a,000b
+		ld	(psgHatMode),a	; ** GLOBAL SETTING
+		rst	8
+		ret
 
 ; --------------------------------
 
@@ -2351,7 +2345,7 @@ dtbl_frommul:
 		ld	a,(ix+chnl_Note)
 		ld	d,0
 		ld	e,(iy+05h)
-		ld	c,(ix+chnl_Flags)	; c - Panning bits TODO
+		ld	c,(ix+chnl_Flags)
 		push	ix
 		ld	ix,pcmcom
 		add	ix,de
@@ -2360,7 +2354,6 @@ dtbl_frommul:
 		cp	-1
 		jp	z,.pcm_off
 		rst	8
-		ld	a,b
 		bit	0,b			; Note?
 		jr	nz,.pcm_note
 		bit	3,b			; Effect?
@@ -2391,25 +2384,31 @@ dtbl_frommul:
 		ld	c,00001001b
 		jr	.pcm_send
 .pcm_note:
+		ld	a,c		; <-- Lazy panning reset
+		and	00110000b	; Read LR bits
+		or	a
+		jr	nz,.mp_reset
+		ld	(iy+0Ah),0	; If 0, reset value on table
+.mp_reset:
 		call	.setpcm_freq
 		ld	c,00000001b	; KeyON request
 .pcm_send:
 		ld	(ix),c		; Write key-on bit
-		ld	bc,8		; Go to Pitch
-		add	ix,bc
-		ld	(ix),h
-		add	ix,bc
+		ld	de,8		; Go to Pitch
+		add	ix,de
+		ld	(ix),h		; Set pitch
+		add	ix,de
 		ld	(ix),l
-		add	ix,bc
-		ld	e,-1
+		add	ix,de
+		ld	c,-1		; Set volume
 		ld	a,(iy+08h)
 		add	a,a
 		add	a,a
 		jr	c,.v_overfl
-		add	a,e
+		add	a,c
 .v_overfl:
 		ld	(ix),a
-		add	ix,bc
+		add	ix,de
 		ld	a,(iy+0Ah)
 		cpl
 		ld	(ix),a
@@ -2462,6 +2461,32 @@ dtbl_frommul:
 
 ; --------------------------------
 
+.pw_setup:
+		call	.setpwm_freq
+		ld	a,c		; Read panning bits
+; 		rrca
+; 		rrca
+		cpl
+		and	00110000b
+		rst	8
+		ld	e,a		; e - set panning bits
+		xor	a
+		ld	a,(iy+08h)	; Read volume
+		neg	a
+		add	a,a
+		add	a,a
+; 		sla	a
+; 		sla	a
+; 		sla	a
+		jr	nc,.pwv_much
+		ld	a,-1
+.pwv_much:
+		and	11111100b
+		or	h		; Merge MSB freq
+		ret
+
+; --------------------------------
+
 .pw_effc:
 		call	.pw_setup
 		ld	c,00001001b
@@ -2480,36 +2505,13 @@ dtbl_frommul:
 		rst	8
 		ld	a,(ix)
 		and	11001111b
-		or	e
+		or	e		; Set panning bits
 		ld	(ix),a
 	if ZSET_TESTME=0
 		ld	a,1
 		ld	(marsUpd),a
 	endif
 		pop	ix
-		ret
-.pw_setup:
-		call	.setpwm_freq
-		ld	a,c
-; 		rrca
-; 		rrca
-		cpl
-		and	00110000b
-		rst	8
-		ld	e,a
-		xor	a
-		ld	a,(iy+08h)	; Read volume
-		neg	a
-		add	a,a
-		add	a,a
-; 		sla	a
-; 		sla	a
-; 		sla	a
-		jr	nc,.pwv_much
-		ld	a,-1
-.pwv_much:
-		and	11111100b
-		or	h		; Merge MSB freq
 		ret
 
 ; --------------------------------
@@ -2680,20 +2682,20 @@ dtbl_frommul:
 		ld	d,0
 		ld	a,(hl)
 		and	11110000b
-		cp	0D0h
-		jr	z,.pan_mcd
 		cp	80h		; PSG?
 		jr	z,.res_pan
 		cp	90h		; PSGN?
 		jr	z,.res_pan
+		cp	0D0h		; MCD: write separate PAN values
+		call	z,.pan_mcd	; <-- CALL, not JP
 
 	; ----------------------------------------
-	; FM panning
-	; %LR000000 (REVERSE: 0-on 1-off)
+	; Common panning bits: %00LR0000
+	; (REVERSE: 0-on 1-off)
 		ld	(iy+09h),0
 		rst	8
 		push	hl
-		ld	hl,.fm_panlist
+		ld	hl,.comn_panlist
 		ld	a,e
 		rlca
 		rlca
@@ -2716,6 +2718,7 @@ dtbl_frommul:
 	; MCD panning
 .pan_mcd:
 		push	hl
+		push	de
 		ld	d,0
 		ld	hl,.pcm_panlist
 		ld	a,e
@@ -2726,14 +2729,14 @@ dtbl_frommul:
 		ld	e,a
 		add	hl,de
 		ld	a,(hl)
-		ld	e,(iy+05h)
 		ld	(iy+0Ah),a
+		pop	de
 		pop	hl
 		ret
 
 ; 0 - ENABLE, 1 - DISABLE
 ; 00LR0000b
-.fm_panlist:
+.comn_panlist:
 		db 00010000b
 		db 00010000b
 		db 00010000b
@@ -2743,7 +2746,7 @@ dtbl_frommul:
 		db 00100000b
 		db 00100000b
 
-; REVERSED BITS
+; REVERSE OUTPUT BITS
 ; RRRR | LLLL
 .pcm_panlist:
 		db 0F0h	; 00h
@@ -3205,12 +3208,13 @@ dtbl_frommul:
 
 ; ----------------------------------------
 
+.chnl_ulnkcut:
+		ld	c,(ix+chnl_Chip)
+		jp	.chnl_ulnk
 .chnl_ulnkoff:
 ; 		ld	c,0
 .chnl_ulnk:
 		xor	a
-; 		res	7,(ix+chnl_Flags)	; Unlock this channel
-; 		ld	(ix+chnl_Chip),a
 		rst	8
 		ld	(iy),a			; Delete link, chip and prio
 		ld	(iy+1),a
@@ -3220,9 +3224,7 @@ dtbl_frommul:
 		ld	(iy+0Ah),a
 		ld	(iy+0Bh),a
 		ret
-.chnl_ulnkcut:
-		ld	c,(ix+chnl_Chip)
-		jp	.chnl_ulnk
+
 ; 		push	iy
 ; 		pop	hl
 ; 		ld	bc,8-2		; Go to 08h
@@ -3489,7 +3491,7 @@ gema_init:
 	; hl - dst
 		ld	de,trk_Blocks
 		add	hl,de
-		ld	b,SIZE_BUFFLIST-2
+		ld	b,MAX_BUFFNTRY-2
 .st_copy:
 		ld	a,(iy)
 		ld	(hl),a
@@ -4472,7 +4474,7 @@ nikona_BuffList:
 	dw trkBuff_2,trkBlks_2,trkHdrs_2,trkCach_2
 ; 	dw trkBuff_3,trkBlks_3,trkHdrs_3,trkCach_3
 nikona_BuffList_e:
-	dw -1
+	dw -1	; ENDOFLIST
 
 ; ====================================================================
 ; ----------------------------------------------------------------

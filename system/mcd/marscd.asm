@@ -199,14 +199,14 @@ loc_2EE:
 		beq.s	.wait_adapter
 		lea	($A15100).l,a6
 		move.l	#"_CD_",$20(a6)			; Tell 32X we are ready.
-.master:	cmp.l	#"M_OK",$20(a6)
-		bne.s	.master
-.slave:		cmp.l	#"S_OK",$24(a6)
-		bne.s	.slave
-; .wait_mstr:	move.l	$20(a6),d0
-; 		bne.s	.wait_mstr
-; .wait_slv:	move.l	$24(a6),d0
-; 		bne.s	.wait_slv
+; .master:	cmp.l	#"M_OK",$20(a6)
+; 		bne.s	.master
+; .slave:	cmp.l	#"S_OK",$24(a6)
+; 		bne.s	.slave
+.wait_mstr:	move.l	$20(a6),d0
+		bne.s	.wait_mstr
+.wait_slv:	move.l	$24(a6),d0
+		bne.s	.wait_slv
 		lea	(vdp_ctrl).l,a6
 		move.l	#$80048104,(a6)			; Default top VDP regs
 		moveq	#0,d0				; Clear both Master and Slave comm's

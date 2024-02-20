@@ -165,11 +165,11 @@ screen_code macro lblstart,lblend,path
 		align 4
 		phase $880000+*		; 32X ROM-area
 	endif
-; Md_Screen00:
 lblstart label *
 	if MARS
 		dephase
 	endif
+
 mctopscrn:
 	if MARS|MCD|MARSCD
 		phase RAM_UserCode	; SCD/32X/CD32X relocate to RAM area
@@ -178,7 +178,8 @@ mcscrn_s:
 	include path;"game/screen_0/code.asm"
 mcscrn_e:
 	if MARS
-		dephase
+		dephase	; dephase RAM section
+		dephase ; dephase $880000+ section
 	elseif MCD|MARSCD
 		dephase
 		phase mctopscrn+(mcscrn_e-RAM_UserCode)
@@ -206,7 +207,7 @@ startlbl label *
 	if MCD|MARSCD
 		phase sysmcd_wram
 	elseif MARS
-		dephase
+; 		dephase
 	if except==-1
 		phase $900000+*	; First 32X data bank
 	else
@@ -224,10 +225,9 @@ data_bkend macro startlbl,endlbl,thissize
 		endif
 		report "THIS 68K DATA BANK at $900000",thissize,$100000
 	elseif MCD|MARSCD
-		phase startlbl+(thissize)
+		dephase
 		align $800
-endlbl label *
-; MCD_DBANK0_e:
+endlbl label *	; <-- CD/CD32X ONLY
 		report "THIS 68K DATA BANK at WORD-RAM",thissize,$40000
 	endif
 	endm
@@ -245,8 +245,10 @@ sdram_bkset macro thislbl,endlbl
 	endif
 ; MARSDATA_DEFAULT:
 thislbl label *
-	if MARS|MARSCD
+	if MARS
 		dephase
+	endif
+	if MARS|MARSCD
 		dc.l endlbl-thislbl
 		phase SH2_USER_DATA
 	endif
@@ -260,16 +262,15 @@ sdram_bkend macro thislbl,endlbl
 		align 8	; <-- DREQ alignment
 	endif
 	if MCD|MARSCD
-		dephase
-		phase thislbl+(endlbl-thislbl)
-		align $800
+endlbl label *
+		align $800	; <-- AS failing
+; 		dc.l 0
 	elseif MARS
 		phase $880000+*
-	endif
 endlbl label *
-	if MARS
 		dephase
 	endif
+
 	if MARS|MARSCD
 		report "SH2 SDRAM DATA: thislbl",endlbl-thislbl,(CS3|$40000)-SH2_USER_DATA
 	endif
