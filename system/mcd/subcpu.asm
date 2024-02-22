@@ -94,7 +94,6 @@ SP_Init:
 		bsr	spInitFS
 		lea	file_subdata(pc),a0
 		bsr	spSearchFile
-		move.w	#$800,d2
 		lea	(SUBCPU_DATA),a0
 		bsr	spReadSectorsN
 		bsr	CDPCM_Init
@@ -310,7 +309,6 @@ SP_cmnd01:
 		BIOS_MSCSTOP
 		lea	(scpu_reg+mcd_dcomm_m).w,a0	; a0 - filename
 		bsr	spSearchFile
-		move.w	#$800,d2
 		lea	(ISO_Output),a0
 		bsr	spReadSectorsN
 		lea	(ISO_Output),a0
@@ -363,7 +361,6 @@ SP_cmnd02:
 		BIOS_MSCSTOP
 		lea	(scpu_reg+mcd_dcomm_m).w,a0	; a0 - filename
 		bsr	spSearchFile
-		move.w	#$800,d2
 		lea	(scpu_wram),a0
 		bsr	spReadSectorsN
 .wait_ret:	bset	#0,(scpu_reg+mcd_memory).l	; Return WORDRAM to MAIN, RET=1
@@ -458,32 +455,41 @@ SP_cmnd20:
 ; ------------------------------------------------
 
 spReadSectorsN:
-; 		movem.l	d3-d6,-(sp)
+		lea	(RAM_CdSub_FsBuff),a5
 		andi.l	#$FFFF,d0
 		andi.l	#$FFFF,d1
-		move.l	d0,(Sub_BiosArgs)
-		move.l	d1,(Sub_BiosArgs+4)
-		movea.l	a0,a2
-		BIOS_CDCSTOP			; Stop disc
-		lea	(Sub_BiosArgs),a0
-		BIOS_ROMREADN			; Start from this sector
-.waitSTAT:
- 		BIOS_CDCSTAT			; Ready?
- 		bcs.s	.waitSTAT
-.waitREAD:
-		BIOS_CDCREAD			; Read data
-		bcs.s	.waitREAD		; If not done, branch
+		move.l	d0,(a5)
+		move.l	d1,4(a5)
+		move.l	a0,8(a5)
+		move.b	#%011,(scpu_reg+4).w		; Set CDC device to "Sub CPU"
+		move.w	#CDCSTOP,d0			; Stop CDC
+		jsr	_CDBIOS.w
+		move.l	a5,a0
+		move.w	#ROMREADN,d0			; Read sector by count
+		jsr	_CDBIOS.w
+.wait_STAT:
+		move.w	#CDCSTAT,d0			; Get CDC Status
+		jsr	_CDBIOS.w
+ 		bcs.s	.wait_STAT
+.wait_READ:
+		move.w	#CDCREAD,d0			; CDC Read mode
+		jsr	_CDBIOS.w
+		bcs.s	.wait_READ
+		move.l	d0,$10(a5)
 .WaitTransfer:
-		movea.l	a2,a0			; a0 - Destination address
-		lea	(Sub_BiosArgs+8),a1	; a1 - Set head buffer
-		BIOS_CDCTRN			; Transfer sector
-; 		bcs.s	.waitTransfer		; If not done, branch
-		BIOS_CDCACK			; Acknowledge transfer
-		adda	d2,a2
-		add.l	#1,(Sub_BiosArgs)
-		sub.l	#1,(Sub_BiosArgs+4)
-		bne.s	.waitSTAT
-; 		movem.l	(sp)+,d3-d6
+		movea.l	8(a5),a0		; a0 - DATA Destination
+		lea	$10(a5),a1			; a1 - HEADER out
+		move.w	#CDCTRN,d0			; CDC Transfer data
+		jsr	_CDBIOS.w
+		bcs.s	.waitTransfer			; If not done, branch
+
+		move.w	#CDCACK,d0			; Finish read
+		jsr	_CDBIOS.w
+
+		addi.l	#$800,8(a5)
+		addq.l	#1,(a5)
+		subq.l	#1,4(a5)
+		bne.s	.wait_STAT
 		rts
 
 ; ------------------------------------------------
@@ -495,7 +501,6 @@ spInitFS:
 	; Load Volume VolumeDescriptor
 		moveq	#$10,d0			; Start Sector (at $8000)
 		moveq	#$10,d1			; Sector size
-		move.w	#$800,d2
 		lea	(ISO_Filelist),a0	; Destination
 		bsr	spReadSectorsN
 	; Load Root Directory
@@ -510,7 +515,6 @@ spInitFS:
 		move.b	9(a1),d0		; get final part of sector address
 	; d0 now contains start sector address
 		moveq	#$10,d1			; Size ($20 Sectors)
-		move.w	#$800,d2
 		bsr	spReadSectorsN
 		movem.l	(a7)+,d0-d7/a0-a6	; Restore all registers
 		rts
@@ -1079,16 +1083,16 @@ CDPCM_WavToPcm:
 SP_RAM:
 			strct SP_RAM
 RAM_CdSub_PcmBuff	ds.b 8*$20
-RAM_CdSub_PcmTable	ds.b 8*8
-RAM_CdSub_PcmEnbl	ds.b 1
+RAM_CdSub_PcmTable	ds.b 8*8		; Z80 table
+RAM_CdSub_PcmEnbl	ds.b 1			; PCM enable bits
 RAM_CdSub_PcmPlay	ds.b 1
 RAM_CdSub_PcmTblNum	ds.b 1
-RAM_CdSub_PcmTblUpd	ds.b 1
-Sub_BiosArgs		ds.l $20
-Sub_BiosOut		ds.l $20
-BRAM_Buff		ds.b $640
+RAM_CdSub_PcmTblUpd	ds.b 1			; PCM update flag
+; BRAM_Buff		ds.b $640
 ISO_Filelist		ds.b $800*$10
 ISO_Output		ds.b $800*$10
+
+RAM_CdSub_FsBuff	ds.l $20
 sizeof_subcpu		ds.l 0
 			endstrct
 

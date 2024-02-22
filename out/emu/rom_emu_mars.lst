@@ -1,4 +1,4 @@
- AS V1.42 Beta [Bld 212] - Source File main.asm - Page 1 - 02/20/2024 05:12:31 AM
+ AS V1.42 Beta [Bld 212] - Source File main.asm - Page 1 - 02/21/2024 06:05:23 PM
 
 
        1/       0 :                     ; ===========================================================================
@@ -61,7 +61,7 @@
       58/       0 :                     ; RESERVED RAM ADDRESSES:
       59/       0 :                     ; $FFFB00-$FFFD00 | Stack area a7
       60/       0 :                     ; $FFFD00-$FFFDFF | RESERVED for the Sega CD Vector jumps
- AS V1.42 Beta [Bld 212] - Source File main.asm - Page 2 - 02/20/2024 05:12:31 AM
+ AS V1.42 Beta [Bld 212] - Source File main.asm - Page 2 - 02/21/2024 06:05:23 PM
 
 
       61/       0 :                     ;                   FREE if running on cartridge
@@ -8195,1316 +8195,1316 @@ DREQ RAM uses: 710
 (1) 3413/    1075 : 23                  		inc	hl
 (1) 3414/    1076 : 10 FC               		djnz	.clr_pwm
 (1) 3415/    1078 :                     .pwm_exit:
-(1) 3417/    1078 : C9                  		ret
-(1) 3418/    1079 :                     
-(1) 3419/    1079 :                     ; --------------------------------------------------------
-(1) 3420/    1079 :                     ; Set bank to $A10000
-(1) 3422/    1079 :                     .set_combank:
-(1) 3423/    1079 : 21 00 60            		ld	hl,6000h
-(1) 3424/    107C : 36 00               		ld	(hl),0
-(1) 3425/    107E : 36 01               		ld	(hl),1
-(1) 3426/    1080 : 36 00               		ld	(hl),0
-(1) 3427/    1082 : 36 00               		ld	(hl),0
-(1) 3428/    1084 : CF                  		rst	8
-(1) 3429/    1085 : 36 00               		ld	(hl),0
-(1) 3430/    1087 : 36 00               		ld	(hl),0
-(1) 3431/    1089 : 36 01               		ld	(hl),1
-(1) 3432/    108B : 36 00               		ld	(hl),0
-(1) 3433/    108D : 36 01               		ld	(hl),1
-(1) 3434/    108F : C9                  		ret
-(1) 3436/    1090 :                     
-(1) 3437/    1090 :                     ; ====================================================================
-(1) 3438/    1090 :                     ; ----------------------------------------------------------------
-(1) 3439/    1090 :                     ; Subroutines
-(1) 3440/    1090 :                     ; ----------------------------------------------------------------
-(1) 3441/    1090 :                     
-(1) 3442/    1090 :                     ; --------------------------------------------------------
-(1) 3443/    1090 :                     ; Init sound engine
-(1) 3444/    1090 :                     ; --------------------------------------------------------
-(1) 3445/    1090 :                     
-(1) 3446/    1090 :                     gema_init:
-(1) 3447/    1090 : CD 72 13            		call	dac_off
-(1) 3448/    1093 : AF                  		xor	a
-(1) 3449/    1094 :                     ; 		ld	(marsUpd),a
-(1) 3450/    1094 :                     ; 		ld	(mcdUpd),a
-(1) 3451/    1094 : 32 30 00            		ld	(cdRamLen),a
-(1) 3452/    1097 : CD 81 14            		call	gema_lastbank	; Set last bank slot BEFORE writing to PSG (32X bus problem)
-(1) 3453/    109A : 21 11 7F            		ld	hl,Zpsg_ctrl	; Silence PSG channels
-(1) 3454/    109D : 36 9F               		ld	(hl),09Fh
-(1) 3455/    109F : 36 BF               		ld	(hl),0BFh
-(1) 3456/    10A1 : 36 DF               		ld	(hl),0DFh
-(1) 3457/    10A3 : 36 FF               		ld	(hl),0FFh
-(1) 3458/    10A5 : 11 0B 22            		ld	de,2208h|3	; Set Default LFO
-(1) 3459/    10A8 : CD 47 13            		call	fm_send_1
-(1) 3460/    10AB : 11 00 27            		ld	de,2700h	; CH3 special and timers off
-(1) 3461/    10AE : CD 47 13            		call	fm_send_1
-(1) 3462/    10B1 :                     ; 		ld	de,2800h	; FM KEYS off
-(1) 3463/    10B1 : 14                  		inc	d
-(1) 3464/    10B2 : CD 47 13            		call	fm_send_1
-(1) 3465/    10B5 : 1C                  		inc	e
-(1) 3466/    10B6 : CD 47 13            		call	fm_send_1
-(1) 3467/    10B9 : 1C                  		inc	e
-(1) 3468/    10BA : CD 47 13            		call	fm_send_1
-(1) 3469/    10BD : 1C                  		inc	e
-(1) 3470/    10BE : 1C                  		inc	e
-(1) 3471/    10BF : CD 47 13            		call	fm_send_1
-(1) 3472/    10C2 : 1C                  		inc	e
-(1) 3473/    10C3 : CD 47 13            		call	fm_send_1
-(1) 3474/    10C6 : 1C                  		inc	e
-(1) 3475/    10C7 : CD 47 13            		call	fm_send_1
-(1) 3476/    10CA : FD 21 1C 19         		ld	iy,nikona_BuffList
-(1) 3477/    10CE : 0E 01               		ld	c,1			; Start at this priority
-(1) 3478/    10D0 :                     .setup_list:
-(1) 3479/    10D0 : FD 7E 00            		ld	a,(iy)
-(1) 3480/    10D3 : FE FF               		cp	-1
-(1) 3481/    10D5 : 28 24               		jr	z,.end_setup
-(1) 3482/    10D7 : FD 23               		inc	iy
-(1) 3483/    10D9 : 6F                  		ld	l,a
-(1) 3484/    10DA : FD 66 00            		ld	h,(iy)
-(1) 3485/    10DD : E5                  		push	hl
-(1) 3486/    10DE : DD E1               		pop	ix
-(1) 3487/    10E0 : DD 71 11            		ld	(ix+trk_Priority),c
-(1) 3488/    10E3 : DD 36 01 FF         		ld	(ix+trk_SeqId),-1	; Reset sequence ID
-(1) 3489/    10E7 : FD 23               		inc	iy
-(1) 3490/    10E9 :                     	; iy - src
-(1) 3491/    10E9 :                     	; hl - dst
-(1) 3492/    10E9 : 11 04 00            		ld	de,trk_Blocks
-(1) 3493/    10EC : 19                  		add	hl,de
-(1) 3494/    10ED : 06 06               		ld	b,MAX_BUFFNTRY-2
-(1) 3495/    10EF :                     .st_copy:
-(1) 3496/    10EF : FD 7E 00            		ld	a,(iy)
-(1) 3497/    10F2 : 77                  		ld	(hl),a
-(1) 3498/    10F3 : FD 23               		inc	iy
-(1) 3499/    10F5 : 23                  		inc	hl
-(1) 3500/    10F6 : 10 F7               		djnz	.st_copy
-(1) 3501/    10F8 : 0C                  		inc	c
-(1) 3502/    10F9 : 18 D5               		jr	.setup_list
-(1) 3503/    10FB :                     .end_setup:
-(1) 3504/    10FB : 3E FF               		ld	a,-1			; Reset
-(1) 3505/    10FD : 32 86 1F            		ld	(trkListPage),a
-(1) 3506/    1100 : AF                  		xor	a
-(1) 3507/    1101 : C3 A2 05            		jp	init_RomTrcks
-(1) 3508/    1104 :                     
-(1) 3509/    1104 :                     ; --------------------------------------------------------
-(1) 3510/    1104 :                     ; get_tick
-(1) 3511/    1104 :                     ;
-(1) 3512/    1104 :                     ; Checks if VBlank triggred a TICK
-(1) 3513/    1104 :                     ; (1/150 NTSC, 1/120 PAL)
-(1) 3514/    1104 :                     ; --------------------------------------------------------
+(1) 3424/    1078 : C9                  		ret
+(1) 3425/    1079 :                     
+(1) 3426/    1079 :                     ; --------------------------------------------------------
+(1) 3427/    1079 :                     ; Set bank to $A10000
+(1) 3429/    1079 :                     .set_combank:
+(1) 3430/    1079 : 21 00 60            		ld	hl,6000h
+(1) 3431/    107C : 36 00               		ld	(hl),0
+(1) 3432/    107E : 36 01               		ld	(hl),1
+(1) 3433/    1080 : 36 00               		ld	(hl),0
+(1) 3434/    1082 : 36 00               		ld	(hl),0
+(1) 3435/    1084 : CF                  		rst	8
+(1) 3436/    1085 : 36 00               		ld	(hl),0
+(1) 3437/    1087 : 36 00               		ld	(hl),0
+(1) 3438/    1089 : 36 01               		ld	(hl),1
+(1) 3439/    108B : 36 00               		ld	(hl),0
+(1) 3440/    108D : 36 01               		ld	(hl),1
+(1) 3441/    108F : C9                  		ret
+(1) 3443/    1090 :                     
+(1) 3444/    1090 :                     ; ====================================================================
+(1) 3445/    1090 :                     ; ----------------------------------------------------------------
+(1) 3446/    1090 :                     ; Subroutines
+(1) 3447/    1090 :                     ; ----------------------------------------------------------------
+(1) 3448/    1090 :                     
+(1) 3449/    1090 :                     ; --------------------------------------------------------
+(1) 3450/    1090 :                     ; Init sound engine
+(1) 3451/    1090 :                     ; --------------------------------------------------------
+(1) 3452/    1090 :                     
+(1) 3453/    1090 :                     gema_init:
+(1) 3454/    1090 : CD 72 13            		call	dac_off
+(1) 3455/    1093 : AF                  		xor	a
+(1) 3456/    1094 :                     ; 		ld	(marsUpd),a
+(1) 3457/    1094 :                     ; 		ld	(mcdUpd),a
+(1) 3458/    1094 : 32 30 00            		ld	(cdRamLen),a
+(1) 3459/    1097 : CD 81 14            		call	gema_lastbank	; Set last bank slot BEFORE writing to PSG (32X bus problem)
+(1) 3460/    109A : 21 11 7F            		ld	hl,Zpsg_ctrl	; Silence PSG channels
+(1) 3461/    109D : 36 9F               		ld	(hl),09Fh
+(1) 3462/    109F : 36 BF               		ld	(hl),0BFh
+(1) 3463/    10A1 : 36 DF               		ld	(hl),0DFh
+(1) 3464/    10A3 : 36 FF               		ld	(hl),0FFh
+(1) 3465/    10A5 : 11 0B 22            		ld	de,2208h|3	; Set Default LFO
+(1) 3466/    10A8 : CD 47 13            		call	fm_send_1
+(1) 3467/    10AB : 11 00 27            		ld	de,2700h	; CH3 special and timers off
+(1) 3468/    10AE : CD 47 13            		call	fm_send_1
+(1) 3469/    10B1 :                     ; 		ld	de,2800h	; FM KEYS off
+(1) 3470/    10B1 : 14                  		inc	d
+(1) 3471/    10B2 : CD 47 13            		call	fm_send_1
+(1) 3472/    10B5 : 1C                  		inc	e
+(1) 3473/    10B6 : CD 47 13            		call	fm_send_1
+(1) 3474/    10B9 : 1C                  		inc	e
+(1) 3475/    10BA : CD 47 13            		call	fm_send_1
+(1) 3476/    10BD : 1C                  		inc	e
+(1) 3477/    10BE : 1C                  		inc	e
+(1) 3478/    10BF : CD 47 13            		call	fm_send_1
+(1) 3479/    10C2 : 1C                  		inc	e
+(1) 3480/    10C3 : CD 47 13            		call	fm_send_1
+(1) 3481/    10C6 : 1C                  		inc	e
+(1) 3482/    10C7 : CD 47 13            		call	fm_send_1
+(1) 3483/    10CA : FD 21 1C 19         		ld	iy,nikona_BuffList
+(1) 3484/    10CE : 0E 01               		ld	c,1			; Start at this priority
+(1) 3485/    10D0 :                     .setup_list:
+(1) 3486/    10D0 : FD 7E 00            		ld	a,(iy)
+(1) 3487/    10D3 : FE FF               		cp	-1
+(1) 3488/    10D5 : 28 24               		jr	z,.end_setup
+(1) 3489/    10D7 : FD 23               		inc	iy
+(1) 3490/    10D9 : 6F                  		ld	l,a
+(1) 3491/    10DA : FD 66 00            		ld	h,(iy)
+(1) 3492/    10DD : E5                  		push	hl
+(1) 3493/    10DE : DD E1               		pop	ix
+(1) 3494/    10E0 : DD 71 11            		ld	(ix+trk_Priority),c
+(1) 3495/    10E3 : DD 36 01 FF         		ld	(ix+trk_SeqId),-1	; Reset sequence ID
+(1) 3496/    10E7 : FD 23               		inc	iy
+(1) 3497/    10E9 :                     	; iy - src
+(1) 3498/    10E9 :                     	; hl - dst
+(1) 3499/    10E9 : 11 04 00            		ld	de,trk_Blocks
+(1) 3500/    10EC : 19                  		add	hl,de
+(1) 3501/    10ED : 06 06               		ld	b,MAX_BUFFNTRY-2
+(1) 3502/    10EF :                     .st_copy:
+(1) 3503/    10EF : FD 7E 00            		ld	a,(iy)
+(1) 3504/    10F2 : 77                  		ld	(hl),a
+(1) 3505/    10F3 : FD 23               		inc	iy
+(1) 3506/    10F5 : 23                  		inc	hl
+(1) 3507/    10F6 : 10 F7               		djnz	.st_copy
+(1) 3508/    10F8 : 0C                  		inc	c
+(1) 3509/    10F9 : 18 D5               		jr	.setup_list
+(1) 3510/    10FB :                     .end_setup:
+(1) 3511/    10FB : 3E FF               		ld	a,-1			; Reset
+(1) 3512/    10FD : 32 86 1F            		ld	(trkListPage),a
+(1) 3513/    1100 : AF                  		xor	a
+(1) 3514/    1101 : C3 A2 05            		jp	init_RomTrcks
 (1) 3515/    1104 :                     
-(1) 3516/    1104 :                     get_tick:
-(1) 3517/    1104 : F3                  		di				; Disable ints
-(1) 3518/    1105 : F5                  		push	af
-(1) 3519/    1106 : E5                  		push	hl
-(1) 3520/    1107 : 21 81 1F            		ld	hl,tickFlag		; read last TICK flag
-(1) 3521/    110A : 7E                  		ld	a,(hl)			; non-zero value (1Fh)?
-(1) 3522/    110B : B7                  		or 	a
-(1) 3523/    110C : 28 13               		jr	z,.ctnotick
-(1) 3524/    110E : 36 00               		ld	(hl),0			; Reset TICK flag
-(1) 3525/    1110 : 23                  		inc	hl			; Move to tickCnt
-(1) 3526/    1111 : 34                  		inc	(hl)			; and increment
-(1) 3527/    1112 : CF                  		rst	8
-(1) 3528/    1113 : D5                  		push	de
-(1) 3529/    1114 : 2A A0 1F            		ld	hl,(sbeatAcc)		; Increment subbeats
-(1) 3530/    1117 : ED 5B A2 1F         		ld	de,(sbeatPtck)
-(1) 3531/    111B : CF                  		rst	8
-(1) 3532/    111C : 19                  		add	hl,de
-(1) 3533/    111D : 22 A0 1F            		ld	(sbeatAcc),hl
-(1) 3534/    1120 : D1                  		pop	de
-(1) 3535/    1121 :                     .ctnotick:
-(1) 3536/    1121 : E1                  		pop	hl
-(1) 3537/    1122 : F1                  		pop	af
-(1) 3538/    1123 : FB                  		ei				; Enable ints again
-(1) 3539/    1124 : C9                  		ret
-(1) 3540/    1125 :                     
-(1) 3541/    1125 :                     ; --------------------------------------------------------
-(1) 3542/    1125 :                     ; transferRom
-(1) 3543/    1125 :                     ;
-(1) 3544/    1125 :                     ; Transfer bytes from ROM to RAM. This also tells
-(1) 3545/    1125 :                     ; to 68k that we want to access ROM
-(1) 3546/    1125 :                     ;
-(1) 3547/    1125 :                     ; Input:
-(1) 3548/    1125 :                     ; a  - 68K Address $xx0000
-(1) 3549/    1125 :                     ;  c - Byte count (size 0 NOT allowed, MAX: 0FFh)
-(1) 3550/    1125 :                     ; hl - 68K Address $00xxxx
-(1) 3551/    1125 :                     ; de - Destination pointer
-(1) 3552/    1125 :                     ;
-(1) 3553/    1125 :                     ; Uses:
-(1) 3554/    1125 :                     ; b
-(1) 3555/    1125 :                     ;
-(1) 3556/    1125 :                     ; Notes:
-(1) 3557/    1125 :                     ; call RST 20h first if transfering anything other
-(1) 3558/    1125 :                     ; than sample data, just to be safe.
-(1) 3559/    1125 :                     ; --------------------------------------------------------
-(1) 3560/    1125 :                     
-(1) 3561/    1125 :                     transferRom:
-(1) 3562/    1125 : FE FF               		cp	0FFh		; ** WORKAROUND FOR $FF0000 area
-(1) 3563/    1127 : 28 43               		jr	z,.from_ram
-(1) 3564/    1129 : CF                  		rst	8
-(1) 3565/    112A : DD E5               		push	ix
-(1) 3566/    112C : DD 21 2F 00         		ld	ix,commZRomBlk	; ix - rom read/block flags
-(1) 3567/    1130 : 22 9E 1F            		ld	(x68ksrclsb),hl	; save hl copy
-(1) 3568/    1133 : CB BC               		res	7,h
-(1) 3569/    1135 : 06 00               		ld	b,0
-(1) 3570/    1137 : 0B                  		dec	bc
-(1) 3571/    1138 : 09                  		add	hl,bc
-(1) 3572/    1139 : CB 7C               		bit	7,h
-(1) 3573/    113B : 20 0B               		jr	nz,.double
-(1) 3574/    113D : 2A 9E 1F            		ld	hl,(x68ksrclsb)	; single transfer
-(1) 3575/    1140 : 0C                  		inc	c
-(1) 3576/    1141 : 47                  		ld	b,a
-(1) 3577/    1142 : CD 8A 11            		call	.transfer
-(1) 3578/    1145 : DD E1               		pop	ix
-(1) 3579/    1147 : C9                  		ret
-(1) 3580/    1148 :                     .double:
-(1) 3581/    1148 : CF                  		rst	8
-(1) 3582/    1149 : 47                  		ld	b,a		; double transfer
-(1) 3583/    114A : C5                  		push	bc
-(1) 3584/    114B : E5                  		push	hl
-(1) 3585/    114C : 79                  		ld	a,c
-(1) 3586/    114D : 95                  		sub	a,l
-(1) 3587/    114E : 4F                  		ld	c,a
-(1) 3588/    114F : 2A 9E 1F            		ld	hl,(x68ksrclsb)
-(1) 3589/    1152 : CD 8A 11            		call	.transfer
-(1) 3590/    1155 : E1                  		pop	hl
-(1) 3591/    1156 : C1                  		pop	bc
-(1) 3592/    1157 :                     ; 		rst	8
-(1) 3593/    1157 : 4D                  		ld	c,l
-(1) 3594/    1158 : 0C                  		inc	c
-(1) 3595/    1159 : 3A 9F 1F            		ld	a,(x68ksrcmid)
-(1) 3596/    115C : E6 80               		and	80h
-(1) 3597/    115E : C6 80               		add	a,80h
-(1) 3598/    1160 : 67                  		ld	h,a
-(1) 3599/    1161 : 2E 00               		ld	l,0
-(1) 3600/    1163 : 30 01               		jr	nc,.x68knocarry
-(1) 3601/    1165 : 04                  		inc	b
-(1) 3602/    1166 :                     .x68knocarry:
-(1) 3603/    1166 : CD 8A 11            		call	.transfer
-(1) 3604/    1169 : DD E1               		pop	ix
-(1) 3605/    116B : C9                  		ret
-(1) 3606/    116C :                     
-(1) 3607/    116C :                     ; ------------------------------------------------
-(1) 3608/    116C :                     ; WORKAROUND FOR READING FROM $FF0000 RAM
-(1) 3609/    116C :                     ; SEGA CD ONLY
-(1) 3610/    116C :                     ;
-(1) 3611/    116C :                     ; On the 68K side YOU MUST CALL
-(1) 3612/    116C :                     ; Sound_Update on a loop during Display.
-(1) 3613/    116C :                     ; ------------------------------------------------
-(1) 3614/    116C :                     
-(1) 3615/    116C :                     .from_ram:
-(1) 3616/    116C : ED 53 31 00         		ld	(cdRamDst),de
-(1) 3617/    1170 : 22 33 00            		ld	(cdRamSrc),hl
-(1) 3618/    1173 : 32 35 00            		ld	(cdRamSrcB),a
-(1) 3619/    1176 : CD 81 14            		call	gema_lastbank			; Set bank to $FF8000 area
-(1) 3620/    1179 : CF                  		rst	8
-(1) 3621/    117A : 79                  		ld	a,c
-(1) 3622/    117B : 32 30 00            		ld	(cdRamLen),a
-(1) 3623/    117E : 21 00 FF            		ld	hl,RAM_ZCdFlag_D&07FFFh+8000h	; ** EXTERNAL **
-(1) 3624/    1181 : 36 01               		ld	(hl),1				; WRITE TO RAM: Set request, 68k clears.
-(1) 3625/    1183 :                     .wait:
-(1) 3626/    1183 : 3A 30 00            		ld	a,(cdRamLen)
-(1) 3627/    1186 : B7                  		or	a
-(1) 3628/    1187 : 20 FA               		jr	nz,.wait
-(1) 3629/    1189 : C9                  		ret
-(1) 3630/    118A :                     
-(1) 3631/    118A :                     ; ------------------------------------------------
-(1) 3632/    118A :                     ; b  - Source ROM bank
-(1) 3633/    118A :                     ;  c - Bytes to transfer (00h is invalid)
-(1) 3634/    118A :                     ; hl - Source ROM $00xxxx | 8000h
-(1) 3635/    118A :                     ; de - Destination address
-(1) 3636/    118A :                     ; ix - ROM-block flag
-(1) 3637/    118A :                     ; ------------------------------------------------
-(1) 3638/    118A :                     
-(1) 3639/    118A :                     .transfer:
-(1) 3640/    118A : CF                  		rst	8
-(1) 3641/    118B : D5                  		push	de
-(1) 3642/    118C : 11 00 60            		ld	de,6000h
-(1) 3643/    118F : 7C                  		ld	a,h
-(1) 3644/    1190 : 07                  		rlca
-(1) 3645/    1191 : 12                  		ld	(de),a
-(1) 3646/    1192 : 78                  		ld	a,b
-(1) 3647/    1193 : CF                  		rst	8
-(1) 3648/    1194 : 12                  		ld	(de),a
-(1) 3649/    1195 : 0F                  		rrca
-(1) 3650/    1196 : 12                  		ld	(de),a
-(1) 3651/    1197 : 0F                  		rrca
-(1) 3652/    1198 : 12                  		ld	(de),a
-(1) 3653/    1199 : 0F                  		rrca
-(1) 3654/    119A : 12                  		ld	(de),a
-(1) 3655/    119B : 0F                  		rrca
-(1) 3656/    119C : CF                  		rst	8
-(1) 3657/    119D : 12                  		ld	(de),a
-(1) 3658/    119E : 0F                  		rrca
-(1) 3659/    119F : 12                  		ld	(de),a
-(1) 3660/    11A0 : 0F                  		rrca
-(1) 3661/    11A1 : 12                  		ld	(de),a
-(1) 3662/    11A2 : 0F                  		rrca
-(1) 3663/    11A3 : 12                  		ld	(de),a
-(1) 3664/    11A4 : D1                  		pop	de
-(1) 3665/    11A5 : CB FC               		set	7,h
-(1) 3666/    11A7 : CF                  		rst	8
-(1) 3667/    11A8 :                     
-(1) 3668/    11A8 :                     	; Transfer ROM data in packets
-(1) 3669/    11A8 :                     	; while playing the cache'd sample
-(1) 3670/    11A8 :                     	; *** CRITICAL PROCESS ***
-(1) 3671/    11A8 :                     	;
-(1) 3672/    11A8 :                     	; pseudo-reference for ldir:
-(1) 3673/    11A8 :                     	; ld (de),(hl)	; load (hl) to (de) directly
-(1) 3674/    11A8 :                     	; inc de	; next de
-(1) 3675/    11A8 :                     	; inc hl	; next hl
-(1) 3676/    11A8 :                     	; dec bc	; decrement bc
-(1) 3677/    11A8 :                     	;
-(1) 3678/    11A8 : 06 00               		ld	b,0
-(1) 3679/    11AA : 79                  		ld	a,c		; a - Size counter
-(1) 3680/    11AB :                     ; 		set	1,(ix)
-(1) 3681/    11AB : D6 08               		sub	MAX_TRFRPZ	; Length lower than MAX_TRFRPZ?
-(1) 3682/    11AD : 38 14               		jr	c,.x68klast	; Process single piece only
-(1) 3683/    11AF :                     .x68kloop:
-(1) 3684/    11AF : CF                  		rst	8
-(1) 3685/    11B0 : 00                  		nop
-(1) 3686/    11B1 : 0E 07               		ld	c,MAX_TRFRPZ-1
-(1) 3687/    11B3 : DD CB 00 46         		bit	0,(ix)		; Genesis requests LOCK?
-(1) 3688/    11B7 : C4 D1 11            		call	nz,.x68klpwt
-(1) 3689/    11BA : ED B0               		ldir			; (de) to (hl) until bc == 0
-(1) 3690/    11BC : CF                  		rst	8
-(1) 3691/    11BD : 00                  		nop
-(1) 3692/    11BE : D6 07               		sub	a,MAX_TRFRPZ-1
-(1) 3693/    11C0 : D2 AF 11            		jp	nc,.x68kloop
-(1) 3694/    11C3 :                     ; last block
-(1) 3695/    11C3 :                     .x68klast:
-(1) 3696/    11C3 : C6 08               		add	a,MAX_TRFRPZ
-(1) 3697/    11C5 : 4F                  		ld	c,a
-(1) 3698/    11C6 : DD CB 00 46         		bit	0,(ix)		; Genesis requests LOCK?
-(1) 3699/    11CA : C4 D1 11            		call	nz,.x68klpwt
-(1) 3700/    11CD : ED B0               		ldir
-(1) 3701/    11CF : CF                  		rst	8
-(1) 3702/    11D0 : C9                  		ret
-(1) 3703/    11D1 :                     
-(1) 3704/    11D1 :                     ; Wait here until Genesis unlocks ROM
-(1) 3705/    11D1 :                     .x68klpwt:
-(1) 3706/    11D1 : 00                  		nop	; WAVE SYNC
-(1) 3707/    11D2 : 00                  		nop
-(1) 3708/    11D3 :                     .x68kpwtlp:
-(1) 3709/    11D3 : CF                  		rst	8
-(1) 3710/    11D4 : 00                  		nop	; WAVE SYNC
-(1) 3711/    11D5 : 00                  		nop
-(1) 3712/    11D6 : DD CB 00 46         		bit	0,(ix)		; 68k finished?
-(1) 3713/    11DA : 20 F7               		jr	nz,.x68kpwtlp
-(1) 3714/    11DC : C9                  		ret
-(1) 3715/    11DD :                     
-(1) 3716/    11DD :                     ; ====================================================================
-(1) 3717/    11DD :                     ; ----------------------------------------------------------------
-(1) 3718/    11DD :                     ; Sound chip routines
-(1) 3719/    11DD :                     ; ----------------------------------------------------------------
-(1) 3720/    11DD :                     
-(1) 3721/    11DD :                     ; --------------------------------------------------------
-(1) 3722/    11DD :                     ; chip_env
-(1) 3723/    11DD :                     ;
-(1) 3724/    11DD :                     ; Process PSG
-(1) 3725/    11DD :                     ; --------------------------------------------------------
-(1) 3726/    11DD :                     
-(1) 3727/    11DD :                     chip_env:
-(1) 3729/    11DD : CD 81 14            		call	gema_lastbank		; Keep bank out of ROM before writing PSG
-(1) 3731/    11E0 : FD 21 B1 19         		ld	iy,psgcom+3		; Start from NOISE first
-(1) 3732/    11E4 : DD 21 11 7F         		ld	ix,Zpsg_ctrl
-(1) 3733/    11E8 : 0E E0               		ld	c,0E0h			; c - PSG first ctrl command
-(1) 3734/    11EA : 06 04               		ld	b,4			; b - 4 channels
-(1) 3735/    11EC :                     .vloop:
-(1) 3736/    11EC : CF                  		rst	8
-(1) 3737/    11ED : FD 5E 00            		ld	e,(iy+COM)		; e - current command
-(1) 3738/    11F0 : FD 36 00 00         		ld	(iy+COM),0
-(1) 3739/    11F4 :                     
-(1) 3740/    11F4 :                     	; ----------------------------
-(1) 3741/    11F4 :                     	; bit 2 - stop sound
-(1) 3742/    11F4 : CB 53               		bit	2,e
-(1) 3743/    11F6 : 28 0C               		jr	z,.ckof
-(1) 3744/    11F8 : FD 36 04 FF         		ld	(iy+LEV),-1		; reset level
-(1) 3745/    11FC : FD 36 28 01         		ld	(iy+FLG),1		; and update
-(1) 3746/    1200 : FD 36 18 00         		ld	(iy+MODE),0		; envelope off
-(1) 3747/    1204 :                     .ckof:
-(1) 3748/    1204 :                     	; ----------------------------
-(1) 3749/    1204 :                     	; bit 1 - key off
-(1) 3750/    1204 : CB 4B               		bit	1,e
-(1) 3751/    1206 : 28 0F               		jr      z,.ckon
-(1) 3752/    1208 : FD 7E 18            		ld	a,(iy+MODE)		; mode 0?
-(1) 3753/    120B : B7                  		or	a
-(1) 3754/    120C : 28 09               		jr	z,.ckon
-(1) 3755/    120E : FD 36 28 01         		ld	(iy+FLG),1		; psg update flag
-(1) 3756/    1212 : FD 36 18 04         		ld	(iy+MODE),100b		; set envelope mode 100b
-(1) 3757/    1216 : CF                  		rst	8
-(1) 3758/    1217 :                     .ckon:
-(1) 3759/    1217 :                     	; ----------------------------
-(1) 3760/    1217 :                     	; bit 0 - key on
-(1) 3761/    1217 : CB 43               		bit	0,e
-(1) 3762/    1219 : 28 1A               		jr	z,.envproc
-(1) 3763/    121B : FD 36 04 FF         		ld	(iy+LEV),-1		; reset level
-(1) 3764/    121F : 78                  		ld	a,b
-(1) 3765/    1220 : FE 04               		cp	4			; NOISE channel?
-(1) 3766/    1222 : 20 08               		jr	nz,.nskip
-(1) 3767/    1224 : CF                  		rst	8			; Set NOISE mode
-(1) 3768/    1225 : 3A 83 1F            		ld	a,(psgHatMode)		; write hat mode only.
-(1) 3769/    1228 : B1                  		or	c
-(1) 3770/    1229 : DD 77 00            		ld	(ix),a			; WRITE PSG
-(1) 3771/    122C :                     .nskip:
-(1) 3772/    122C : FD 36 28 01         		ld	(iy+FLG),1		; psg update flag
-(1) 3773/    1230 : CF                  		rst	8
-(1) 3774/    1231 : FD 36 18 01         		ld	(iy+MODE),001b		; set to attack mode
-(1) 3775/    1235 :                     .nblock:
-(1) 3776/    1235 :                     
-(1) 3777/    1235 :                     	; ----------------------------
-(1) 3778/    1235 :                     	; Process effects
-(1) 3779/    1235 :                     	; ----------------------------
-(1) 3780/    1235 :                     .envproc:
-(1) 3781/    1235 : FD 7E 18            		ld	a,(iy+MODE)
-(1) 3782/    1238 : B7                  		or	a			; no modes
-(1) 3783/    1239 : CA BF 12            		jp	z,.vedlp
-(1) 3784/    123C : FE 01               		cp 	001b			; Attack mode
-(1) 3785/    123E : 20 2C               		jr	nz,.chk2
-(1) 3786/    1240 : FD 36 28 01         		ld	(iy+FLG),1		; psg update flag
-(1) 3787/    1244 : FD 5E 24            		ld	e,(iy+ALV)
-(1) 3788/    1247 : FD 7E 08            		ld	a,(iy+ATK)		; if ATK == 0, don't use
-(1) 3789/    124A : B7                  		or	a
-(1) 3790/    124B : 28 16               		jr	z,.atkend
-(1) 3791/    124D : 57                  		ld	d,a			; c - attack rate
-(1) 3792/    124E : 7B                  		ld	a,e			; a - attack level
-(1) 3793/    124F : CF                  		rst	8
-(1) 3794/    1250 : FD 5E 24            		ld	e,(iy+ALV)		; b - OLD attack level
-(1) 3795/    1253 : 92                  		sub	a,d			; (attack rate) - (level)
-(1) 3796/    1254 : 38 0D               		jr	c,.atkend		; if carry: already finished
-(1) 3797/    1256 : 28 0B               		jr	z,.atkend		; if zero: no attack rate
-(1) 3798/    1258 : BB                  		cp	e			; attack rate == level?
-(1) 3799/    1259 : 38 08               		jr	c,.atkend
-(1) 3800/    125B : 28 06               		jr	z,.atkend
-(1) 3801/    125D : FD 77 04            		ld	(iy+LEV),a		; set new level
-(1) 3802/    1260 : CF                  		rst	8
-(1) 3803/    1261 : 18 5C               		jr	.vedlp
-(1) 3804/    1263 :                     .atkend:
-(1) 3805/    1263 : FD 73 04            		ld	(iy+LEV),e		; attack level = new level
-(1) 3806/    1266 :                     .atkzero:
-(1) 3807/    1266 : FD 36 18 02         		ld	(iy+MODE),010b		; set to decay mode
-(1) 3808/    126A : 18 53               		jr	.vedlp
-(1) 3809/    126C :                     .chk2:
-(1) 3810/    126C :                     
-(1) 3811/    126C : FE 02               		cp	010b			; Decay mode
-(1) 3812/    126E : 20 31               		jr	nz,.chk4
-(1) 3813/    1270 :                     .dectmr:
-(1) 3814/    1270 : FD 36 28 01         		ld	(iy+FLG),1		; psg update flag
-(1) 3815/    1274 : FD 7E 04            		ld	a,(iy+LEV)		; a - Level
-(1) 3816/    1277 : FD 5E 10            		ld	e,(iy+SLV)		; b - Sustain
-(1) 3817/    127A : BB                  		cp	e
-(1) 3818/    127B : 38 0D               		jr	c,.dkadd		; if carry: add
-(1) 3819/    127D : 28 18               		jr	z,.dkyend		; if zero:  finish
-(1) 3820/    127F : CF                  		rst	8
-(1) 3821/    1280 : FD 96 0C            		sub	(iy+DKY)		; substract decay rate
-(1) 3822/    1283 : 38 12               		jr	c,.dkyend		; finish if wraped.
-(1) 3823/    1285 : BB                  		cp	e			; compare level
-(1) 3824/    1286 : 38 0F               		jr	c,.dkyend		; and finish
-(1) 3825/    1288 : 18 08               		jr	.dksav
-(1) 3826/    128A :                     .dkadd:
-(1) 3827/    128A : FD 86 0C            		add	a,(iy+DKY)		;  (level) + (decay rate)
-(1) 3828/    128D : 38 08               		jr	c,.dkyend		; finish if wraped.
-(1) 3829/    128F : BB                  		cp	e			; compare level
-(1) 3830/    1290 : 30 05               		jr	nc,.dkyend
-(1) 3831/    1292 :                     .dksav:
-(1) 3832/    1292 : FD 77 04            		ld	(iy+LEV),a		; save new level
-(1) 3833/    1295 : 18 28               		jr	.vedlp
-(1) 3834/    1297 :                     .dkyend:
-(1) 3835/    1297 : CF                  		rst	8
-(1) 3836/    1298 : FD 73 04            		ld	(iy+LEV),e		; save last attack
-(1) 3837/    129B : FD 36 18 04         		ld	(iy+MODE),100b		; and set to sustain
-(1) 3838/    129F : 18 1E               		jr	.vedlp
-(1) 3839/    12A1 :                     .chk4:
-(1) 3840/    12A1 : FE 04               		cp	100b			; Sustain phase
-(1) 3841/    12A3 : 20 1A               		jr	nz,.vedlp
-(1) 3842/    12A5 : FD 36 28 01         		ld	(iy+FLG),1		; psg update flag
-(1) 3843/    12A9 : FD 7E 04            		ld	a,(iy+LEV)		; a - Level
-(1) 3844/    12AC : CF                  		rst	8
-(1) 3845/    12AD : FD 86 14            		add 	a,(iy+RRT)		; add Release Rate
-(1) 3846/    12B0 : 38 05               		jr	c,.killenv		; release done
-(1) 3847/    12B2 : FD 77 04            		ld	(iy+LEV),a		; set new Level
-(1) 3848/    12B5 : 18 08               		jr	.vedlp
-(1) 3849/    12B7 :                     .killenv:
-(1) 3850/    12B7 : FD 36 04 FF         		ld	(iy+LEV),-1		; Silence this channel
-(1) 3851/    12BB : FD 36 18 00         		ld	(iy+MODE),0		; Reset mode
-(1) 3852/    12BF :                     .vedlp:
-(1) 3853/    12BF :                     
-(1) 3854/    12BF :                     	; ----------------------------
-(1) 3855/    12BF :                     	; PSG UPDATE
-(1) 3856/    12BF :                     	; ----------------------------
-(1) 3857/    12BF : FD 7E 28            		ld	a,(iy+FLG)
-(1) 3858/    12C2 : B7                  		or	a
-(1) 3859/    12C3 : 28 72               		jr	z,.noupd
-(1) 3860/    12C5 : FD 36 28 00         		ld	(iy+FLG),0	; Reset until next one
-(1) 3861/    12C9 : 59                  		ld	e,c
-(1) 3862/    12CA : 3A 83 1F            		ld	a,(psgHatMode)
-(1) 3863/    12CD : 57                  		ld	d,a
-(1) 3864/    12CE : E6 03               		and	011b
-(1) 3865/    12D0 : FE 03               		cp	011b
-(1) 3866/    12D2 : 20 1D               		jr	nz,.normal
-(1) 3867/    12D4 : CF                  		rst	8
-(1) 3868/    12D5 : 78                  		ld	a,b		; Channel 4?
-(1) 3869/    12D6 : FE 03               		cp	3
-(1) 3870/    12D8 : 28 13               		jr	z,.silnc_3
-(1) 3871/    12DA : FE 04               		cp	4
-(1) 3872/    12DC : 20 18               		jr	nz,.do_nfreq
-(1) 3873/    12DE : 3A 83 1F            		ld	a,(psgHatMode)
-(1) 3874/    12E1 : 57                  		ld	d,a
-(1) 3875/    12E2 : E6 03               		and	011b
-(1) 3876/    12E4 : CF                  		rst	8
-(1) 3877/    12E5 : FE 03               		cp	011b
-(1) 3878/    12E7 : 20 30               		jr	nz,.vonly
-(1) 3879/    12E9 : 1E C0               		ld	e,0C0h
-(1) 3880/    12EB : 18 09               		jr	.do_nfreq
-(1) 3881/    12ED :                     .silnc_3:
-(1) 3882/    12ED : 3E FF               		ld	a,-1
-(1) 3883/    12EF : 18 32               		jr	.vlmuch
-(1) 3884/    12F1 :                     .normal:
-(1) 3885/    12F1 : 78                  		ld	a,b
-(1) 3886/    12F2 : FE 04               		cp	4
-(1) 3887/    12F4 : 28 23               		jr	z,.vonly
-(1) 3888/    12F6 :                     .do_nfreq:
-(1) 3889/    12F6 : FD 6E 1C            		ld	l,(iy+DTL)
-(1) 3890/    12F9 : FD 66 20            		ld	h,(iy+DTH)
-(1) 3891/    12FC :                     
-(1) 3892/    12FC :                     	; freq effects go here
-(1) 3893/    12FC :                     	; (save e FIRST.)
-(1) 3894/    12FC :                     	;	push	de
-(1) 3895/    12FC :                     	;	pop	de
-(1) 3896/    12FC : 7D                  		ld	a,l		; Grab LSB 4 right bits
-(1) 3897/    12FD : E6 0F               		and	00001111b
-(1) 3898/    12FF : B3                  		or	e		; OR with channel set in e
-(1) 3899/    1300 : CF                  		rst	8
-(1) 3900/    1301 : DD 77 00            		ld	(ix),a		; write it
-(1) 3901/    1304 : 7D                  		ld	a,l		; Grab LSB 4 left bits
-(1) 3902/    1305 : 0F                  		rrca
-(1) 3903/    1306 : 0F                  		rrca
-(1) 3904/    1307 : 0F                  		rrca
-(1) 3905/    1308 : 0F                  		rrca
-(1) 3906/    1309 : E6 0F               		and	00001111b
-(1) 3907/    130B : 5F                  		ld	e,a
-(1) 3908/    130C : 7C                  		ld	a,h		; Grab MSB bits
-(1) 3909/    130D : CF                  		rst	8
-(1) 3910/    130E : 07                  		rlca
-(1) 3911/    130F : 07                  		rlca
-(1) 3912/    1310 : 07                  		rlca
-(1) 3913/    1311 : 07                  		rlca
-(1) 3914/    1312 : E6 30               		and	00110000b
-(1) 3915/    1314 : B3                  		or	e
-(1) 3916/    1315 : DD 77 00            		ld	(ix),a
-(1) 3917/    1318 : CF                  		rst	8
-(1) 3918/    1319 :                     .vonly:
-(1) 3919/    1319 : FD 7E 30            		ld	a,(iy+PVOL)		; c - Level
-(1) 3920/    131C : FD 86 04            		add	a,(iy+LEV)		; Add MASTER volume
-(1) 3921/    131F : 30 02               		jr	nc,.vlmuch
-(1) 3922/    1321 : 3E FF               		ld	a,-1
-(1) 3923/    1323 :                     .vlmuch:
-(1) 3924/    1323 : CB 3F               		srl	a			; (Level >> 4)
-(1) 3925/    1325 : CB 3F               		srl	a
-(1) 3926/    1327 : CB 3F               		srl	a
-(1) 3927/    1329 : CF                  		rst	8
-(1) 3928/    132A : CB 3F               		srl	a
-(1) 3929/    132C : E6 0F               		and	00001111b		; Filter volume value
-(1) 3930/    132E : B1                  		or	c			; and OR with current channel
-(1) 3931/    132F : F6 90               		or	90h			; Set volume-set mode
-(1) 3933/    1331 : DD 77 00            		ld	(ix),a			; *** WRITE volume
-(1) 3935/    1334 : FD 34 38            		inc	(iy+PTMR)		; Update general timer
-(1) 3936/    1337 :                     .noupd:
-(1) 3937/    1337 :                     	; ----------------------------
-(1) 3938/    1337 : FD 2B               		dec	iy			; next COM to check (backwards)
-(1) 3939/    1339 : 79                  		ld	a,c
-(1) 3940/    133A : CF                  		rst	8
-(1) 3941/    133B : D6 20               		sub	a,20h			; next PSG (backwards)
-(1) 3942/    133D : 4F                  		ld	c,a
-(1) 3943/    133E : 05                  		dec	b
-(1) 3944/    133F : C2 EC 11            		jp	nz,.vloop
-(1) 3945/    1342 : C9                  		ret
-(1) 3946/    1343 :                     
-(1) 3947/    1343 :                     ; ---------------------------------------------
-(1) 3948/    1343 :                     ; FM register writes
-(1) 3949/    1343 :                     ;
-(1) 3950/    1343 :                     ; Input:
-(1) 3951/    1343 :                     ; d - ctrl
-(1) 3952/    1343 :                     ; e - data
-(1) 3953/    1343 :                     ; ---------------------------------------------
-(1) 3954/    1343 :                     
-(1) 3955/    1343 :                     ; c - KeyID
-(1) 3956/    1343 :                     fm_autoreg:
-(1) 3957/    1343 : CB 51               		bit	2,c
-(1) 3958/    1345 : 20 0B               		jr	nz,fm_send_2
-(1) 3959/    1347 :                     
-(1) 3960/    1347 :                     ; Channels 1-3 and global registers
-(1) 3961/    1347 :                     fm_send_1:
-(1) 3962/    1347 : 7A                  		ld	a,d
-(1) 3963/    1348 : 32 00 40            		ld	(Zym_ctrl_1),a
-(1) 3964/    134B : 00                  		nop
-(1) 3965/    134C : 7B                  		ld	a,e
-(1) 3966/    134D : 32 01 40            		ld	(Zym_data_1),a
-(1) 3967/    1350 : 00                  		nop
-(1) 3968/    1351 : C9                  		ret
-(1) 3969/    1352 :                     ; Channels 4-6
-(1) 3970/    1352 :                     fm_send_2:
-(1) 3971/    1352 : 7A                  		ld	a,d
-(1) 3972/    1353 : 32 02 40            		ld	(Zym_ctrl_2),a
-(1) 3973/    1356 : 00                  		nop
-(1) 3974/    1357 : 7B                  		ld	a,e
-(1) 3975/    1358 : 32 03 40            		ld	(Zym_data_2),a
-(1) 3976/    135B : 00                  		nop
-(1) 3977/    135C : C9                  		ret
-(1) 3978/    135D :                     
-(1) 3979/    135D :                     ; --------------------------------------------------------
-(1) 3980/    135D :                     ; brute-force WAVE ON/OFF playback
-(1) 3981/    135D :                     ; --------------------------------------------------------
-(1) 3982/    135D :                     
-(1) 3983/    135D :                     dac_on:
-(1) 3984/    135D : 3E 2B               		ld	a,2Bh
-(1) 3985/    135F : 32 00 40            		ld	(Zym_ctrl_1),a
-(1) 3986/    1362 : 3E 80               		ld	a,80h
-(1) 3987/    1364 : 32 01 40            		ld	(Zym_data_1),a
-(1) 3988/    1367 : 3E D9               		ld 	a,zopcExx
-(1) 3989/    1369 : 32 08 00            		ld	(dac_me),a
-(1) 3990/    136C : 3E F5               		ld 	a,zopcPushAf
-(1) 3991/    136E : 32 20 00            		ld	(dac_fill),a
-(1) 3992/    1371 : C9                  		ret
-(1) 3993/    1372 :                     dac_off:
-(1) 3994/    1372 : 3E 2B               		ld	a,2Bh
-(1) 3995/    1374 : 32 00 40            		ld	(Zym_ctrl_1),a
-(1) 3996/    1377 : 3E 00               		ld	a,00h
-(1) 3997/    1379 : 32 01 40            		ld	(Zym_data_1),a
-(1) 3998/    137C : 3E C9               		ld 	a,zopcRet
-(1) 3999/    137E : 32 08 00            		ld	(dac_me),a
-(1) 4000/    1381 : 3E C9               		ld 	a,zopcRet
-(1) 4001/    1383 : 32 20 00            		ld	(dac_fill),a
-(1) 4002/    1386 : C9                  		ret
-(1) 4003/    1387 :                     
-(1) 4004/    1387 :                     ; --------------------------------------------------------
-(1) 4005/    1387 :                     ; dac_play
-(1) 4006/    1387 :                     ;
-(1) 4007/    1387 :                     ; Plays a new sample
-(1) 4008/    1387 :                     ;
-(1) 4009/    1387 :                     ; NOTE:
-(1) 4010/    1387 :                     ; Set wave_Flags and wave_Pitch externally
-(1) 4011/    1387 :                     ; getting here.
-(1) 4012/    1387 :                     ; --------------------------------------------------------
-(1) 4013/    1387 :                     
-(1) 4014/    1387 :                     dac_play:
-(1) 4015/    1387 : F3                  		di
-(1) 4016/    1388 : CD 72 13            		call	dac_off
-(1) 4017/    138B : D9                  		exx				; flip exx regs
-(1) 4018/    138C : 01 1D 00            		ld	bc,dWaveBuff>>8		; bc - WAVFIFO MSB
-(1) 4019/    138F : ED 5B 92 1F         		ld	de,(wave_Pitch)		; de - Pitch
-(1) 4020/    1393 : 21 00 00            		ld	hl,(dWaveBuff&0FFh)<<8	; hl - WAVFIFO LSB pointer (xx.00)
-(1) 4021/    1396 : D9                  		exx				; move them back
-(1) 4022/    1397 : 2A 89 1F            		ld	hl,(wave_Start)
-(1) 4023/    139A : 3A 8B 1F            		ld 	a,(wave_Start+2)
-(1) 4024/    139D : 22 98 1F            		ld	(dDacPntr),hl
-(1) 4025/    13A0 : 32 9A 1F            		ld	(dDacPntr+2),a
-(1) 4026/    13A3 : 2A 8C 1F            		ld	hl,(wave_Len)
-(1) 4027/    13A6 : 3A 8E 1F            		ld 	a,(wave_Len+2)
-(1) 4028/    13A9 : 22 9B 1F            		ld	(dDacCntr),hl
-(1) 4029/    13AC : 32 9D 1F            		ld	(dDacCntr+2),a
-(1) 4030/    13AF : AF                  		xor	a
-(1) 4031/    13B0 : 32 97 1F            		ld	(dDacFifoMid),a
-(1) 4032/    13B3 : CD BB 13            		call	dac_refill
-(1) 4033/    13B6 : CD 5D 13            		call	dac_on
-(1) 4034/    13B9 : FB                  		ei
-(1) 4035/    13BA : C9                  		ret
-(1) 4036/    13BB :                     
-(1) 4037/    13BB :                     ; --------------------------------------------------------
-(1) 4038/    13BB :                     
-(1) 4039/    13BB :                     dac_refill:
-(1) 4040/    13BB : CF                  		rst	8
-(1) 4041/    13BC : C5                  		push	bc
-(1) 4042/    13BD : D5                  		push	de
-(1) 4043/    13BE : E5                  		push	hl
-(1) 4044/    13BF : 3A 94 1F            		ld	a,(wave_Flags)	; Already finished?
-(1) 4045/    13C2 : FE 07               		cp	111b
-(1) 4046/    13C4 : D2 7A 14            		jp	nc,.dacfill_end
-(1) 4047/    13C7 : 3A 9D 1F            		ld	a,(dDacCntr+2)	; Last bytes
-(1) 4048/    13CA : 2A 9B 1F            		ld	hl,(dDacCntr)
-(1) 4049/    13CD : 01 80 00            		ld	bc,80h
-(1) 4050/    13D0 : 37                  		scf
-(1) 4051/    13D1 : 3F                  		ccf
-(1) 4052/    13D2 : ED 42               		sbc	hl,bc
-(1) 4053/    13D4 : DE 00               		sbc	a,0
-(1) 4054/    13D6 : 32 9D 1F            		ld	(dDacCntr+2),a
-(1) 4055/    13D9 : 22 9B 1F            		ld	(dDacCntr),hl
-(1) 4056/    13DC : 16 1D               		ld	d,dWaveBuff>>8
-(1) 4057/    13DE : B7                  		or	a
-(1) 4058/    13DF : FA 09 14            		jp	m,.dac_over
-(1) 4059/    13E2 : 3A 97 1F            		ld	a,(dDacFifoMid)	; Update halfway value
-(1) 4060/    13E5 : 5F                  		ld	e,a
-(1) 4061/    13E6 : C6 80               		add 	a,80h
-(1) 4062/    13E8 : 32 97 1F            		ld	(dDacFifoMid),a
-(1) 4063/    13EB : 2A 98 1F            		ld	hl,(dDacPntr)
-(1) 4064/    13EE : 3A 9A 1F            		ld	a,(dDacPntr+2)
-(1) 4065/    13F1 : CD 25 11            		call	transferRom	; *** ROM ACCESS ***
-(1) 4066/    13F4 : 2A 98 1F            		ld	hl,(dDacPntr)
-(1) 4067/    13F7 : 3A 9A 1F            		ld	a,(dDacPntr+2)
-(1) 4068/    13FA : 01 80 00            		ld	bc,80h
-(1) 4069/    13FD : 09                  		add	hl,bc
-(1) 4070/    13FE : CE 00               		adc	a,0
-(1) 4071/    1400 : 22 98 1F            		ld	(dDacPntr),hl
-(1) 4072/    1403 : 32 9A 1F            		ld	(dDacPntr+2),a
-(1) 4073/    1406 : C3 7D 14            		jp	.dacfill_ret
-(1) 4074/    1409 :                     
-(1) 4075/    1409 :                     ; NOTE:
-(1) 4076/    1409 :                     ; This doesn't finish at the exact END point.
-(1) 4077/    1409 :                     .dac_over:
-(1) 4078/    1409 : 16 1D               		ld	d,dWaveBuff>>8
-(1) 4079/    140B : 3A 94 1F            		ld	a,(wave_Flags)	; LOOP enabled?
-(1) 4080/    140E : E6 01               		and	001b
-(1) 4081/    1410 : C2 33 14            		jp	nz,.dacfill_loop
-(1) 4082/    1413 : 7D                  		ld	a,l
-(1) 4083/    1414 : C6 80               		add	a,80h
-(1) 4084/    1416 : 4F                  		ld	c,a
-(1) 4085/    1417 : 06 00               		ld	b,0
-(1) 4086/    1419 : C5                  		push	bc
-(1) 4087/    141A : 3A 97 1F            		ld	a,(dDacFifoMid)
-(1) 4088/    141D : 5F                  		ld	e,a
-(1) 4089/    141E : C6 80               		add	a,80h
-(1) 4090/    1420 : 32 97 1F            		ld	(dDacFifoMid),a
-(1) 4091/    1423 : C1                  		pop	bc
-(1) 4092/    1424 : 79                  		ld	a,c
-(1) 4093/    1425 : B0                  		or	b
-(1) 4094/    1426 : 28 52               		jr	z,.dacfill_end
-(1) 4095/    1428 : 2A 98 1F            		ld	hl,(dDacPntr)
-(1) 4096/    142B : 3A 9A 1F            		ld	a,(dDacPntr+2)
-(1) 4097/    142E : CD 25 11            		call	transferRom	; *** ROM ACCESS ***
-(1) 4098/    1431 : 18 47               		jr	.dacfill_end
-(1) 4099/    1433 :                     .dacfill_loop:
-(1) 4100/    1433 :                     	; loop sample
-(1) 4101/    1433 : C5                  		push	bc
-(1) 4102/    1434 : D5                  		push	de
-(1) 4103/    1435 : 3A 91 1F            		ld	a,(wave_Loop+2)
-(1) 4104/    1438 : 4F                  		ld	c,a
-(1) 4105/    1439 : ED 5B 8F 1F         		ld	de,(wave_Loop)
-(1) 4106/    143D : 2A 89 1F            		ld	hl,(wave_Start)
-(1) 4107/    1440 : 3A 8B 1F            		ld 	a,(wave_Start+2)
-(1) 4108/    1443 : 81                  		add	a,c
-(1) 4109/    1444 : 19                  		add	hl,de
-(1) 4110/    1445 : CE 00               		adc	a,0
-(1) 4111/    1447 : 22 98 1F            		ld	(dDacPntr),hl
-(1) 4112/    144A : 32 9A 1F            		ld	(dDacPntr+2),a
-(1) 4113/    144D : 2A 8C 1F            		ld	hl,(wave_Len)
-(1) 4114/    1450 : 3A 8E 1F            		ld 	a,(wave_Len+2)
-(1) 4115/    1453 : 91                  		sub	a,c
-(1) 4116/    1454 : 37                  		scf
-(1) 4117/    1455 : 3F                  		ccf
-(1) 4118/    1456 : ED 52               		sbc	hl,de
-(1) 4119/    1458 : DE 00               		sbc	a,0
-(1) 4120/    145A : 22 9B 1F            		ld	(dDacCntr),hl
-(1) 4121/    145D : 32 9D 1F            		ld	(dDacCntr+2),a
-(1) 4122/    1460 : D1                  		pop	de
-(1) 4123/    1461 : C1                  		pop	bc
-(1) 4124/    1462 : 78                  		ld	a,b
-(1) 4125/    1463 : B1                  		or	c
-(1) 4126/    1464 : 28 17               		jr	z,.dacfill_ret
-(1) 4127/    1466 : 3A 97 1F            		ld	a,(dDacFifoMid)
-(1) 4128/    1469 : 5F                  		ld	e,a
-(1) 4129/    146A : C6 80               		add	a,80h
-(1) 4130/    146C : 32 97 1F            		ld	(dDacFifoMid),a
-(1) 4131/    146F : 2A 98 1F            		ld	hl,(dDacPntr)
-(1) 4132/    1472 : 3A 9A 1F            		ld	a,(dDacPntr+2)
-(1) 4133/    1475 : CD 25 11            		call	transferRom	; *** ROM ACCESS ***
-(1) 4134/    1478 : 18 03               		jr	.dacfill_ret
-(1) 4135/    147A :                     .dacfill_end:
-(1) 4136/    147A : CD 72 13            		call	dac_off		; DAC finished
-(1) 4137/    147D :                     .dacfill_ret:
-(1) 4138/    147D : E1                  		pop	hl
-(1) 4139/    147E : D1                  		pop	de
-(1) 4140/    147F : C1                  		pop	bc
-(1) 4141/    1480 : C9                  		ret
-(1) 4142/    1481 :                     
-(1) 4143/    1481 :                     ; ----------------------------------------------------------------
-(1) 4144/    1481 :                     ; Two purposes:
-(1) 4145/    1481 :                     ;
-(1) 4146/    1481 :                     ; Set the BANK to the very last part of memory for the
-(1) 4147/    1481 :                     ; transferRom to read from RAM
-(1) 4148/    1481 :                     ;
-(1) 4149/    1481 :                     ; On 32X, sets the bank out of the ROM reading areas due
-(1) 4150/    1481 :                     ; to a conflict with the PSG
-(1) 4151/    1481 :                     ;
-(1) 4152/    1481 :                     ; Uses:
-(1) 4153/    1481 :                     ; hl,b
-(1) 4154/    1481 :                     ; ----------------------------------------------------------------
-(1) 4155/    1481 :                     
-(1) 4156/    1481 :                     gema_lastbank:
-(1) 4157/    1481 : 21 00 60            		ld	hl,6000h
-(1) 4158/    1484 : 06 09               		ld	b,9		; 9 bits
-(1) 4159/    1486 :                     .write:
-(1) 4160/    1486 : 36 01               		ld	(hl),1
-(1) 4161/    1488 : 10 FC               		djnz	.write
-(1) 4162/    148A : CF                  		rst	8
-(1) 4163/    148B : C9                  		ret
-(1) 4164/    148C :                     
-(1) 4165/    148C :                     ; ====================================================================
-(1) 4166/    148C :                     ; ----------------------------------------------------------------
-(1) 4167/    148C :                     ; Tables
-(1) 4168/    148C :                     ; ----------------------------------------------------------------
-(1) 4169/    148C :                     
-(1) 4170/    148C : 84 02               fmFreq_List:	dw 644
-(1) 4171/    148E : A9 02               		dw 681
-(1) 4172/    1490 : D2 02               		dw 722
-(1) 4173/    1492 : FD 02               		dw 765
-(1) 4174/    1494 : 2A 03               		dw 810
-(1) 4175/    1496 : 5A 03               		dw 858
-(1) 4176/    1498 : 8E 03               		dw 910
-(1) 4177/    149A : C4 03               		dw 964
-(1) 4178/    149C : FD 03               		dw 1021
-(1) 4179/    149E : 39 04               		dw 1081
-(1) 4180/    14A0 : 7A 04               		dw 1146
-(1) 4181/    14A2 : BE 04               		dw 1214
-(1) 4182/    14A4 :                     psgFreq_List:
-(1) 4183/    14A4 :                     ; 		dw -1		; C-0 00
-(1) 4184/    14A4 :                     ; 		dw -1
-(1) 4185/    14A4 :                     ; 		dw -1
-(1) 4186/    14A4 :                     ; 		dw -1
-(1) 4187/    14A4 :                     ; 		dw -1
-(1) 4188/    14A4 :                     ; 		dw -1
-(1) 4189/    14A4 :                     ; 		dw -1
-(1) 4190/    14A4 :                     ; 		dw -1
+(1) 3516/    1104 :                     ; --------------------------------------------------------
+(1) 3517/    1104 :                     ; get_tick
+(1) 3518/    1104 :                     ;
+(1) 3519/    1104 :                     ; Checks if VBlank triggred a TICK
+(1) 3520/    1104 :                     ; (1/150 NTSC, 1/120 PAL)
+(1) 3521/    1104 :                     ; --------------------------------------------------------
+(1) 3522/    1104 :                     
+(1) 3523/    1104 :                     get_tick:
+(1) 3524/    1104 : F3                  		di				; Disable ints
+(1) 3525/    1105 : F5                  		push	af
+(1) 3526/    1106 : E5                  		push	hl
+(1) 3527/    1107 : 21 81 1F            		ld	hl,tickFlag		; read last TICK flag
+(1) 3528/    110A : 7E                  		ld	a,(hl)			; non-zero value (1Fh)?
+(1) 3529/    110B : B7                  		or 	a
+(1) 3530/    110C : 28 13               		jr	z,.ctnotick
+(1) 3531/    110E : 36 00               		ld	(hl),0			; Reset TICK flag
+(1) 3532/    1110 : 23                  		inc	hl			; Move to tickCnt
+(1) 3533/    1111 : 34                  		inc	(hl)			; and increment
+(1) 3534/    1112 : CF                  		rst	8
+(1) 3535/    1113 : D5                  		push	de
+(1) 3536/    1114 : 2A A0 1F            		ld	hl,(sbeatAcc)		; Increment subbeats
+(1) 3537/    1117 : ED 5B A2 1F         		ld	de,(sbeatPtck)
+(1) 3538/    111B : CF                  		rst	8
+(1) 3539/    111C : 19                  		add	hl,de
+(1) 3540/    111D : 22 A0 1F            		ld	(sbeatAcc),hl
+(1) 3541/    1120 : D1                  		pop	de
+(1) 3542/    1121 :                     .ctnotick:
+(1) 3543/    1121 : E1                  		pop	hl
+(1) 3544/    1122 : F1                  		pop	af
+(1) 3545/    1123 : FB                  		ei				; Enable ints again
+(1) 3546/    1124 : C9                  		ret
+(1) 3547/    1125 :                     
+(1) 3548/    1125 :                     ; --------------------------------------------------------
+(1) 3549/    1125 :                     ; transferRom
+(1) 3550/    1125 :                     ;
+(1) 3551/    1125 :                     ; Transfer bytes from ROM to RAM. This also tells
+(1) 3552/    1125 :                     ; to 68k that we want to access ROM
+(1) 3553/    1125 :                     ;
+(1) 3554/    1125 :                     ; Input:
+(1) 3555/    1125 :                     ; a  - 68K Address $xx0000
+(1) 3556/    1125 :                     ;  c - Byte count (size 0 NOT allowed, MAX: 0FFh)
+(1) 3557/    1125 :                     ; hl - 68K Address $00xxxx
+(1) 3558/    1125 :                     ; de - Destination pointer
+(1) 3559/    1125 :                     ;
+(1) 3560/    1125 :                     ; Uses:
+(1) 3561/    1125 :                     ; b
+(1) 3562/    1125 :                     ;
+(1) 3563/    1125 :                     ; Notes:
+(1) 3564/    1125 :                     ; call RST 20h first if transfering anything other
+(1) 3565/    1125 :                     ; than sample data, just to be safe.
+(1) 3566/    1125 :                     ; --------------------------------------------------------
+(1) 3567/    1125 :                     
+(1) 3568/    1125 :                     transferRom:
+(1) 3569/    1125 : FE FF               		cp	0FFh		; ** WORKAROUND FOR $FF0000 area
+(1) 3570/    1127 : 28 43               		jr	z,.from_ram
+(1) 3571/    1129 : CF                  		rst	8
+(1) 3572/    112A : DD E5               		push	ix
+(1) 3573/    112C : DD 21 2F 00         		ld	ix,commZRomBlk	; ix - rom read/block flags
+(1) 3574/    1130 : 22 9E 1F            		ld	(x68ksrclsb),hl	; save hl copy
+(1) 3575/    1133 : CB BC               		res	7,h
+(1) 3576/    1135 : 06 00               		ld	b,0
+(1) 3577/    1137 : 0B                  		dec	bc
+(1) 3578/    1138 : 09                  		add	hl,bc
+(1) 3579/    1139 : CB 7C               		bit	7,h
+(1) 3580/    113B : 20 0B               		jr	nz,.double
+(1) 3581/    113D : 2A 9E 1F            		ld	hl,(x68ksrclsb)	; single transfer
+(1) 3582/    1140 : 0C                  		inc	c
+(1) 3583/    1141 : 47                  		ld	b,a
+(1) 3584/    1142 : CD 8A 11            		call	.transfer
+(1) 3585/    1145 : DD E1               		pop	ix
+(1) 3586/    1147 : C9                  		ret
+(1) 3587/    1148 :                     .double:
+(1) 3588/    1148 : CF                  		rst	8
+(1) 3589/    1149 : 47                  		ld	b,a		; double transfer
+(1) 3590/    114A : C5                  		push	bc
+(1) 3591/    114B : E5                  		push	hl
+(1) 3592/    114C : 79                  		ld	a,c
+(1) 3593/    114D : 95                  		sub	a,l
+(1) 3594/    114E : 4F                  		ld	c,a
+(1) 3595/    114F : 2A 9E 1F            		ld	hl,(x68ksrclsb)
+(1) 3596/    1152 : CD 8A 11            		call	.transfer
+(1) 3597/    1155 : E1                  		pop	hl
+(1) 3598/    1156 : C1                  		pop	bc
+(1) 3599/    1157 :                     ; 		rst	8
+(1) 3600/    1157 : 4D                  		ld	c,l
+(1) 3601/    1158 : 0C                  		inc	c
+(1) 3602/    1159 : 3A 9F 1F            		ld	a,(x68ksrcmid)
+(1) 3603/    115C : E6 80               		and	80h
+(1) 3604/    115E : C6 80               		add	a,80h
+(1) 3605/    1160 : 67                  		ld	h,a
+(1) 3606/    1161 : 2E 00               		ld	l,0
+(1) 3607/    1163 : 30 01               		jr	nc,.x68knocarry
+(1) 3608/    1165 : 04                  		inc	b
+(1) 3609/    1166 :                     .x68knocarry:
+(1) 3610/    1166 : CD 8A 11            		call	.transfer
+(1) 3611/    1169 : DD E1               		pop	ix
+(1) 3612/    116B : C9                  		ret
+(1) 3613/    116C :                     
+(1) 3614/    116C :                     ; ------------------------------------------------
+(1) 3615/    116C :                     ; WORKAROUND FOR READING FROM $FF0000 RAM
+(1) 3616/    116C :                     ; SEGA CD ONLY
+(1) 3617/    116C :                     ;
+(1) 3618/    116C :                     ; On the 68K side YOU MUST CALL
+(1) 3619/    116C :                     ; Sound_Update on a loop during Display.
+(1) 3620/    116C :                     ; ------------------------------------------------
+(1) 3621/    116C :                     
+(1) 3622/    116C :                     .from_ram:
+(1) 3623/    116C : ED 53 31 00         		ld	(cdRamDst),de
+(1) 3624/    1170 : 22 33 00            		ld	(cdRamSrc),hl
+(1) 3625/    1173 : 32 35 00            		ld	(cdRamSrcB),a
+(1) 3626/    1176 : CD 81 14            		call	gema_lastbank			; Set bank to $FF8000 area
+(1) 3627/    1179 : CF                  		rst	8
+(1) 3628/    117A : 79                  		ld	a,c
+(1) 3629/    117B : 32 30 00            		ld	(cdRamLen),a
+(1) 3630/    117E : 21 00 FF            		ld	hl,RAM_ZCdFlag_D&07FFFh+8000h	; ** EXTERNAL **
+(1) 3631/    1181 : 36 01               		ld	(hl),1				; WRITE TO RAM: Set request, 68k clears.
+(1) 3632/    1183 :                     .wait:
+(1) 3633/    1183 : 3A 30 00            		ld	a,(cdRamLen)
+(1) 3634/    1186 : B7                  		or	a
+(1) 3635/    1187 : 20 FA               		jr	nz,.wait
+(1) 3636/    1189 : C9                  		ret
+(1) 3637/    118A :                     
+(1) 3638/    118A :                     ; ------------------------------------------------
+(1) 3639/    118A :                     ; b  - Source ROM bank
+(1) 3640/    118A :                     ;  c - Bytes to transfer (00h is invalid)
+(1) 3641/    118A :                     ; hl - Source ROM $00xxxx | 8000h
+(1) 3642/    118A :                     ; de - Destination address
+(1) 3643/    118A :                     ; ix - ROM-block flag
+(1) 3644/    118A :                     ; ------------------------------------------------
+(1) 3645/    118A :                     
+(1) 3646/    118A :                     .transfer:
+(1) 3647/    118A : CF                  		rst	8
+(1) 3648/    118B : D5                  		push	de
+(1) 3649/    118C : 11 00 60            		ld	de,6000h
+(1) 3650/    118F : 7C                  		ld	a,h
+(1) 3651/    1190 : 07                  		rlca
+(1) 3652/    1191 : 12                  		ld	(de),a
+(1) 3653/    1192 : 78                  		ld	a,b
+(1) 3654/    1193 : CF                  		rst	8
+(1) 3655/    1194 : 12                  		ld	(de),a
+(1) 3656/    1195 : 0F                  		rrca
+(1) 3657/    1196 : 12                  		ld	(de),a
+(1) 3658/    1197 : 0F                  		rrca
+(1) 3659/    1198 : 12                  		ld	(de),a
+(1) 3660/    1199 : 0F                  		rrca
+(1) 3661/    119A : 12                  		ld	(de),a
+(1) 3662/    119B : 0F                  		rrca
+(1) 3663/    119C : CF                  		rst	8
+(1) 3664/    119D : 12                  		ld	(de),a
+(1) 3665/    119E : 0F                  		rrca
+(1) 3666/    119F : 12                  		ld	(de),a
+(1) 3667/    11A0 : 0F                  		rrca
+(1) 3668/    11A1 : 12                  		ld	(de),a
+(1) 3669/    11A2 : 0F                  		rrca
+(1) 3670/    11A3 : 12                  		ld	(de),a
+(1) 3671/    11A4 : D1                  		pop	de
+(1) 3672/    11A5 : CB FC               		set	7,h
+(1) 3673/    11A7 : CF                  		rst	8
+(1) 3674/    11A8 :                     
+(1) 3675/    11A8 :                     	; Transfer ROM data in packets
+(1) 3676/    11A8 :                     	; while playing the cache'd sample
+(1) 3677/    11A8 :                     	; *** CRITICAL PROCESS ***
+(1) 3678/    11A8 :                     	;
+(1) 3679/    11A8 :                     	; pseudo-reference for ldir:
+(1) 3680/    11A8 :                     	; ld (de),(hl)	; load (hl) to (de) directly
+(1) 3681/    11A8 :                     	; inc de	; next de
+(1) 3682/    11A8 :                     	; inc hl	; next hl
+(1) 3683/    11A8 :                     	; dec bc	; decrement bc
+(1) 3684/    11A8 :                     	;
+(1) 3685/    11A8 : 06 00               		ld	b,0
+(1) 3686/    11AA : 79                  		ld	a,c		; a - Size counter
+(1) 3687/    11AB :                     ; 		set	1,(ix)
+(1) 3688/    11AB : D6 08               		sub	MAX_TRFRPZ	; Length lower than MAX_TRFRPZ?
+(1) 3689/    11AD : 38 14               		jr	c,.x68klast	; Process single piece only
+(1) 3690/    11AF :                     .x68kloop:
+(1) 3691/    11AF : CF                  		rst	8
+(1) 3692/    11B0 : 00                  		nop
+(1) 3693/    11B1 : 0E 07               		ld	c,MAX_TRFRPZ-1
+(1) 3694/    11B3 : DD CB 00 46         		bit	0,(ix)		; Genesis requests LOCK?
+(1) 3695/    11B7 : C4 D1 11            		call	nz,.x68klpwt
+(1) 3696/    11BA : ED B0               		ldir			; (de) to (hl) until bc == 0
+(1) 3697/    11BC : CF                  		rst	8
+(1) 3698/    11BD : 00                  		nop
+(1) 3699/    11BE : D6 07               		sub	a,MAX_TRFRPZ-1
+(1) 3700/    11C0 : D2 AF 11            		jp	nc,.x68kloop
+(1) 3701/    11C3 :                     ; last block
+(1) 3702/    11C3 :                     .x68klast:
+(1) 3703/    11C3 : C6 08               		add	a,MAX_TRFRPZ
+(1) 3704/    11C5 : 4F                  		ld	c,a
+(1) 3705/    11C6 : DD CB 00 46         		bit	0,(ix)		; Genesis requests LOCK?
+(1) 3706/    11CA : C4 D1 11            		call	nz,.x68klpwt
+(1) 3707/    11CD : ED B0               		ldir
+(1) 3708/    11CF : CF                  		rst	8
+(1) 3709/    11D0 : C9                  		ret
+(1) 3710/    11D1 :                     
+(1) 3711/    11D1 :                     ; Wait here until Genesis unlocks ROM
+(1) 3712/    11D1 :                     .x68klpwt:
+(1) 3713/    11D1 : 00                  		nop	; WAVE SYNC
+(1) 3714/    11D2 : 00                  		nop
+(1) 3715/    11D3 :                     .x68kpwtlp:
+(1) 3716/    11D3 : CF                  		rst	8
+(1) 3717/    11D4 : 00                  		nop	; WAVE SYNC
+(1) 3718/    11D5 : 00                  		nop
+(1) 3719/    11D6 : DD CB 00 46         		bit	0,(ix)		; 68k finished?
+(1) 3720/    11DA : 20 F7               		jr	nz,.x68kpwtlp
+(1) 3721/    11DC : C9                  		ret
+(1) 3722/    11DD :                     
+(1) 3723/    11DD :                     ; ====================================================================
+(1) 3724/    11DD :                     ; ----------------------------------------------------------------
+(1) 3725/    11DD :                     ; Sound chip routines
+(1) 3726/    11DD :                     ; ----------------------------------------------------------------
+(1) 3727/    11DD :                     
+(1) 3728/    11DD :                     ; --------------------------------------------------------
+(1) 3729/    11DD :                     ; chip_env
+(1) 3730/    11DD :                     ;
+(1) 3731/    11DD :                     ; Process PSG
+(1) 3732/    11DD :                     ; --------------------------------------------------------
+(1) 3733/    11DD :                     
+(1) 3734/    11DD :                     chip_env:
+(1) 3736/    11DD : CD 81 14            		call	gema_lastbank		; Keep bank out of ROM before writing PSG
+(1) 3738/    11E0 : FD 21 B1 19         		ld	iy,psgcom+3		; Start from NOISE first
+(1) 3739/    11E4 : DD 21 11 7F         		ld	ix,Zpsg_ctrl
+(1) 3740/    11E8 : 0E E0               		ld	c,0E0h			; c - PSG first ctrl command
+(1) 3741/    11EA : 06 04               		ld	b,4			; b - 4 channels
+(1) 3742/    11EC :                     .vloop:
+(1) 3743/    11EC : CF                  		rst	8
+(1) 3744/    11ED : FD 5E 00            		ld	e,(iy+COM)		; e - current command
+(1) 3745/    11F0 : FD 36 00 00         		ld	(iy+COM),0
+(1) 3746/    11F4 :                     
+(1) 3747/    11F4 :                     	; ----------------------------
+(1) 3748/    11F4 :                     	; bit 2 - stop sound
+(1) 3749/    11F4 : CB 53               		bit	2,e
+(1) 3750/    11F6 : 28 0C               		jr	z,.ckof
+(1) 3751/    11F8 : FD 36 04 FF         		ld	(iy+LEV),-1		; reset level
+(1) 3752/    11FC : FD 36 28 01         		ld	(iy+FLG),1		; and update
+(1) 3753/    1200 : FD 36 18 00         		ld	(iy+MODE),0		; envelope off
+(1) 3754/    1204 :                     .ckof:
+(1) 3755/    1204 :                     	; ----------------------------
+(1) 3756/    1204 :                     	; bit 1 - key off
+(1) 3757/    1204 : CB 4B               		bit	1,e
+(1) 3758/    1206 : 28 0F               		jr      z,.ckon
+(1) 3759/    1208 : FD 7E 18            		ld	a,(iy+MODE)		; mode 0?
+(1) 3760/    120B : B7                  		or	a
+(1) 3761/    120C : 28 09               		jr	z,.ckon
+(1) 3762/    120E : FD 36 28 01         		ld	(iy+FLG),1		; psg update flag
+(1) 3763/    1212 : FD 36 18 04         		ld	(iy+MODE),100b		; set envelope mode 100b
+(1) 3764/    1216 : CF                  		rst	8
+(1) 3765/    1217 :                     .ckon:
+(1) 3766/    1217 :                     	; ----------------------------
+(1) 3767/    1217 :                     	; bit 0 - key on
+(1) 3768/    1217 : CB 43               		bit	0,e
+(1) 3769/    1219 : 28 1A               		jr	z,.envproc
+(1) 3770/    121B : FD 36 04 FF         		ld	(iy+LEV),-1		; reset level
+(1) 3771/    121F : 78                  		ld	a,b
+(1) 3772/    1220 : FE 04               		cp	4			; NOISE channel?
+(1) 3773/    1222 : 20 08               		jr	nz,.nskip
+(1) 3774/    1224 : CF                  		rst	8			; Set NOISE mode
+(1) 3775/    1225 : 3A 83 1F            		ld	a,(psgHatMode)		; write hat mode only.
+(1) 3776/    1228 : B1                  		or	c
+(1) 3777/    1229 : DD 77 00            		ld	(ix),a			; WRITE PSG
+(1) 3778/    122C :                     .nskip:
+(1) 3779/    122C : FD 36 28 01         		ld	(iy+FLG),1		; psg update flag
+(1) 3780/    1230 : CF                  		rst	8
+(1) 3781/    1231 : FD 36 18 01         		ld	(iy+MODE),001b		; set to attack mode
+(1) 3782/    1235 :                     .nblock:
+(1) 3783/    1235 :                     
+(1) 3784/    1235 :                     	; ----------------------------
+(1) 3785/    1235 :                     	; Process effects
+(1) 3786/    1235 :                     	; ----------------------------
+(1) 3787/    1235 :                     .envproc:
+(1) 3788/    1235 : FD 7E 18            		ld	a,(iy+MODE)
+(1) 3789/    1238 : B7                  		or	a			; no modes
+(1) 3790/    1239 : CA BF 12            		jp	z,.vedlp
+(1) 3791/    123C : FE 01               		cp 	001b			; Attack mode
+(1) 3792/    123E : 20 2C               		jr	nz,.chk2
+(1) 3793/    1240 : FD 36 28 01         		ld	(iy+FLG),1		; psg update flag
+(1) 3794/    1244 : FD 5E 24            		ld	e,(iy+ALV)
+(1) 3795/    1247 : FD 7E 08            		ld	a,(iy+ATK)		; if ATK == 0, don't use
+(1) 3796/    124A : B7                  		or	a
+(1) 3797/    124B : 28 16               		jr	z,.atkend
+(1) 3798/    124D : 57                  		ld	d,a			; c - attack rate
+(1) 3799/    124E : 7B                  		ld	a,e			; a - attack level
+(1) 3800/    124F : CF                  		rst	8
+(1) 3801/    1250 : FD 5E 24            		ld	e,(iy+ALV)		; b - OLD attack level
+(1) 3802/    1253 : 92                  		sub	a,d			; (attack rate) - (level)
+(1) 3803/    1254 : 38 0D               		jr	c,.atkend		; if carry: already finished
+(1) 3804/    1256 : 28 0B               		jr	z,.atkend		; if zero: no attack rate
+(1) 3805/    1258 : BB                  		cp	e			; attack rate == level?
+(1) 3806/    1259 : 38 08               		jr	c,.atkend
+(1) 3807/    125B : 28 06               		jr	z,.atkend
+(1) 3808/    125D : FD 77 04            		ld	(iy+LEV),a		; set new level
+(1) 3809/    1260 : CF                  		rst	8
+(1) 3810/    1261 : 18 5C               		jr	.vedlp
+(1) 3811/    1263 :                     .atkend:
+(1) 3812/    1263 : FD 73 04            		ld	(iy+LEV),e		; attack level = new level
+(1) 3813/    1266 :                     .atkzero:
+(1) 3814/    1266 : FD 36 18 02         		ld	(iy+MODE),010b		; set to decay mode
+(1) 3815/    126A : 18 53               		jr	.vedlp
+(1) 3816/    126C :                     .chk2:
+(1) 3817/    126C :                     
+(1) 3818/    126C : FE 02               		cp	010b			; Decay mode
+(1) 3819/    126E : 20 31               		jr	nz,.chk4
+(1) 3820/    1270 :                     .dectmr:
+(1) 3821/    1270 : FD 36 28 01         		ld	(iy+FLG),1		; psg update flag
+(1) 3822/    1274 : FD 7E 04            		ld	a,(iy+LEV)		; a - Level
+(1) 3823/    1277 : FD 5E 10            		ld	e,(iy+SLV)		; b - Sustain
+(1) 3824/    127A : BB                  		cp	e
+(1) 3825/    127B : 38 0D               		jr	c,.dkadd		; if carry: add
+(1) 3826/    127D : 28 18               		jr	z,.dkyend		; if zero:  finish
+(1) 3827/    127F : CF                  		rst	8
+(1) 3828/    1280 : FD 96 0C            		sub	(iy+DKY)		; substract decay rate
+(1) 3829/    1283 : 38 12               		jr	c,.dkyend		; finish if wraped.
+(1) 3830/    1285 : BB                  		cp	e			; compare level
+(1) 3831/    1286 : 38 0F               		jr	c,.dkyend		; and finish
+(1) 3832/    1288 : 18 08               		jr	.dksav
+(1) 3833/    128A :                     .dkadd:
+(1) 3834/    128A : FD 86 0C            		add	a,(iy+DKY)		;  (level) + (decay rate)
+(1) 3835/    128D : 38 08               		jr	c,.dkyend		; finish if wraped.
+(1) 3836/    128F : BB                  		cp	e			; compare level
+(1) 3837/    1290 : 30 05               		jr	nc,.dkyend
+(1) 3838/    1292 :                     .dksav:
+(1) 3839/    1292 : FD 77 04            		ld	(iy+LEV),a		; save new level
+(1) 3840/    1295 : 18 28               		jr	.vedlp
+(1) 3841/    1297 :                     .dkyend:
+(1) 3842/    1297 : CF                  		rst	8
+(1) 3843/    1298 : FD 73 04            		ld	(iy+LEV),e		; save last attack
+(1) 3844/    129B : FD 36 18 04         		ld	(iy+MODE),100b		; and set to sustain
+(1) 3845/    129F : 18 1E               		jr	.vedlp
+(1) 3846/    12A1 :                     .chk4:
+(1) 3847/    12A1 : FE 04               		cp	100b			; Sustain phase
+(1) 3848/    12A3 : 20 1A               		jr	nz,.vedlp
+(1) 3849/    12A5 : FD 36 28 01         		ld	(iy+FLG),1		; psg update flag
+(1) 3850/    12A9 : FD 7E 04            		ld	a,(iy+LEV)		; a - Level
+(1) 3851/    12AC : CF                  		rst	8
+(1) 3852/    12AD : FD 86 14            		add 	a,(iy+RRT)		; add Release Rate
+(1) 3853/    12B0 : 38 05               		jr	c,.killenv		; release done
+(1) 3854/    12B2 : FD 77 04            		ld	(iy+LEV),a		; set new Level
+(1) 3855/    12B5 : 18 08               		jr	.vedlp
+(1) 3856/    12B7 :                     .killenv:
+(1) 3857/    12B7 : FD 36 04 FF         		ld	(iy+LEV),-1		; Silence this channel
+(1) 3858/    12BB : FD 36 18 00         		ld	(iy+MODE),0		; Reset mode
+(1) 3859/    12BF :                     .vedlp:
+(1) 3860/    12BF :                     
+(1) 3861/    12BF :                     	; ----------------------------
+(1) 3862/    12BF :                     	; PSG UPDATE
+(1) 3863/    12BF :                     	; ----------------------------
+(1) 3864/    12BF : FD 7E 28            		ld	a,(iy+FLG)
+(1) 3865/    12C2 : B7                  		or	a
+(1) 3866/    12C3 : 28 72               		jr	z,.noupd
+(1) 3867/    12C5 : FD 36 28 00         		ld	(iy+FLG),0	; Reset until next one
+(1) 3868/    12C9 : 59                  		ld	e,c
+(1) 3869/    12CA : 3A 83 1F            		ld	a,(psgHatMode)
+(1) 3870/    12CD : 57                  		ld	d,a
+(1) 3871/    12CE : E6 03               		and	011b
+(1) 3872/    12D0 : FE 03               		cp	011b
+(1) 3873/    12D2 : 20 1D               		jr	nz,.normal
+(1) 3874/    12D4 : CF                  		rst	8
+(1) 3875/    12D5 : 78                  		ld	a,b		; Channel 4?
+(1) 3876/    12D6 : FE 03               		cp	3
+(1) 3877/    12D8 : 28 13               		jr	z,.silnc_3
+(1) 3878/    12DA : FE 04               		cp	4
+(1) 3879/    12DC : 20 18               		jr	nz,.do_nfreq
+(1) 3880/    12DE : 3A 83 1F            		ld	a,(psgHatMode)
+(1) 3881/    12E1 : 57                  		ld	d,a
+(1) 3882/    12E2 : E6 03               		and	011b
+(1) 3883/    12E4 : CF                  		rst	8
+(1) 3884/    12E5 : FE 03               		cp	011b
+(1) 3885/    12E7 : 20 30               		jr	nz,.vonly
+(1) 3886/    12E9 : 1E C0               		ld	e,0C0h
+(1) 3887/    12EB : 18 09               		jr	.do_nfreq
+(1) 3888/    12ED :                     .silnc_3:
+(1) 3889/    12ED : 3E FF               		ld	a,-1
+(1) 3890/    12EF : 18 32               		jr	.vlmuch
+(1) 3891/    12F1 :                     .normal:
+(1) 3892/    12F1 : 78                  		ld	a,b
+(1) 3893/    12F2 : FE 04               		cp	4
+(1) 3894/    12F4 : 28 23               		jr	z,.vonly
+(1) 3895/    12F6 :                     .do_nfreq:
+(1) 3896/    12F6 : FD 6E 1C            		ld	l,(iy+DTL)
+(1) 3897/    12F9 : FD 66 20            		ld	h,(iy+DTH)
+(1) 3898/    12FC :                     
+(1) 3899/    12FC :                     	; freq effects go here
+(1) 3900/    12FC :                     	; (save e FIRST.)
+(1) 3901/    12FC :                     	;	push	de
+(1) 3902/    12FC :                     	;	pop	de
+(1) 3903/    12FC : 7D                  		ld	a,l		; Grab LSB 4 right bits
+(1) 3904/    12FD : E6 0F               		and	00001111b
+(1) 3905/    12FF : B3                  		or	e		; OR with channel set in e
+(1) 3906/    1300 : CF                  		rst	8
+(1) 3907/    1301 : DD 77 00            		ld	(ix),a		; write it
+(1) 3908/    1304 : 7D                  		ld	a,l		; Grab LSB 4 left bits
+(1) 3909/    1305 : 0F                  		rrca
+(1) 3910/    1306 : 0F                  		rrca
+(1) 3911/    1307 : 0F                  		rrca
+(1) 3912/    1308 : 0F                  		rrca
+(1) 3913/    1309 : E6 0F               		and	00001111b
+(1) 3914/    130B : 5F                  		ld	e,a
+(1) 3915/    130C : 7C                  		ld	a,h		; Grab MSB bits
+(1) 3916/    130D : CF                  		rst	8
+(1) 3917/    130E : 07                  		rlca
+(1) 3918/    130F : 07                  		rlca
+(1) 3919/    1310 : 07                  		rlca
+(1) 3920/    1311 : 07                  		rlca
+(1) 3921/    1312 : E6 30               		and	00110000b
+(1) 3922/    1314 : B3                  		or	e
+(1) 3923/    1315 : DD 77 00            		ld	(ix),a
+(1) 3924/    1318 : CF                  		rst	8
+(1) 3925/    1319 :                     .vonly:
+(1) 3926/    1319 : FD 7E 30            		ld	a,(iy+PVOL)		; c - Level
+(1) 3927/    131C : FD 86 04            		add	a,(iy+LEV)		; Add MASTER volume
+(1) 3928/    131F : 30 02               		jr	nc,.vlmuch
+(1) 3929/    1321 : 3E FF               		ld	a,-1
+(1) 3930/    1323 :                     .vlmuch:
+(1) 3931/    1323 : CB 3F               		srl	a			; (Level >> 4)
+(1) 3932/    1325 : CB 3F               		srl	a
+(1) 3933/    1327 : CB 3F               		srl	a
+(1) 3934/    1329 : CF                  		rst	8
+(1) 3935/    132A : CB 3F               		srl	a
+(1) 3936/    132C : E6 0F               		and	00001111b		; Filter volume value
+(1) 3937/    132E : B1                  		or	c			; and OR with current channel
+(1) 3938/    132F : F6 90               		or	90h			; Set volume-set mode
+(1) 3940/    1331 : DD 77 00            		ld	(ix),a			; *** WRITE volume
+(1) 3942/    1334 : FD 34 38            		inc	(iy+PTMR)		; Update general timer
+(1) 3943/    1337 :                     .noupd:
+(1) 3944/    1337 :                     	; ----------------------------
+(1) 3945/    1337 : FD 2B               		dec	iy			; next COM to check (backwards)
+(1) 3946/    1339 : 79                  		ld	a,c
+(1) 3947/    133A : CF                  		rst	8
+(1) 3948/    133B : D6 20               		sub	a,20h			; next PSG (backwards)
+(1) 3949/    133D : 4F                  		ld	c,a
+(1) 3950/    133E : 05                  		dec	b
+(1) 3951/    133F : C2 EC 11            		jp	nz,.vloop
+(1) 3952/    1342 : C9                  		ret
+(1) 3953/    1343 :                     
+(1) 3954/    1343 :                     ; ---------------------------------------------
+(1) 3955/    1343 :                     ; FM register writes
+(1) 3956/    1343 :                     ;
+(1) 3957/    1343 :                     ; Input:
+(1) 3958/    1343 :                     ; d - ctrl
+(1) 3959/    1343 :                     ; e - data
+(1) 3960/    1343 :                     ; ---------------------------------------------
+(1) 3961/    1343 :                     
+(1) 3962/    1343 :                     ; c - KeyID
+(1) 3963/    1343 :                     fm_autoreg:
+(1) 3964/    1343 : CB 51               		bit	2,c
+(1) 3965/    1345 : 20 0B               		jr	nz,fm_send_2
+(1) 3966/    1347 :                     
+(1) 3967/    1347 :                     ; Channels 1-3 and global registers
+(1) 3968/    1347 :                     fm_send_1:
+(1) 3969/    1347 : 7A                  		ld	a,d
+(1) 3970/    1348 : 32 00 40            		ld	(Zym_ctrl_1),a
+(1) 3971/    134B : 00                  		nop
+(1) 3972/    134C : 7B                  		ld	a,e
+(1) 3973/    134D : 32 01 40            		ld	(Zym_data_1),a
+(1) 3974/    1350 : 00                  		nop
+(1) 3975/    1351 : C9                  		ret
+(1) 3976/    1352 :                     ; Channels 4-6
+(1) 3977/    1352 :                     fm_send_2:
+(1) 3978/    1352 : 7A                  		ld	a,d
+(1) 3979/    1353 : 32 02 40            		ld	(Zym_ctrl_2),a
+(1) 3980/    1356 : 00                  		nop
+(1) 3981/    1357 : 7B                  		ld	a,e
+(1) 3982/    1358 : 32 03 40            		ld	(Zym_data_2),a
+(1) 3983/    135B : 00                  		nop
+(1) 3984/    135C : C9                  		ret
+(1) 3985/    135D :                     
+(1) 3986/    135D :                     ; --------------------------------------------------------
+(1) 3987/    135D :                     ; brute-force WAVE ON/OFF playback
+(1) 3988/    135D :                     ; --------------------------------------------------------
+(1) 3989/    135D :                     
+(1) 3990/    135D :                     dac_on:
+(1) 3991/    135D : 3E 2B               		ld	a,2Bh
+(1) 3992/    135F : 32 00 40            		ld	(Zym_ctrl_1),a
+(1) 3993/    1362 : 3E 80               		ld	a,80h
+(1) 3994/    1364 : 32 01 40            		ld	(Zym_data_1),a
+(1) 3995/    1367 : 3E D9               		ld 	a,zopcExx
+(1) 3996/    1369 : 32 08 00            		ld	(dac_me),a
+(1) 3997/    136C : 3E F5               		ld 	a,zopcPushAf
+(1) 3998/    136E : 32 20 00            		ld	(dac_fill),a
+(1) 3999/    1371 : C9                  		ret
+(1) 4000/    1372 :                     dac_off:
+(1) 4001/    1372 : 3E 2B               		ld	a,2Bh
+(1) 4002/    1374 : 32 00 40            		ld	(Zym_ctrl_1),a
+(1) 4003/    1377 : 3E 00               		ld	a,00h
+(1) 4004/    1379 : 32 01 40            		ld	(Zym_data_1),a
+(1) 4005/    137C : 3E C9               		ld 	a,zopcRet
+(1) 4006/    137E : 32 08 00            		ld	(dac_me),a
+(1) 4007/    1381 : 3E C9               		ld 	a,zopcRet
+(1) 4008/    1383 : 32 20 00            		ld	(dac_fill),a
+(1) 4009/    1386 : C9                  		ret
+(1) 4010/    1387 :                     
+(1) 4011/    1387 :                     ; --------------------------------------------------------
+(1) 4012/    1387 :                     ; dac_play
+(1) 4013/    1387 :                     ;
+(1) 4014/    1387 :                     ; Plays a new sample
+(1) 4015/    1387 :                     ;
+(1) 4016/    1387 :                     ; NOTE:
+(1) 4017/    1387 :                     ; Set wave_Flags and wave_Pitch externally
+(1) 4018/    1387 :                     ; getting here.
+(1) 4019/    1387 :                     ; --------------------------------------------------------
+(1) 4020/    1387 :                     
+(1) 4021/    1387 :                     dac_play:
+(1) 4022/    1387 : F3                  		di
+(1) 4023/    1388 : CD 72 13            		call	dac_off
+(1) 4024/    138B : D9                  		exx				; flip exx regs
+(1) 4025/    138C : 01 1D 00            		ld	bc,dWaveBuff>>8		; bc - WAVFIFO MSB
+(1) 4026/    138F : ED 5B 92 1F         		ld	de,(wave_Pitch)		; de - Pitch
+(1) 4027/    1393 : 21 00 00            		ld	hl,(dWaveBuff&0FFh)<<8	; hl - WAVFIFO LSB pointer (xx.00)
+(1) 4028/    1396 : D9                  		exx				; move them back
+(1) 4029/    1397 : 2A 89 1F            		ld	hl,(wave_Start)
+(1) 4030/    139A : 3A 8B 1F            		ld 	a,(wave_Start+2)
+(1) 4031/    139D : 22 98 1F            		ld	(dDacPntr),hl
+(1) 4032/    13A0 : 32 9A 1F            		ld	(dDacPntr+2),a
+(1) 4033/    13A3 : 2A 8C 1F            		ld	hl,(wave_Len)
+(1) 4034/    13A6 : 3A 8E 1F            		ld 	a,(wave_Len+2)
+(1) 4035/    13A9 : 22 9B 1F            		ld	(dDacCntr),hl
+(1) 4036/    13AC : 32 9D 1F            		ld	(dDacCntr+2),a
+(1) 4037/    13AF : AF                  		xor	a
+(1) 4038/    13B0 : 32 97 1F            		ld	(dDacFifoMid),a
+(1) 4039/    13B3 : CD BB 13            		call	dac_refill
+(1) 4040/    13B6 : CD 5D 13            		call	dac_on
+(1) 4041/    13B9 : FB                  		ei
+(1) 4042/    13BA : C9                  		ret
+(1) 4043/    13BB :                     
+(1) 4044/    13BB :                     ; --------------------------------------------------------
+(1) 4045/    13BB :                     
+(1) 4046/    13BB :                     dac_refill:
+(1) 4047/    13BB : CF                  		rst	8
+(1) 4048/    13BC : C5                  		push	bc
+(1) 4049/    13BD : D5                  		push	de
+(1) 4050/    13BE : E5                  		push	hl
+(1) 4051/    13BF : 3A 94 1F            		ld	a,(wave_Flags)	; Already finished?
+(1) 4052/    13C2 : FE 07               		cp	111b
+(1) 4053/    13C4 : D2 7A 14            		jp	nc,.dacfill_end
+(1) 4054/    13C7 : 3A 9D 1F            		ld	a,(dDacCntr+2)	; Last bytes
+(1) 4055/    13CA : 2A 9B 1F            		ld	hl,(dDacCntr)
+(1) 4056/    13CD : 01 80 00            		ld	bc,80h
+(1) 4057/    13D0 : 37                  		scf
+(1) 4058/    13D1 : 3F                  		ccf
+(1) 4059/    13D2 : ED 42               		sbc	hl,bc
+(1) 4060/    13D4 : DE 00               		sbc	a,0
+(1) 4061/    13D6 : 32 9D 1F            		ld	(dDacCntr+2),a
+(1) 4062/    13D9 : 22 9B 1F            		ld	(dDacCntr),hl
+(1) 4063/    13DC : 16 1D               		ld	d,dWaveBuff>>8
+(1) 4064/    13DE : B7                  		or	a
+(1) 4065/    13DF : FA 09 14            		jp	m,.dac_over
+(1) 4066/    13E2 : 3A 97 1F            		ld	a,(dDacFifoMid)	; Update halfway value
+(1) 4067/    13E5 : 5F                  		ld	e,a
+(1) 4068/    13E6 : C6 80               		add 	a,80h
+(1) 4069/    13E8 : 32 97 1F            		ld	(dDacFifoMid),a
+(1) 4070/    13EB : 2A 98 1F            		ld	hl,(dDacPntr)
+(1) 4071/    13EE : 3A 9A 1F            		ld	a,(dDacPntr+2)
+(1) 4072/    13F1 : CD 25 11            		call	transferRom	; *** ROM ACCESS ***
+(1) 4073/    13F4 : 2A 98 1F            		ld	hl,(dDacPntr)
+(1) 4074/    13F7 : 3A 9A 1F            		ld	a,(dDacPntr+2)
+(1) 4075/    13FA : 01 80 00            		ld	bc,80h
+(1) 4076/    13FD : 09                  		add	hl,bc
+(1) 4077/    13FE : CE 00               		adc	a,0
+(1) 4078/    1400 : 22 98 1F            		ld	(dDacPntr),hl
+(1) 4079/    1403 : 32 9A 1F            		ld	(dDacPntr+2),a
+(1) 4080/    1406 : C3 7D 14            		jp	.dacfill_ret
+(1) 4081/    1409 :                     
+(1) 4082/    1409 :                     ; NOTE:
+(1) 4083/    1409 :                     ; This doesn't finish at the exact END point.
+(1) 4084/    1409 :                     .dac_over:
+(1) 4085/    1409 : 16 1D               		ld	d,dWaveBuff>>8
+(1) 4086/    140B : 3A 94 1F            		ld	a,(wave_Flags)	; LOOP enabled?
+(1) 4087/    140E : E6 01               		and	001b
+(1) 4088/    1410 : C2 33 14            		jp	nz,.dacfill_loop
+(1) 4089/    1413 : 7D                  		ld	a,l
+(1) 4090/    1414 : C6 80               		add	a,80h
+(1) 4091/    1416 : 4F                  		ld	c,a
+(1) 4092/    1417 : 06 00               		ld	b,0
+(1) 4093/    1419 : C5                  		push	bc
+(1) 4094/    141A : 3A 97 1F            		ld	a,(dDacFifoMid)
+(1) 4095/    141D : 5F                  		ld	e,a
+(1) 4096/    141E : C6 80               		add	a,80h
+(1) 4097/    1420 : 32 97 1F            		ld	(dDacFifoMid),a
+(1) 4098/    1423 : C1                  		pop	bc
+(1) 4099/    1424 : 79                  		ld	a,c
+(1) 4100/    1425 : B0                  		or	b
+(1) 4101/    1426 : 28 52               		jr	z,.dacfill_end
+(1) 4102/    1428 : 2A 98 1F            		ld	hl,(dDacPntr)
+(1) 4103/    142B : 3A 9A 1F            		ld	a,(dDacPntr+2)
+(1) 4104/    142E : CD 25 11            		call	transferRom	; *** ROM ACCESS ***
+(1) 4105/    1431 : 18 47               		jr	.dacfill_end
+(1) 4106/    1433 :                     .dacfill_loop:
+(1) 4107/    1433 :                     	; loop sample
+(1) 4108/    1433 : C5                  		push	bc
+(1) 4109/    1434 : D5                  		push	de
+(1) 4110/    1435 : 3A 91 1F            		ld	a,(wave_Loop+2)
+(1) 4111/    1438 : 4F                  		ld	c,a
+(1) 4112/    1439 : ED 5B 8F 1F         		ld	de,(wave_Loop)
+(1) 4113/    143D : 2A 89 1F            		ld	hl,(wave_Start)
+(1) 4114/    1440 : 3A 8B 1F            		ld 	a,(wave_Start+2)
+(1) 4115/    1443 : 81                  		add	a,c
+(1) 4116/    1444 : 19                  		add	hl,de
+(1) 4117/    1445 : CE 00               		adc	a,0
+(1) 4118/    1447 : 22 98 1F            		ld	(dDacPntr),hl
+(1) 4119/    144A : 32 9A 1F            		ld	(dDacPntr+2),a
+(1) 4120/    144D : 2A 8C 1F            		ld	hl,(wave_Len)
+(1) 4121/    1450 : 3A 8E 1F            		ld 	a,(wave_Len+2)
+(1) 4122/    1453 : 91                  		sub	a,c
+(1) 4123/    1454 : 37                  		scf
+(1) 4124/    1455 : 3F                  		ccf
+(1) 4125/    1456 : ED 52               		sbc	hl,de
+(1) 4126/    1458 : DE 00               		sbc	a,0
+(1) 4127/    145A : 22 9B 1F            		ld	(dDacCntr),hl
+(1) 4128/    145D : 32 9D 1F            		ld	(dDacCntr+2),a
+(1) 4129/    1460 : D1                  		pop	de
+(1) 4130/    1461 : C1                  		pop	bc
+(1) 4131/    1462 : 78                  		ld	a,b
+(1) 4132/    1463 : B1                  		or	c
+(1) 4133/    1464 : 28 17               		jr	z,.dacfill_ret
+(1) 4134/    1466 : 3A 97 1F            		ld	a,(dDacFifoMid)
+(1) 4135/    1469 : 5F                  		ld	e,a
+(1) 4136/    146A : C6 80               		add	a,80h
+(1) 4137/    146C : 32 97 1F            		ld	(dDacFifoMid),a
+(1) 4138/    146F : 2A 98 1F            		ld	hl,(dDacPntr)
+(1) 4139/    1472 : 3A 9A 1F            		ld	a,(dDacPntr+2)
+(1) 4140/    1475 : CD 25 11            		call	transferRom	; *** ROM ACCESS ***
+(1) 4141/    1478 : 18 03               		jr	.dacfill_ret
+(1) 4142/    147A :                     .dacfill_end:
+(1) 4143/    147A : CD 72 13            		call	dac_off		; DAC finished
+(1) 4144/    147D :                     .dacfill_ret:
+(1) 4145/    147D : E1                  		pop	hl
+(1) 4146/    147E : D1                  		pop	de
+(1) 4147/    147F : C1                  		pop	bc
+(1) 4148/    1480 : C9                  		ret
+(1) 4149/    1481 :                     
+(1) 4150/    1481 :                     ; ----------------------------------------------------------------
+(1) 4151/    1481 :                     ; Two purposes:
+(1) 4152/    1481 :                     ;
+(1) 4153/    1481 :                     ; Set the BANK to the very last part of memory for the
+(1) 4154/    1481 :                     ; transferRom to read from RAM
+(1) 4155/    1481 :                     ;
+(1) 4156/    1481 :                     ; On 32X, sets the bank out of the ROM reading areas due
+(1) 4157/    1481 :                     ; to a conflict with the PSG
+(1) 4158/    1481 :                     ;
+(1) 4159/    1481 :                     ; Uses:
+(1) 4160/    1481 :                     ; hl,b
+(1) 4161/    1481 :                     ; ----------------------------------------------------------------
+(1) 4162/    1481 :                     
+(1) 4163/    1481 :                     gema_lastbank:
+(1) 4164/    1481 : 21 00 60            		ld	hl,6000h
+(1) 4165/    1484 : 06 09               		ld	b,9		; 9 bits
+(1) 4166/    1486 :                     .write:
+(1) 4167/    1486 : 36 01               		ld	(hl),1
+(1) 4168/    1488 : 10 FC               		djnz	.write
+(1) 4169/    148A : CF                  		rst	8
+(1) 4170/    148B : C9                  		ret
+(1) 4171/    148C :                     
+(1) 4172/    148C :                     ; ====================================================================
+(1) 4173/    148C :                     ; ----------------------------------------------------------------
+(1) 4174/    148C :                     ; Tables
+(1) 4175/    148C :                     ; ----------------------------------------------------------------
+(1) 4176/    148C :                     
+(1) 4177/    148C : 84 02               fmFreq_List:	dw 644
+(1) 4178/    148E : A9 02               		dw 681
+(1) 4179/    1490 : D2 02               		dw 722
+(1) 4180/    1492 : FD 02               		dw 765
+(1) 4181/    1494 : 2A 03               		dw 810
+(1) 4182/    1496 : 5A 03               		dw 858
+(1) 4183/    1498 : 8E 03               		dw 910
+(1) 4184/    149A : C4 03               		dw 964
+(1) 4185/    149C : FD 03               		dw 1021
+(1) 4186/    149E : 39 04               		dw 1081
+(1) 4187/    14A0 : 7A 04               		dw 1146
+(1) 4188/    14A2 : BE 04               		dw 1214
+(1) 4189/    14A4 :                     psgFreq_List:
+(1) 4190/    14A4 :                     ; 		dw -1		; C-0 00
 (1) 4191/    14A4 :                     ; 		dw -1
 (1) 4192/    14A4 :                     ; 		dw -1
 (1) 4193/    14A4 :                     ; 		dw -1
 (1) 4194/    14A4 :                     ; 		dw -1
-(1) 4195/    14A4 :                     ; 		dw -1		; C-1 0C
+(1) 4195/    14A4 :                     ; 		dw -1
 (1) 4196/    14A4 :                     ; 		dw -1
 (1) 4197/    14A4 :                     ; 		dw -1
 (1) 4198/    14A4 :                     ; 		dw -1
 (1) 4199/    14A4 :                     ; 		dw -1
 (1) 4200/    14A4 :                     ; 		dw -1
 (1) 4201/    14A4 :                     ; 		dw -1
-(1) 4202/    14A4 :                     ; 		dw -1
+(1) 4202/    14A4 :                     ; 		dw -1		; C-1 0C
 (1) 4203/    14A4 :                     ; 		dw -1
 (1) 4204/    14A4 :                     ; 		dw -1
 (1) 4205/    14A4 :                     ; 		dw -1
 (1) 4206/    14A4 :                     ; 		dw -1
-(1) 4207/    14A4 :                     ; 		dw -1		; C-2 18
+(1) 4207/    14A4 :                     ; 		dw -1
 (1) 4208/    14A4 :                     ; 		dw -1
 (1) 4209/    14A4 :                     ; 		dw -1
 (1) 4210/    14A4 :                     ; 		dw -1
 (1) 4211/    14A4 :                     ; 		dw -1
 (1) 4212/    14A4 :                     ; 		dw -1
 (1) 4213/    14A4 :                     ; 		dw -1
-(1) 4214/    14A4 :                     ; 		dw -1
+(1) 4214/    14A4 :                     ; 		dw -1		; C-2 18
 (1) 4215/    14A4 :                     ; 		dw -1
 (1) 4216/    14A4 :                     ; 		dw -1
 (1) 4217/    14A4 :                     ; 		dw -1
 (1) 4218/    14A4 :                     ; 		dw -1
-(1) 4219/    14A4 : FF FF               		dw -1		; C-3 24
-(1) 4220/    14A6 : FF FF               		dw -1
-(1) 4221/    14A8 : FF FF               		dw -1
-(1) 4222/    14AA : FF FF               		dw -1
-(1) 4223/    14AC : FF FF               		dw -1
-(1) 4224/    14AE : FF FF               		dw -1
-(1) 4225/    14B0 : FF FF               		dw -1
-(1) 4226/    14B2 : FF FF               		dw -1
-(1) 4227/    14B4 : FF FF               		dw -1
-(1) 4228/    14B6 : F8 03               		dw 3F8h
-(1) 4229/    14B8 : BF 03               		dw 3BFh
-(1) 4230/    14BA : 89 03               		dw 389h
-(1) 4231/    14BC : 56 03               		dw 356h		; C-4 30
-(1) 4232/    14BE : 26 03               		dw 326h
-(1) 4233/    14C0 : F9 02               		dw 2F9h
-(1) 4234/    14C2 : CE 02               		dw 2CEh
-(1) 4235/    14C4 : A5 02               		dw 2A5h
-(1) 4236/    14C6 : 80 02               		dw 280h
-(1) 4237/    14C8 : 5C 02               		dw 25Ch
-(1) 4238/    14CA : 3A 02               		dw 23Ah
-(1) 4239/    14CC : 1A 02               		dw 21Ah
-(1) 4240/    14CE : FB 01               		dw 1FBh
-(1) 4241/    14D0 : DF 01               		dw 1DFh
-(1) 4242/    14D2 : C4 01               		dw 1C4h
-(1) 4243/    14D4 : AB 01               		dw 1ABh		; C-5 3C
-(1) 4244/    14D6 : 93 01               		dw 193h
-(1) 4245/    14D8 : 7D 01               		dw 17Dh
-(1) 4246/    14DA : 67 01               		dw 167h
-(1) 4247/    14DC : 53 01               		dw 153h
-(1) 4248/    14DE : 40 01               		dw 140h
-(1) 4249/    14E0 : 2E 01               		dw 12Eh
-(1) 4250/    14E2 : 1D 01               		dw 11Dh
-(1) 4251/    14E4 : 0D 01               		dw 10Dh
-(1) 4252/    14E6 : FE 00               		dw 0FEh
-(1) 4253/    14E8 : EF 00               		dw 0EFh
-(1) 4254/    14EA : E2 00               		dw 0E2h
-(1) 4255/    14EC : D6 00               		dw 0D6h		; C-6 48
-(1) 4256/    14EE : C9 00               		dw 0C9h
-(1) 4257/    14F0 : BE 00               		dw 0BEh
-(1) 4258/    14F2 : B4 00               		dw 0B4h
-(1) 4259/    14F4 : A9 00               		dw 0A9h
-(1) 4260/    14F6 : A0 00               		dw 0A0h
-(1) 4261/    14F8 : 97 00               		dw 097h
-(1) 4262/    14FA : 8F 00               		dw 08Fh
-(1) 4263/    14FC : 87 00               		dw 087h
-(1) 4264/    14FE : 7F 00               		dw 07Fh
-(1) 4265/    1500 : 78 00               		dw 078h
-(1) 4266/    1502 : 71 00               		dw 071h
-(1) 4267/    1504 : 6B 00               		dw 06Bh		; C-7 54
-(1) 4268/    1506 : 65 00               		dw 065h
-(1) 4269/    1508 : 5F 00               		dw 05Fh
-(1) 4270/    150A : 5A 00               		dw 05Ah
-(1) 4271/    150C : 55 00               		dw 055h
-(1) 4272/    150E : 50 00               		dw 050h
-(1) 4273/    1510 : 4B 00               		dw 04Bh
-(1) 4274/    1512 : 47 00               		dw 047h
-(1) 4275/    1514 : 43 00               		dw 043h
-(1) 4276/    1516 : 40 00               		dw 040h
-(1) 4277/    1518 : 3C 00               		dw 03Ch
-(1) 4278/    151A : 39 00               		dw 039h
-(1) 4279/    151C : 36 00               		dw 036h		; C-8 60
-(1) 4280/    151E : 33 00               		dw 033h
-(1) 4281/    1520 : 30 00               		dw 030h
-(1) 4282/    1522 : 2D 00               		dw 02Dh
-(1) 4283/    1524 : 2B 00               		dw 02Bh
-(1) 4284/    1526 : 28 00               		dw 028h
-(1) 4285/    1528 : 26 00               		dw 026h
-(1) 4286/    152A : 24 00               		dw 024h
-(1) 4287/    152C : 22 00               		dw 022h
-(1) 4288/    152E : 20 00               		dw 020h
-(1) 4289/    1530 : 1F 00               		dw 01Fh
-(1) 4290/    1532 : 1D 00               		dw 01Dh
-(1) 4291/    1534 : 1B 00               		dw 01Bh		; C-9 6C
-(1) 4292/    1536 : 1A 00               		dw 01Ah
-(1) 4293/    1538 : 18 00               		dw 018h
-(1) 4294/    153A : 17 00               		dw 017h
-(1) 4295/    153C : 16 00               		dw 016h
-(1) 4296/    153E : 15 00               		dw 015h
-(1) 4297/    1540 : 13 00               		dw 013h
-(1) 4298/    1542 : 12 00               		dw 012h
-(1) 4299/    1544 : 11 00               		dw 011h
-(1) 4300/    1546 : 10 00                		dw 010h
-(1) 4301/    1548 : 09 00                		dw 009h
-(1) 4302/    154A : 08 00                		dw 008h
-(1) 4303/    154C : 06 00               		dw 006h
-(1) 4304/    154E : EA 19               fmcach_list:	dw fmcach_1
-(1) 4305/    1550 : 12 1A               		dw fmcach_2
-(1) 4306/    1552 : 3A 1A               		dw fmcach_3
-(1) 4307/    1554 : 00 00               		dw 0		; <-- skipped
-(1) 4308/    1556 : 62 1A               		dw fmcach_4
-(1) 4309/    1558 : 8A 1A               		dw fmcach_5
-(1) 4310/    155A : B2 1A               		dw fmcach_6
-(1) 4311/    155C :                     
-(1) 4312/    155C :                     ; ----------------------------------------
-(1) 4313/    155C :                     ; DAC and PWM
-(1) 4314/    155C :                     ;
-(1) 4315/    155C :                     ; DAC base: 16000hz
-(1) 4316/    155C :                     ; PWM base: 22050hz
-(1) 4317/    155C :                     ; ----------------------------------------
-(1) 4318/    155C :                     wavFreq_List:
-(1) 4319/    155C :                     	;   C     C#    D     D#    E     F     F#    G     G#    A     A#    B
-(1) 4320/    155C :                     ; 	dw 0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h	; x-0
-(1) 4321/    155C :                     ; 	dw 0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h	; x-1
-(1) 4322/    155C :                     ; 	dw 0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0036h,003Bh	; x-2
-(1) 4323/    155C : 3E 00 43 00 46 00   	dw 003Eh,0043h,0046h,0049h,004Eh,0054h,0058h,005Eh,0063h,0068h,0070h,0075h	; x-3
+(1) 4219/    14A4 :                     ; 		dw -1
+(1) 4220/    14A4 :                     ; 		dw -1
+(1) 4221/    14A4 :                     ; 		dw -1
+(1) 4222/    14A4 :                     ; 		dw -1
+(1) 4223/    14A4 :                     ; 		dw -1
+(1) 4224/    14A4 :                     ; 		dw -1
+(1) 4225/    14A4 :                     ; 		dw -1
+(1) 4226/    14A4 : FF FF               		dw -1		; C-3 24
+(1) 4227/    14A6 : FF FF               		dw -1
+(1) 4228/    14A8 : FF FF               		dw -1
+(1) 4229/    14AA : FF FF               		dw -1
+(1) 4230/    14AC : FF FF               		dw -1
+(1) 4231/    14AE : FF FF               		dw -1
+(1) 4232/    14B0 : FF FF               		dw -1
+(1) 4233/    14B2 : FF FF               		dw -1
+(1) 4234/    14B4 : FF FF               		dw -1
+(1) 4235/    14B6 : F8 03               		dw 3F8h
+(1) 4236/    14B8 : BF 03               		dw 3BFh
+(1) 4237/    14BA : 89 03               		dw 389h
+(1) 4238/    14BC : 56 03               		dw 356h		; C-4 30
+(1) 4239/    14BE : 26 03               		dw 326h
+(1) 4240/    14C0 : F9 02               		dw 2F9h
+(1) 4241/    14C2 : CE 02               		dw 2CEh
+(1) 4242/    14C4 : A5 02               		dw 2A5h
+(1) 4243/    14C6 : 80 02               		dw 280h
+(1) 4244/    14C8 : 5C 02               		dw 25Ch
+(1) 4245/    14CA : 3A 02               		dw 23Ah
+(1) 4246/    14CC : 1A 02               		dw 21Ah
+(1) 4247/    14CE : FB 01               		dw 1FBh
+(1) 4248/    14D0 : DF 01               		dw 1DFh
+(1) 4249/    14D2 : C4 01               		dw 1C4h
+(1) 4250/    14D4 : AB 01               		dw 1ABh		; C-5 3C
+(1) 4251/    14D6 : 93 01               		dw 193h
+(1) 4252/    14D8 : 7D 01               		dw 17Dh
+(1) 4253/    14DA : 67 01               		dw 167h
+(1) 4254/    14DC : 53 01               		dw 153h
+(1) 4255/    14DE : 40 01               		dw 140h
+(1) 4256/    14E0 : 2E 01               		dw 12Eh
+(1) 4257/    14E2 : 1D 01               		dw 11Dh
+(1) 4258/    14E4 : 0D 01               		dw 10Dh
+(1) 4259/    14E6 : FE 00               		dw 0FEh
+(1) 4260/    14E8 : EF 00               		dw 0EFh
+(1) 4261/    14EA : E2 00               		dw 0E2h
+(1) 4262/    14EC : D6 00               		dw 0D6h		; C-6 48
+(1) 4263/    14EE : C9 00               		dw 0C9h
+(1) 4264/    14F0 : BE 00               		dw 0BEh
+(1) 4265/    14F2 : B4 00               		dw 0B4h
+(1) 4266/    14F4 : A9 00               		dw 0A9h
+(1) 4267/    14F6 : A0 00               		dw 0A0h
+(1) 4268/    14F8 : 97 00               		dw 097h
+(1) 4269/    14FA : 8F 00               		dw 08Fh
+(1) 4270/    14FC : 87 00               		dw 087h
+(1) 4271/    14FE : 7F 00               		dw 07Fh
+(1) 4272/    1500 : 78 00               		dw 078h
+(1) 4273/    1502 : 71 00               		dw 071h
+(1) 4274/    1504 : 6B 00               		dw 06Bh		; C-7 54
+(1) 4275/    1506 : 65 00               		dw 065h
+(1) 4276/    1508 : 5F 00               		dw 05Fh
+(1) 4277/    150A : 5A 00               		dw 05Ah
+(1) 4278/    150C : 55 00               		dw 055h
+(1) 4279/    150E : 50 00               		dw 050h
+(1) 4280/    1510 : 4B 00               		dw 04Bh
+(1) 4281/    1512 : 47 00               		dw 047h
+(1) 4282/    1514 : 43 00               		dw 043h
+(1) 4283/    1516 : 40 00               		dw 040h
+(1) 4284/    1518 : 3C 00               		dw 03Ch
+(1) 4285/    151A : 39 00               		dw 039h
+(1) 4286/    151C : 36 00               		dw 036h		; C-8 60
+(1) 4287/    151E : 33 00               		dw 033h
+(1) 4288/    1520 : 30 00               		dw 030h
+(1) 4289/    1522 : 2D 00               		dw 02Dh
+(1) 4290/    1524 : 2B 00               		dw 02Bh
+(1) 4291/    1526 : 28 00               		dw 028h
+(1) 4292/    1528 : 26 00               		dw 026h
+(1) 4293/    152A : 24 00               		dw 024h
+(1) 4294/    152C : 22 00               		dw 022h
+(1) 4295/    152E : 20 00               		dw 020h
+(1) 4296/    1530 : 1F 00               		dw 01Fh
+(1) 4297/    1532 : 1D 00               		dw 01Dh
+(1) 4298/    1534 : 1B 00               		dw 01Bh		; C-9 6C
+(1) 4299/    1536 : 1A 00               		dw 01Ah
+(1) 4300/    1538 : 18 00               		dw 018h
+(1) 4301/    153A : 17 00               		dw 017h
+(1) 4302/    153C : 16 00               		dw 016h
+(1) 4303/    153E : 15 00               		dw 015h
+(1) 4304/    1540 : 13 00               		dw 013h
+(1) 4305/    1542 : 12 00               		dw 012h
+(1) 4306/    1544 : 11 00               		dw 011h
+(1) 4307/    1546 : 10 00                		dw 010h
+(1) 4308/    1548 : 09 00                		dw 009h
+(1) 4309/    154A : 08 00                		dw 008h
+(1) 4310/    154C : 06 00               		dw 006h
+(1) 4311/    154E : EA 19               fmcach_list:	dw fmcach_1
+(1) 4312/    1550 : 12 1A               		dw fmcach_2
+(1) 4313/    1552 : 3A 1A               		dw fmcach_3
+(1) 4314/    1554 : 00 00               		dw 0		; <-- skipped
+(1) 4315/    1556 : 62 1A               		dw fmcach_4
+(1) 4316/    1558 : 8A 1A               		dw fmcach_5
+(1) 4317/    155A : B2 1A               		dw fmcach_6
+(1) 4318/    155C :                     
+(1) 4319/    155C :                     ; ----------------------------------------
+(1) 4320/    155C :                     ; DAC and PWM
+(1) 4321/    155C :                     ;
+(1) 4322/    155C :                     ; DAC base: 16000hz
+(1) 4323/    155C :                     ; PWM base: 22050hz
+(1) 4324/    155C :                     ; ----------------------------------------
+(1) 4325/    155C :                     wavFreq_List:
+(1) 4326/    155C :                     	;   C     C#    D     D#    E     F     F#    G     G#    A     A#    B
+(1) 4327/    155C :                     ; 	dw 0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h	; x-0
+(1) 4328/    155C :                     ; 	dw 0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h	; x-1
+(1) 4329/    155C :                     ; 	dw 0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0036h,003Bh	; x-2
+(1) 4330/    155C : 3E 00 43 00 46 00   	dw 003Eh,0043h,0046h,0049h,004Eh,0054h,0058h,005Eh,0063h,0068h,0070h,0075h	; x-3
              1562 : 49 00 4E 00 54 00 
              1568 : 58 00 5E 00 63 00 
              156E : 68 00 70 00 75 00 
-(1) 4324/    1574 : 85 00 87 00 8C 00   	dw 0085h,0087h,008Ch,009Ah,00A4h,00ADh,00B2h,00C0h,00CCh,00D7h,00E6h,00F0h	; x-4
+(1) 4331/    1574 : 85 00 87 00 8C 00   	dw 0085h,0087h,008Ch,009Ah,00A4h,00ADh,00B2h,00C0h,00CCh,00D7h,00E6h,00F0h	; x-4
              157A : 9A 00 A4 00 AD 00 
              1580 : B2 00 C0 00 CC 00 
              1586 : D7 00 E6 00 F0 00 
-(1) 4325/    158C : 00 01 10 01 20 01   	dw 0100h,0110h,0120h,012Eh,0147h,015Ah,016Ah,017Fh,0191h,01ACh,01C2h,01E0h	; x-5
+(1) 4332/    158C : 00 01 10 01 20 01   	dw 0100h,0110h,0120h,012Eh,0147h,015Ah,016Ah,017Fh,0191h,01ACh,01C2h,01E0h	; x-5
              1592 : 2E 01 47 01 5A 01 
              1598 : 6A 01 7F 01 91 01 
              159E : AC 01 C2 01 E0 01 
-(1) 4326/    15A4 : F8 01 10 02 40 02   	dw 01F8h,0210h,0240h,0260h,0280h,02A0h,02D0h,02F8h,0320h,0350h,0380h,03C0h	; x-6
+(1) 4333/    15A4 : F8 01 10 02 40 02   	dw 01F8h,0210h,0240h,0260h,0280h,02A0h,02D0h,02F8h,0320h,0350h,0380h,03C0h	; x-6
              15AA : 60 02 80 02 A0 02 
              15B0 : D0 02 F8 02 20 03 
              15B6 : 50 03 80 03 C0 03 
-(1) 4327/    15BC : 00 01 00 01 00 01   	dw 0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h	; x-7
+(1) 4334/    15BC : 00 01 00 01 00 01   	dw 0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h	; x-7
              15C2 : 00 01 00 01 00 01 
              15C8 : 00 01 00 01 00 01 
              15CE : 00 01 00 01 00 01 
-(1) 4328/    15D4 : 00 01 00 01 00 01   	dw 0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h	; x-8
+(1) 4335/    15D4 : 00 01 00 01 00 01   	dw 0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h	; x-8
              15DA : 00 01 00 01 00 01 
              15E0 : 00 01 00 01 00 01 
              15E6 : 00 01 00 01 00 01 
-(1) 4329/    15EC : 00 01 00 01 00 01   	dw 0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h	; x-9
+(1) 4336/    15EC : 00 01 00 01 00 01   	dw 0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h	; x-9
              15F2 : 00 01 00 01 00 01 
              15F8 : 00 01 00 01 00 01 
              15FE : 00 01 00 01 00 01 
-(1) 4330/    1604 :                     
-(1) 4331/    1604 :                     ; ----------------------------------------
-(1) 4332/    1604 :                     ; SegaCD PCM ONLY
-(1) 4333/    1604 :                     ;
-(1) 4334/    1604 :                     ; PCM base: 32000hz
-(1) 4335/    1604 :                     ; ----------------------------------------
-(1) 4336/    1604 :                     wavFreq_CdPcm:
-(1) 4337/    1604 :                     	;     C     C#     D      D#     E      F      F#     G      G#     A      A#     B
-(1) 4338/    1604 :                     ; 	dw  0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h	; x-0
-(1) 4339/    1604 :                     ; 	dw  0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h	; x-1
-(1) 4340/    1604 :                     ; 	dw  0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h	; x-2  4000 unchecked
-(1) 4341/    1604 : F8 01 14 02 3C 02   	dw  01F8h, 0214h, 023Ch, 0258h, 027Ch, 02A0h, 02C8h, 02F4h, 031Ch, 0348h, 037Ch, 03B0h	; x-3  8000 ok
+(1) 4337/    1604 :                     
+(1) 4338/    1604 :                     ; ----------------------------------------
+(1) 4339/    1604 :                     ; SegaCD PCM ONLY
+(1) 4340/    1604 :                     ;
+(1) 4341/    1604 :                     ; PCM base: 32000hz
+(1) 4342/    1604 :                     ; ----------------------------------------
+(1) 4343/    1604 :                     wavFreq_CdPcm:
+(1) 4344/    1604 :                     	;     C     C#     D      D#     E      F      F#     G      G#     A      A#     B
+(1) 4345/    1604 :                     ; 	dw  0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h	; x-0
+(1) 4346/    1604 :                     ; 	dw  0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h	; x-1
+(1) 4347/    1604 :                     ; 	dw  0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h	; x-2  4000 unchecked
+(1) 4348/    1604 : F8 01 14 02 3C 02   	dw  01F8h, 0214h, 023Ch, 0258h, 027Ch, 02A0h, 02C8h, 02F4h, 031Ch, 0348h, 037Ch, 03B0h	; x-3  8000 ok
              160A : 58 02 7C 02 A0 02 
              1610 : C8 02 F4 02 1C 03 
              1616 : 48 03 7C 03 B0 03 
-(1) 4342/    161C : F0 03 24 04 68 04   	dw  03F0h, 0424h, 0468h, 04A8h, 04ECh, 0540h, 0590h, 05E4h, 063Ch, 0698h, 0704h, 0760h	; x-4 16000 ok
+(1) 4349/    161C : F0 03 24 04 68 04   	dw  03F0h, 0424h, 0468h, 04A8h, 04ECh, 0540h, 0590h, 05E4h, 063Ch, 0698h, 0704h, 0760h	; x-4 16000 ok
              1622 : A8 04 EC 04 40 05 
              1628 : 90 05 E4 05 3C 06 
              162E : 98 06 04 07 60 07 
-(1) 4343/    1634 : DC 07 48 08 D4 08   	dw  07DCh, 0848h, 08D4h, 0960h, 09F0h, 0A64h, 0B04h, 0BAAh, 0C60h, 0D18h, 0DE4h, 0EB6h	; x-5 32000 ok
+(1) 4350/    1634 : DC 07 48 08 D4 08   	dw  07DCh, 0848h, 08D4h, 0960h, 09F0h, 0A64h, 0B04h, 0BAAh, 0C60h, 0D18h, 0DE4h, 0EB6h	; x-5 32000 ok
              163A : 60 09 F0 09 64 0A 
              1640 : 04 0B AA 0B 60 0C 
              1646 : 18 0D E4 0D B6 0E 
-(1) 4344/    164C : B0 0F 74 10 84 11   	dw  0FB0h, 1074h, 1184h, 1280h, 139Ch, 14C8h, 1624h, 174Ch, 18DCh, 1A38h, 1BE0h, 1D94h	; x-6 64000 unstable
+(1) 4351/    164C : B0 0F 74 10 84 11   	dw  0FB0h, 1074h, 1184h, 1280h, 139Ch, 14C8h, 1624h, 174Ch, 18DCh, 1A38h, 1BE0h, 1D94h	; x-6 64000 unstable
              1652 : 80 12 9C 13 C8 14 
              1658 : 24 16 4C 17 DC 18 
              165E : 38 1A E0 1B 94 1D 
-(1) 4345/    1664 : 64 1F FC 20 30 23   	dw  1F64h, 20FCh, 2330h, 2524h, 2750h, 29B4h, 2C63h, 2F63h, 31E0h, 347Bh, 377Bh, 3B41h	; x-7 128000 bad
+(1) 4352/    1664 : 64 1F FC 20 30 23   	dw  1F64h, 20FCh, 2330h, 2524h, 2750h, 29B4h, 2C63h, 2F63h, 31E0h, 347Bh, 377Bh, 3B41h	; x-7 128000 bad
              166A : 24 25 50 27 B4 29 
              1670 : 63 2C 63 2F E0 31 
              1676 : 7B 34 7B 37 41 3B 
-(1) 4346/    167C : E8 3E 06 42 84 46   	dw  3EE8h, 4206h, 4684h, 4A5Ah, 4EB5h, 5379h, 58E1h, 5DE0h, 63C0h, 68FFh, 6EFFh, 783Ch	; x-8 256000 bad
+(1) 4353/    167C : E8 3E 06 42 84 46   	dw  3EE8h, 4206h, 4684h, 4A5Ah, 4EB5h, 5379h, 58E1h, 5DE0h, 63C0h, 68FFh, 6EFFh, 783Ch	; x-8 256000 bad
              1682 : 5A 4A B5 4E 79 53 
              1688 : E1 58 E0 5D C0 63 
              168E : FF 68 FF 6E 3C 78 
-(1) 4347/    1694 : C2 7F FC 83 14 8D   	dw  7FC2h, 83FCh, 8D14h, 9780h,0AA5Dh,0B1F9h,   -1 ,   -1 ,   -1 ,   -1 ,   -1 ,   -1 	; x-9 bad
+(1) 4354/    1694 : C2 7F FC 83 14 8D   	dw  7FC2h, 83FCh, 8D14h, 9780h,0AA5Dh,0B1F9h,   -1 ,   -1 ,   -1 ,   -1 ,   -1 ,   -1 	; x-9 bad
              169A : 80 97 5D AA F9 B1 
              16A0 : FF FF FF FF FF FF 
              16A6 : FF FF FF FF FF FF 
-(1) 4348/    16AC :                     
-(1) 4349/    16AC :                     ; --------------------------------------------------------
-(1) 4350/    16AC :                     ; Channel table struct:
-(1) 4351/    16AC :                     ; 00  - DIRECT Linked channel from trkChnls
-(1) 4352/    16AC :                     ; 02  - 00h-7Fh: Priority level / 80h+ Silence request (chip ID)
-(1) 4353/    16AC :                     ; 03  - FREE
-(1) 4354/    16AC :                     ; 05  - Chip index (YM2612: KEY index)
-(1) 4355/    16AC :                     ; 06  - Frequency list index (YM2612: %oooiiiii oct|index)
-(1) 4356/    16AC :                     ; 07  - Pitchbend add/sub
-(1) 4357/    16AC :                     ; 08  - Current volume: 00-max
-(1) 4358/    16AC :                     ; 09  - Stored effect setting
-(1) 4359/    16AC :                     ; 0A  - FREE
-(1) 4360/    16AC :                     ; 0B  - FREE
-(1) 4361/    16AC :                     ; 0C+ - Misc. settings for the current chip
-(1) 4362/    16AC :                     ; 10+ - Intrument data
-(1) 4363/    16AC :                     ;
-(1) 4364/    16AC :                     ; PSG   80h
-(1) 4365/    16AC :                     ; PSGN  90h
-(1) 4366/    16AC :                     ; FM   0A0h
-(1) 4367/    16AC :                     ; FM3  0B0h
-(1) 4368/    16AC :                     ; DAC  0C0h
-(1) 4369/    16AC :                     ; PCM  0D0h
-(1) 4370/    16AC :                     ; PWM  0E0h
-(1) 4371/    16AC :                     ; --------------------------------------------------------
-(1) 4372/    16AC :                     
-(1) 4373/    16AC : 10 00               tblList:	dw tblPSG-tblList		;  80h
-(1) 4374/    16AE : 5A 80               		dw tblPSGN-tblList|8000h	;  90h *
-(1) 4375/    16B0 : 72 00               		dw tblFM-tblList		; 0A0h
-(1) 4376/    16B2 : D2 80               		dw tblFM3-tblList|8000h		; 0B0h *
-(1) 4377/    16B4 : EA 80               		dw tblFM6-tblList|8000h		; 0C0h *
-(1) 4378/    16B6 : 04 01               		dw tblPCM-tblList		; 0D0h
-(1) 4379/    16B8 : C6 01               		dw tblPWM-tblList		; 0E0h
-(1) 4380/    16BA : 00 00               		dw 0
-(1) 4381/    16BC : 00 00 00 00 00 00   tblPSG:		db 00h,00h,00h,00h,00h,00h,00h,00h	; Channel 1
+(1) 4355/    16AC :                     
+(1) 4356/    16AC :                     ; --------------------------------------------------------
+(1) 4357/    16AC :                     ; Channel table struct:
+(1) 4358/    16AC :                     ; 00  - DIRECT Linked channel from trkChnls
+(1) 4359/    16AC :                     ; 02  - 00h-7Fh: Priority level / 80h+ Silence request (chip ID)
+(1) 4360/    16AC :                     ; 03  - FREE
+(1) 4361/    16AC :                     ; 05  - Chip index (YM2612: KEY index)
+(1) 4362/    16AC :                     ; 06  - Frequency list index (YM2612: %oooiiiii oct|index)
+(1) 4363/    16AC :                     ; 07  - Pitchbend add/sub
+(1) 4364/    16AC :                     ; 08  - Current volume: 00-max
+(1) 4365/    16AC :                     ; 09  - Stored effect setting
+(1) 4366/    16AC :                     ; 0A  - FREE
+(1) 4367/    16AC :                     ; 0B  - FREE
+(1) 4368/    16AC :                     ; 0C+ - Misc. settings for the current chip
+(1) 4369/    16AC :                     ; 10+ - Intrument data
+(1) 4370/    16AC :                     ;
+(1) 4371/    16AC :                     ; PSG   80h
+(1) 4372/    16AC :                     ; PSGN  90h
+(1) 4373/    16AC :                     ; FM   0A0h
+(1) 4374/    16AC :                     ; FM3  0B0h
+(1) 4375/    16AC :                     ; DAC  0C0h
+(1) 4376/    16AC :                     ; PCM  0D0h
+(1) 4377/    16AC :                     ; PWM  0E0h
+(1) 4378/    16AC :                     ; --------------------------------------------------------
+(1) 4379/    16AC :                     
+(1) 4380/    16AC : 10 00               tblList:	dw tblPSG-tblList		;  80h
+(1) 4381/    16AE : 5A 80               		dw tblPSGN-tblList|8000h	;  90h *
+(1) 4382/    16B0 : 72 00               		dw tblFM-tblList		; 0A0h
+(1) 4383/    16B2 : D2 80               		dw tblFM3-tblList|8000h		; 0B0h *
+(1) 4384/    16B4 : EA 80               		dw tblFM6-tblList|8000h		; 0C0h *
+(1) 4385/    16B6 : 04 01               		dw tblPCM-tblList		; 0D0h
+(1) 4386/    16B8 : C6 01               		dw tblPWM-tblList		; 0E0h
+(1) 4387/    16BA : 00 00               		dw 0
+(1) 4388/    16BC : 00 00 00 00 00 00   tblPSG:		db 00h,00h,00h,00h,00h,00h,00h,00h	; Channel 1
              16C2 : 00 00             
-(1) 4382/    16C4 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4389/    16C4 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              16CA : 00 00             
-(1) 4383/    16CC : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4390/    16CC : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              16D2 : 00 00             
-(1) 4384/    16D4 : 00 00 00 00 00 01   		db 00h,00h,00h,00h,00h,01h,00h,00h	; Channel 2
+(1) 4391/    16D4 : 00 00 00 00 00 01   		db 00h,00h,00h,00h,00h,01h,00h,00h	; Channel 2
              16DA : 00 00             
-(1) 4385/    16DC : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4392/    16DC : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              16E2 : 00 00             
-(1) 4386/    16E4 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4393/    16E4 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              16EA : 00 00             
-(1) 4387/    16EC : 00 00 00 00 00 02   		db 00h,00h,00h,00h,00h,02h,00h,00h	; Channel 3
+(1) 4394/    16EC : 00 00 00 00 00 02   		db 00h,00h,00h,00h,00h,02h,00h,00h	; Channel 3
              16F2 : 00 00             
-(1) 4388/    16F4 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4395/    16F4 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              16FA : 00 00             
-(1) 4389/    16FC : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4396/    16FC : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              1702 : 00 00             
-(1) 4390/    1704 : FF FF               		dw -1	; end-of-list
-(1) 4391/    1706 : 00 00 00 00 00 03   tblPSGN:	db 00h,00h,00h,00h,00h,03h,00h,03h	; Noise
+(1) 4397/    1704 : FF FF               		dw -1	; end-of-list
+(1) 4398/    1706 : 00 00 00 00 00 03   tblPSGN:	db 00h,00h,00h,00h,00h,03h,00h,03h	; Noise
              170C : 00 03             
-(1) 4392/    170E : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4399/    170E : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              1714 : 00 00             
-(1) 4393/    1716 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4400/    1716 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              171C : 00 00             
-(1) 4394/    171E : 00 00 00 00 00 00   tblFM:		db 00h,00h,00h,00h,00h,00h,00h,00h	; Channel 1
+(1) 4401/    171E : 00 00 00 00 00 00   tblFM:		db 00h,00h,00h,00h,00h,00h,00h,00h	; Channel 1
              1724 : 00 00             
-(1) 4395/    1726 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4402/    1726 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              172C : 00 00             
-(1) 4396/    172E : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4403/    172E : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              1734 : 00 00             
-(1) 4397/    1736 : 00 00 00 00 00 01   		db 00h,00h,00h,00h,00h,01h,00h,00h	; Channel 2
+(1) 4404/    1736 : 00 00 00 00 00 01   		db 00h,00h,00h,00h,00h,01h,00h,00h	; Channel 2
              173C : 00 00             
-(1) 4398/    173E : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4405/    173E : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              1744 : 00 00             
-(1) 4399/    1746 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4406/    1746 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              174C : 00 00             
-(1) 4400/    174E : 00 00 00 00 00 04   		db 00h,00h,00h,00h,00h,04h,00h,00h	; Channel 4 <--
+(1) 4407/    174E : 00 00 00 00 00 04   		db 00h,00h,00h,00h,00h,04h,00h,00h	; Channel 4 <--
              1754 : 00 00             
-(1) 4401/    1756 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4408/    1756 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              175C : 00 00             
-(1) 4402/    175E : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4409/    175E : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              1764 : 00 00             
-(1) 4403/    1766 : 00 00 00 00 00 05   		db 00h,00h,00h,00h,00h,05h,00h,00h	; Channel 5
+(1) 4410/    1766 : 00 00 00 00 00 05   		db 00h,00h,00h,00h,00h,05h,00h,00h	; Channel 5
              176C : 00 00             
-(1) 4404/    176E : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4411/    176E : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              1774 : 00 00             
-(1) 4405/    1776 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4412/    1776 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              177C : 00 00             
-(1) 4406/    177E : 00 00 00 00 00 02   tblFM3:		db 00h,00h,00h,00h,00h,02h,00h,00h	; Channel 3 <--
+(1) 4413/    177E : 00 00 00 00 00 02   tblFM3:		db 00h,00h,00h,00h,00h,02h,00h,00h	; Channel 3 <--
              1784 : 00 00             
-(1) 4407/    1786 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4414/    1786 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              178C : 00 00             
-(1) 4408/    178E : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4415/    178E : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              1794 : 00 00             
-(1) 4409/    1796 : 00 00 00 00 00 06   tblFM6:		db 00h,00h,00h,00h,00h,06h,00h,00h	; Channel 6 <--
+(1) 4416/    1796 : 00 00 00 00 00 06   tblFM6:		db 00h,00h,00h,00h,00h,06h,00h,00h	; Channel 6 <--
              179C : 00 00             
-(1) 4410/    179E : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4417/    179E : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              17A4 : 00 00             
-(1) 4411/    17A6 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4418/    17A6 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              17AC : 00 00             
-(1) 4412/    17AE : FF FF               		dw -1	; end-of-list
-(1) 4413/    17B0 : 00 00 00 00 00 00   tblPCM:		db 00h,00h,00h,00h,00h,00h,00h,00h	; Channel 1
+(1) 4419/    17AE : FF FF               		dw -1	; end-of-list
+(1) 4420/    17B0 : 00 00 00 00 00 00   tblPCM:		db 00h,00h,00h,00h,00h,00h,00h,00h	; Channel 1
              17B6 : 00 00             
-(1) 4414/    17B8 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4421/    17B8 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              17BE : 00 00             
-(1) 4415/    17C0 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4422/    17C0 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              17C6 : 00 00             
-(1) 4416/    17C8 : 00 00 00 00 00 01   		db 00h,00h,00h,00h,00h,01h,00h,00h	; Channel 2
+(1) 4423/    17C8 : 00 00 00 00 00 01   		db 00h,00h,00h,00h,00h,01h,00h,00h	; Channel 2
              17CE : 00 00             
-(1) 4417/    17D0 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4424/    17D0 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              17D6 : 00 00             
-(1) 4418/    17D8 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4425/    17D8 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              17DE : 00 00             
-(1) 4419/    17E0 : 00 00 00 00 00 02   		db 00h,00h,00h,00h,00h,02h,00h,00h	; Channel 3
+(1) 4426/    17E0 : 00 00 00 00 00 02   		db 00h,00h,00h,00h,00h,02h,00h,00h	; Channel 3
              17E6 : 00 00             
-(1) 4420/    17E8 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4427/    17E8 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              17EE : 00 00             
-(1) 4421/    17F0 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4428/    17F0 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              17F6 : 00 00             
-(1) 4422/    17F8 : 00 00 00 00 00 03   		db 00h,00h,00h,00h,00h,03h,00h,00h	; Channel 4
+(1) 4429/    17F8 : 00 00 00 00 00 03   		db 00h,00h,00h,00h,00h,03h,00h,00h	; Channel 4
              17FE : 00 00             
-(1) 4423/    1800 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4430/    1800 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              1806 : 00 00             
-(1) 4424/    1808 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4431/    1808 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              180E : 00 00             
-(1) 4425/    1810 : 00 00 00 00 00 04   		db 00h,00h,00h,00h,00h,04h,00h,00h	; Channel 5
+(1) 4432/    1810 : 00 00 00 00 00 04   		db 00h,00h,00h,00h,00h,04h,00h,00h	; Channel 5
              1816 : 00 00             
-(1) 4426/    1818 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4433/    1818 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              181E : 00 00             
-(1) 4427/    1820 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4434/    1820 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              1826 : 00 00             
-(1) 4428/    1828 : 00 00 00 00 00 05   		db 00h,00h,00h,00h,00h,05h,00h,00h	; Channel 6
+(1) 4435/    1828 : 00 00 00 00 00 05   		db 00h,00h,00h,00h,00h,05h,00h,00h	; Channel 6
              182E : 00 00             
-(1) 4429/    1830 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4436/    1830 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              1836 : 00 00             
-(1) 4430/    1838 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4437/    1838 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              183E : 00 00             
-(1) 4431/    1840 : 00 00 00 00 00 06   		db 00h,00h,00h,00h,00h,06h,00h,00h	; Channel 7
+(1) 4438/    1840 : 00 00 00 00 00 06   		db 00h,00h,00h,00h,00h,06h,00h,00h	; Channel 7
              1846 : 00 00             
-(1) 4432/    1848 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4439/    1848 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              184E : 00 00             
-(1) 4433/    1850 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4440/    1850 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              1856 : 00 00             
-(1) 4434/    1858 : 00 00 00 00 00 07   		db 00h,00h,00h,00h,00h,07h,00h,00h	; Channel 7
+(1) 4441/    1858 : 00 00 00 00 00 07   		db 00h,00h,00h,00h,00h,07h,00h,00h	; Channel 7
              185E : 00 00             
-(1) 4435/    1860 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4442/    1860 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              1866 : 00 00             
-(1) 4436/    1868 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4443/    1868 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              186E : 00 00             
-(1) 4437/    1870 : FF FF               		dw -1	; end-of-list
-(1) 4438/    1872 : 00 00 00 00 00 00   tblPWM:		db 00h,00h,00h,00h,00h,00h,00h,00h	; Channel 1
+(1) 4444/    1870 : FF FF               		dw -1	; end-of-list
+(1) 4445/    1872 : 00 00 00 00 00 00   tblPWM:		db 00h,00h,00h,00h,00h,00h,00h,00h	; Channel 1
              1878 : 00 00             
-(1) 4439/    187A : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4446/    187A : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              1880 : 00 00             
-(1) 4440/    1882 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4447/    1882 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              1888 : 00 00             
-(1) 4441/    188A : 00 00 00 00 00 01   		db 00h,00h,00h,00h,00h,01h,00h,00h	; Channel 2
+(1) 4448/    188A : 00 00 00 00 00 01   		db 00h,00h,00h,00h,00h,01h,00h,00h	; Channel 2
              1890 : 00 00             
-(1) 4442/    1892 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4449/    1892 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              1898 : 00 00             
-(1) 4443/    189A : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4450/    189A : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              18A0 : 00 00             
-(1) 4444/    18A2 : 00 00 00 00 00 02   		db 00h,00h,00h,00h,00h,02h,00h,00h	; Channel 3
+(1) 4451/    18A2 : 00 00 00 00 00 02   		db 00h,00h,00h,00h,00h,02h,00h,00h	; Channel 3
              18A8 : 00 00             
-(1) 4445/    18AA : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4452/    18AA : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              18B0 : 00 00             
-(1) 4446/    18B2 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4453/    18B2 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              18B8 : 00 00             
-(1) 4447/    18BA : 00 00 00 00 00 03   		db 00h,00h,00h,00h,00h,03h,00h,00h	; Channel 4
+(1) 4454/    18BA : 00 00 00 00 00 03   		db 00h,00h,00h,00h,00h,03h,00h,00h	; Channel 4
              18C0 : 00 00             
-(1) 4448/    18C2 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4455/    18C2 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              18C8 : 00 00             
-(1) 4449/    18CA : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4456/    18CA : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              18D0 : 00 00             
-(1) 4450/    18D2 : 00 00 00 00 00 04   		db 00h,00h,00h,00h,00h,04h,00h,00h	; Channel 5
+(1) 4457/    18D2 : 00 00 00 00 00 04   		db 00h,00h,00h,00h,00h,04h,00h,00h	; Channel 5
              18D8 : 00 00             
-(1) 4451/    18DA : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4458/    18DA : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              18E0 : 00 00             
-(1) 4452/    18E2 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4459/    18E2 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              18E8 : 00 00             
-(1) 4453/    18EA : 00 00 00 00 00 05   		db 00h,00h,00h,00h,00h,05h,00h,00h	; Channel 6
+(1) 4460/    18EA : 00 00 00 00 00 05   		db 00h,00h,00h,00h,00h,05h,00h,00h	; Channel 6
              18F0 : 00 00             
-(1) 4454/    18F2 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4461/    18F2 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              18F8 : 00 00             
-(1) 4455/    18FA : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4462/    18FA : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              1900 : 00 00             
-(1) 4456/    1902 : 00 00 00 00 00 06   		db 00h,00h,00h,00h,00h,06h,00h,00h	; Channel 7
+(1) 4463/    1902 : 00 00 00 00 00 06   		db 00h,00h,00h,00h,00h,06h,00h,00h	; Channel 7
              1908 : 00 00             
-(1) 4457/    190A : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4464/    190A : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              1910 : 00 00             
-(1) 4458/    1912 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4465/    1912 : 00 00 00 00 00 00   		db 00h,00h,00h,00h,00h,00h,00h,00h
              1918 : 00 00             
-(1) 4459/    191A : FF FF               		dw -1	; end-of-list
-(1) 4460/    191C :                     
-(1) 4461/    191C :                     ; ====================================================================
-(1) 4462/    191C :                     ; ----------------------------------------------------------------
-(1) 4463/    191C :                     ; MASTER buffers list
-(1) 4464/    191C :                     ;
-(1) 4465/    191C :                     ; dw track_buffer
-(1) 4466/    191C :                     ; dw channel_list,block_cache,header_cache,track_cache
-(1) 4467/    191C :                     ;
-(1) 4468/    191C :                     ; (track_cache: 1BIT SIZES ONLY, ALIGNED)
+(1) 4466/    191A : FF FF               		dw -1	; end-of-list
+(1) 4467/    191C :                     
+(1) 4468/    191C :                     ; ====================================================================
 (1) 4469/    191C :                     ; ----------------------------------------------------------------
-(1) 4470/    191C :                     
-(1) 4471/    191C :                     nikona_BuffList:
-(1) 4472/    191C : 3A 1B F4 1B DA 1A   	dw trkBuff_0,trkBlks_0,trkHdrs_0,trkCach_0
+(1) 4470/    191C :                     ; MASTER buffers list
+(1) 4471/    191C :                     ;
+(1) 4472/    191C :                     ; dw track_buffer
+(1) 4473/    191C :                     ; dw channel_list,block_cache,header_cache,track_cache
+(1) 4474/    191C :                     ;
+(1) 4475/    191C :                     ; (track_cache: 1BIT SIZES ONLY, ALIGNED)
+(1) 4476/    191C :                     ; ----------------------------------------------------------------
+(1) 4477/    191C :                     
+(1) 4478/    191C :                     nikona_BuffList:
+(1) 4479/    191C : 3A 1B F4 1B DA 1A   	dw trkBuff_0,trkBlks_0,trkHdrs_0,trkCach_0
              1922 : 00 1F             
-(1) 4473/    1924 : 78 1B FC 1B FA 1A   	dw trkBuff_1,trkBlks_1,trkHdrs_1,trkCach_1
+(1) 4480/    1924 : 78 1B FC 1B FA 1A   	dw trkBuff_1,trkBlks_1,trkHdrs_1,trkCach_1
              192A : 20 1F             
-(1) 4474/    192C : B6 1B 04 1C 1A 1B   	dw trkBuff_2,trkBlks_2,trkHdrs_2,trkCach_2
+(1) 4481/    192C : B6 1B 04 1C 1A 1B   	dw trkBuff_2,trkBlks_2,trkHdrs_2,trkCach_2
              1932 : 40 1F             
-(1) 4475/    1934 :                     ; 	dw trkBuff_3,trkBlks_3,trkHdrs_3,trkCach_3
-(1) 4476/    1934 :                     nikona_BuffList_e:
-(1) 4477/    1934 : FF FF               	dw -1	; ENDOFLIST
-(1) 4478/    1936 :                     
-(1) 4479/    1936 :                     ; ====================================================================
-(1) 4480/    1936 :                     ; ----------------------------------------------------------------
-(1) 4481/    1936 :                     ; Buffer section
-(1) 4482/    1936 :                     ; ----------------------------------------------------------------
-(1) 4483/    1936 :                     
-(1) 4484/    1936 : 00 00 00 00 00 00   pcmcom:	db 00h,00h,00h,00h,00h,00h,00h,00h	; 0 - Playback bits: %0000PCOK /Pitchbend/keyCut/keyOff/KeyOn
+(1) 4482/    1934 :                     ; 	dw trkBuff_3,trkBlks_3,trkHdrs_3,trkCach_3
+(1) 4483/    1934 :                     nikona_BuffList_e:
+(1) 4484/    1934 : FF FF               	dw -1	; ENDOFLIST
+(1) 4485/    1936 :                     
+(1) 4486/    1936 :                     ; ====================================================================
+(1) 4487/    1936 :                     ; ----------------------------------------------------------------
+(1) 4488/    1936 :                     ; Buffer section
+(1) 4489/    1936 :                     ; ----------------------------------------------------------------
+(1) 4490/    1936 :                     
+(1) 4491/    1936 : 00 00 00 00 00 00   pcmcom:	db 00h,00h,00h,00h,00h,00h,00h,00h	; 0 - Playback bits: %0000PCOK /Pitchbend/keyCut/keyOff/KeyOn
              193C : 00 00             
-(1) 4485/    193E : 00 00 00 00 00 00   	db 00h,00h,00h,00h,00h,00h,00h,00h	; 8 - Pitch MSB
+(1) 4492/    193E : 00 00 00 00 00 00   	db 00h,00h,00h,00h,00h,00h,00h,00h	; 8 - Pitch MSB
              1944 : 00 00             
-(1) 4486/    1946 : 00 00 00 00 00 00   	db 00h,00h,00h,00h,00h,00h,00h,00h	; 16 - Pitch LSB
+(1) 4493/    1946 : 00 00 00 00 00 00   	db 00h,00h,00h,00h,00h,00h,00h,00h	; 16 - Pitch LSB
              194C : 00 00             
-(1) 4487/    194E : 00 00 00 00 00 00   	db 00h,00h,00h,00h,00h,00h,00h,00h	; 24 - Volume
+(1) 4494/    194E : 00 00 00 00 00 00   	db 00h,00h,00h,00h,00h,00h,00h,00h	; 24 - Volume
              1954 : 00 00             
-(1) 4488/    1956 : 00 00 00 00 00 00   	db 00h,00h,00h,00h,00h,00h,00h,00h	; 32 - Panning %RRRRLLLL
+(1) 4495/    1956 : 00 00 00 00 00 00   	db 00h,00h,00h,00h,00h,00h,00h,00h	; 32 - Panning %RRRRLLLL
              195C : 00 00             
-(1) 4489/    195E : 00 00 00 00 00 00   	db 00h,00h,00h,00h,00h,00h,00h,00h	; 40 - LoopEnable bit | 24-bit sample location in Sub-CPU area
+(1) 4496/    195E : 00 00 00 00 00 00   	db 00h,00h,00h,00h,00h,00h,00h,00h	; 40 - LoopEnable bit | 24-bit sample location in Sub-CPU area
              1964 : 00 00             
-(1) 4490/    1966 : 00 00 00 00 00 00   	db 00h,00h,00h,00h,00h,00h,00h,00h	; 48
+(1) 4497/    1966 : 00 00 00 00 00 00   	db 00h,00h,00h,00h,00h,00h,00h,00h	; 48
              196C : 00 00             
-(1) 4491/    196E : 00 00 00 00 00 00   	db 00h,00h,00h,00h,00h,00h,00h,00h	; 56
+(1) 4498/    196E : 00 00 00 00 00 00   	db 00h,00h,00h,00h,00h,00h,00h,00h	; 56
              1974 : 00 00             
-(1) 4492/    1976 :                     
-(1) 4493/    1976 : 00 00 00 00 00 00   pwmcom:	db 00h,00h,00h,00h,00h,00h,00h,00h	; 0 - Playback bits: %0000PCOK Pitchbend/keyCut/keyOff/KeyOn
+(1) 4499/    1976 :                     
+(1) 4500/    1976 : 00 00 00 00 00 00   pwmcom:	db 00h,00h,00h,00h,00h,00h,00h,00h	; 0 - Playback bits: %0000PCOK Pitchbend/keyCut/keyOff/KeyOn
              197C : 00 00             
-(1) 4494/    197E : 00 00 00 00 00 00   	db 00h,00h,00h,00h,00h,00h,00h,00h	; 8 - Volume | Pitch MSB
+(1) 4501/    197E : 00 00 00 00 00 00   	db 00h,00h,00h,00h,00h,00h,00h,00h	; 8 - Volume | Pitch MSB
              1984 : 00 00             
-(1) 4495/    1986 : 00 00 00 00 00 00   	db 00h,00h,00h,00h,00h,00h,00h,00h	; 16 - Pitch LSB
+(1) 4502/    1986 : 00 00 00 00 00 00   	db 00h,00h,00h,00h,00h,00h,00h,00h	; 16 - Pitch LSB
              198C : 00 00             
-(1) 4496/    198E : 00 00 00 00 00 00   	db 00h,00h,00h,00h,00h,00h,00h,00h	; 24 - Flags+MSB bits of sample %SlLRxxxx Stereo/Loop/Left/Right
+(1) 4503/    198E : 00 00 00 00 00 00   	db 00h,00h,00h,00h,00h,00h,00h,00h	; 24 - Flags+MSB bits of sample %SlLRxxxx Stereo/Loop/Left/Right
              1994 : 00 00             
-(1) 4497/    1996 : 00 00 00 00 00 00   	db 00h,00h,00h,00h,00h,00h,00h,00h	; 32 -
+(1) 4504/    1996 : 00 00 00 00 00 00   	db 00h,00h,00h,00h,00h,00h,00h,00h	; 32 -
              199C : 00 00             
-(1) 4498/    199E : 00 00 00 00 00 00   	db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4505/    199E : 00 00 00 00 00 00   	db 00h,00h,00h,00h,00h,00h,00h,00h
              19A4 : 00 00             
-(1) 4499/    19A6 : 00 00 00 00 00 00   	db 00h,00h,00h,00h,00h,00h,00h,00h
+(1) 4506/    19A6 : 00 00 00 00 00 00   	db 00h,00h,00h,00h,00h,00h,00h,00h
              19AC : 00 00             
-(1) 4500/    19AE :                     
-(1) 4501/    19AE : 00 00 00 00         psgcom:	db 00h,00h,00h,00h	;  0 - command 1 = key on, 2 = key off, 4 = stop snd
-(1) 4502/    19B2 : FF FF FF FF         	db -1, -1, -1, -1	;  4 - output level attenuation (%llll.0000, -1 = silent)
-(1) 4503/    19B6 : 00 00 00 00         	db 00h,00h,00h,00h	;  8 - attack rate (START)
-(1) 4504/    19BA : 00 00 00 00         	db 00h,00h,00h,00h	; 12 - decay rate
-(1) 4505/    19BE : 00 00 00 00         	db 00h,00h,00h,00h	; 16 - sustain level attenuation (MAXIMUM)
-(1) 4506/    19C2 : 00 00 00 00         	db 00h,00h,00h,00h	; 20 - release rate
-(1) 4507/    19C6 : 00 00 00 00         	db 00h,00h,00h,00h	; 24 - envelope mode 0 = off, 1 = attack, 2 = decay, 3 = sustain
-(1) 4508/    19CA : 00 00 00 00         	db 00h,00h,00h,00h	; 28 - freq bottom 4 bits
-(1) 4509/    19CE : 00 00 00 00         	db 00h,00h,00h,00h	; 32 - freq upper 6 bits
-(1) 4510/    19D2 : 00 00 00 00         	db 00h,00h,00h,00h	; 36 - attack level attenuation
-(1) 4511/    19D6 : 00 00 00 00         	db 00h,00h,00h,00h	; 40 - flags to indicate hardware should be updated
-(1) 4512/    19DA : 00 00 00 00         	db 00h,00h,00h,00h	; 44 - timer for sustain
-(1) 4513/    19DE : 00 00 00 00         	db 00h,00h,00h,00h	; 48 - MAX Volume
-(1) 4514/    19E2 : 00 00 00 00         	db 00h,00h,00h,00h	; 52 - Vibrato value
-(1) 4515/    19E6 : 00 00 00 00         	db 00h,00h,00h,00h	; 56 - General timer
-(1) 4516/    19EA :                     ; FM instrument storage
-(1) 4517/    19EA :                     fmcach_1	ds 28h
-(1) 4518/    1A12 :                     fmcach_2	ds 28h
-(1) 4519/    1A3A :                     fmcach_3	ds 28h
-(1) 4520/    1A62 :                     fmcach_4	ds 28h
-(1) 4521/    1A8A :                     fmcach_5	ds 28h
-(1) 4522/    1AB2 :                     fmcach_6	ds 28h
-(1) 4523/    1ADA :                     
-(1) 4524/    1ADA :                     ; --------------------------------------------------------
-(1) 4525/    1ADA :                     ; * USER customizable section *
-(1) 4526/    1ADA :                     ;
-(1) 4527/    1ADA :                     ; trkCach's MUST BE 00h ALIGNED.
-(1) 4528/    1ADA :                     ; --------------------------------------------------------
-(1) 4529/    1ADA :                     
-(1) 4530/    1ADA :                     trkHdrs_0	ds 8*4			; dw point,rowcntr
-(1) 4531/    1AFA :                     trkHdrs_1	ds 8*4
-(1) 4532/    1B1A :                     trkHdrs_2	ds 8*4
-(1) 4533/    1B3A :                     trkBuff_0	ds trk_ChnIndx+MAX_TRKINDX
-(1) 4534/    1B78 :                     trkBuff_1	ds trk_ChnIndx+MAX_TRKINDX
-(1) 4535/    1BB6 :                     trkBuff_2	ds trk_ChnIndx+MAX_TRKINDX
-(1) 4536/    1BF4 :                     trkBlks_0	ds 8
-(1) 4537/    1BFC :                     trkBlks_1	ds 8
-(1) 4538/    1C04 :                     trkBlks_2	ds 8
-(1) 4539/    1C0C :                     
-(1) 4540/    1C0C :                     trkListCach	ds 8*3		; per track slot
-(1) 4541/    1C24 :                     instListOut	ds 8*3
-(1) 4542/    1C3C :                     
-(1) 4543/    1C3C :                     ; ====================================================================
-(1) 4544/    1C3C :                     ; ----------------------------------------------------------------
-(1) 4545/    1C3C :                     ; Special aligned buffers
-(1) 4546/    1C3C :                     ;
-(1) 4547/    1C3C :                     ; Located at 1D00h
-(1) 4548/    1C3C :                     ; ----------------------------------------------------------------
+(1) 4507/    19AE :                     
+(1) 4508/    19AE : 00 00 00 00         psgcom:	db 00h,00h,00h,00h	;  0 - command 1 = key on, 2 = key off, 4 = stop snd
+(1) 4509/    19B2 : FF FF FF FF         	db -1, -1, -1, -1	;  4 - output level attenuation (%llll.0000, -1 = silent)
+(1) 4510/    19B6 : 00 00 00 00         	db 00h,00h,00h,00h	;  8 - attack rate (START)
+(1) 4511/    19BA : 00 00 00 00         	db 00h,00h,00h,00h	; 12 - decay rate
+(1) 4512/    19BE : 00 00 00 00         	db 00h,00h,00h,00h	; 16 - sustain level attenuation (MAXIMUM)
+(1) 4513/    19C2 : 00 00 00 00         	db 00h,00h,00h,00h	; 20 - release rate
+(1) 4514/    19C6 : 00 00 00 00         	db 00h,00h,00h,00h	; 24 - envelope mode 0 = off, 1 = attack, 2 = decay, 3 = sustain
+(1) 4515/    19CA : 00 00 00 00         	db 00h,00h,00h,00h	; 28 - freq bottom 4 bits
+(1) 4516/    19CE : 00 00 00 00         	db 00h,00h,00h,00h	; 32 - freq upper 6 bits
+(1) 4517/    19D2 : 00 00 00 00         	db 00h,00h,00h,00h	; 36 - attack level attenuation
+(1) 4518/    19D6 : 00 00 00 00         	db 00h,00h,00h,00h	; 40 - flags to indicate hardware should be updated
+(1) 4519/    19DA : 00 00 00 00         	db 00h,00h,00h,00h	; 44 - timer for sustain
+(1) 4520/    19DE : 00 00 00 00         	db 00h,00h,00h,00h	; 48 - MAX Volume
+(1) 4521/    19E2 : 00 00 00 00         	db 00h,00h,00h,00h	; 52 - Vibrato value
+(1) 4522/    19E6 : 00 00 00 00         	db 00h,00h,00h,00h	; 56 - General timer
+(1) 4523/    19EA :                     ; FM instrument storage
+(1) 4524/    19EA :                     fmcach_1	ds 28h
+(1) 4525/    1A12 :                     fmcach_2	ds 28h
+(1) 4526/    1A3A :                     fmcach_3	ds 28h
+(1) 4527/    1A62 :                     fmcach_4	ds 28h
+(1) 4528/    1A8A :                     fmcach_5	ds 28h
+(1) 4529/    1AB2 :                     fmcach_6	ds 28h
+(1) 4530/    1ADA :                     
+(1) 4531/    1ADA :                     ; --------------------------------------------------------
+(1) 4532/    1ADA :                     ; * USER customizable section *
+(1) 4533/    1ADA :                     ;
+(1) 4534/    1ADA :                     ; trkCach's MUST BE 00h ALIGNED.
+(1) 4535/    1ADA :                     ; --------------------------------------------------------
+(1) 4536/    1ADA :                     
+(1) 4537/    1ADA :                     trkHdrs_0	ds 8*4			; dw point,rowcntr
+(1) 4538/    1AFA :                     trkHdrs_1	ds 8*4
+(1) 4539/    1B1A :                     trkHdrs_2	ds 8*4
+(1) 4540/    1B3A :                     trkBuff_0	ds trk_ChnIndx+MAX_TRKINDX
+(1) 4541/    1B78 :                     trkBuff_1	ds trk_ChnIndx+MAX_TRKINDX
+(1) 4542/    1BB6 :                     trkBuff_2	ds trk_ChnIndx+MAX_TRKINDX
+(1) 4543/    1BF4 :                     trkBlks_0	ds 8
+(1) 4544/    1BFC :                     trkBlks_1	ds 8
+(1) 4545/    1C04 :                     trkBlks_2	ds 8
+(1) 4546/    1C0C :                     
+(1) 4547/    1C0C :                     trkListCach	ds 8*3		; per track slot
+(1) 4548/    1C24 :                     instListOut	ds 8*3
 (1) 4549/    1C3C :                     
-(1) 4550/    1D00 :                     		org 1D00h
-(1) 4551/    1D00 :                     dWaveBuff	ds 100h		; WAVE data buffer: 100h bytes, updates every 80h
-(1) 4552/    1E00 :                     trkChnls	ds 8*MAX_TRKCHN
-(1) 4553/    1F00 :                     trkCach_0	ds MAX_RCACH	; <--
-(1) 4554/    1F20 :                     trkCach_1	ds MAX_RCACH
-(1) 4555/    1F40 :                     trkCach_2	ds MAX_RCACH
-(1) 4556/    1F60 :                     trkCach_3	ds MAX_RCACH
-(1) 4557/    1F80 :                     
-(1) 4558/    1F80 :                     ; --------------------------------------------------------
-(1) 4559/    1F80 :                     
-(1) 4560/    1F80 :                     ; last temporals...
-(1) 4561/    1F80 : 00                  tickSpSet	db 0		; **
-(1) 4562/    1F81 : 00                  tickFlag	db 0		; Tick flag from VBlank
-(1) 4563/    1F82 : 00                  tickCnt		db 0		; ** Tick counter (PUT THIS AFTER tickFlag)
-(1) 4564/    1F83 : 00                  psgHatMode	db 0		; Current PSGN mode
-(1) 4565/    1F84 : 00                  fmSpecial	db 0		; copy of FM3 enable bit
-(1) 4566/    1F85 : 00                  commZRead	db 0		; cmd fifo READ pointer (here)
-(1) 4567/    1F86 : 00                  trkListPage	db 0
-(1) 4568/    1F87 : 00                  marsUpd		db 0		; Flag to request a PWM transfer
-(1) 4569/    1F88 : 00                  mcdUpd		db 0		; Flag to request a PCM transfer
-(1) 4570/    1F89 : 00 00               wave_Start	dw 0		; START: 68k 24-bit pointer
-(1) 4571/    1F8B : 00                  		db 0
-(1) 4572/    1F8C : 00 00               wave_Len	dw 0		; LENGTH 24-bit
-(1) 4573/    1F8E : 00                  		db 0
-(1) 4574/    1F8F : 00 00               wave_Loop	dw 0		; LOOP POINT 24-bit
-(1) 4575/    1F91 : 00                  		db 0
-(1) 4576/    1F92 : 00 01               wave_Pitch	dw 0100h	; 01.00h
-(1) 4577/    1F94 : 00                  wave_Flags	db 0		; WAVE playback flags (%10x: 1 loop / 0 no loop)
-(1) 4578/    1F95 : 00                  wave_Priority	db 0
-(1) 4579/    1F96 : 00                  currTickBits	db 0		; Current Tick/Subbeat flags (000000BTb B-beat, T-tick)
-(1) 4580/    1F97 : 00                  dDacFifoMid	db 0		; WAVE play halfway refill flag (00h/80h)
-(1) 4581/    1F98 : 00 00 00            dDacPntr	db 0,0,0	; WAVE play current ROM position
-(1) 4582/    1F9B : 00 00 00            dDacCntr	db 0,0,0	; WAVE play length counter
-(1) 4583/    1F9E : 00                  x68ksrclsb	db 0		; transferRom temporal LSB
-(1) 4584/    1F9F : 00                  x68ksrcmid	db 0		; transferRom temporal MID
-(1) 4585/    1FA0 : 00 00               sbeatAcc	dw 0		; Accumulates on each tick to trigger the sub beats
-(1) 4586/    1FA2 : D5 00               sbeatPtck	dw 200+13	; Default global subbeats (-32 for PAL)
-(1) 4587/    1FA4 :                     headerOut	ds 00Eh		; Temporal storage for 68k pointers
-(1) 4588/    1FB2 :                     headerOut_e	ds 2		; reverse readpoint
-(1) 4589/    1FB4 :                     sampleHead	ds 006h
-(1) 4590/    1FBA :                     
-(1) 4591/    1FBA :                     ; --------------------------------------------------------
-(1) 4592/    1FBA :                     
-(1) 4593/    3F36 :                     		dephase
-(1) 4594/    3F36 :                     		cpu 68000		; [AS] Return to 68k
-(1) 4595/    3F36 :                     		padding off		; [AS] NO padding
-(1) 4596/    3F36 :                     		align 2
-(1) 4597/    3F36 :                     
+(1) 4550/    1C3C :                     ; ====================================================================
+(1) 4551/    1C3C :                     ; ----------------------------------------------------------------
+(1) 4552/    1C3C :                     ; Special aligned buffers
+(1) 4553/    1C3C :                     ;
+(1) 4554/    1C3C :                     ; Located at 1D00h
+(1) 4555/    1C3C :                     ; ----------------------------------------------------------------
+(1) 4556/    1C3C :                     
+(1) 4557/    1D00 :                     		org 1D00h
+(1) 4558/    1D00 :                     dWaveBuff	ds 100h		; WAVE data buffer: 100h bytes, updates every 80h
+(1) 4559/    1E00 :                     trkChnls	ds 8*MAX_TRKCHN
+(1) 4560/    1F00 :                     trkCach_0	ds MAX_RCACH	; <--
+(1) 4561/    1F20 :                     trkCach_1	ds MAX_RCACH
+(1) 4562/    1F40 :                     trkCach_2	ds MAX_RCACH
+(1) 4563/    1F60 :                     trkCach_3	ds MAX_RCACH
+(1) 4564/    1F80 :                     
+(1) 4565/    1F80 :                     ; --------------------------------------------------------
+(1) 4566/    1F80 :                     
+(1) 4567/    1F80 :                     ; last temporals...
+(1) 4568/    1F80 : 00                  tickSpSet	db 0		; **
+(1) 4569/    1F81 : 00                  tickFlag	db 0		; Tick flag from VBlank
+(1) 4570/    1F82 : 00                  tickCnt		db 0		; ** Tick counter (PUT THIS AFTER tickFlag)
+(1) 4571/    1F83 : 00                  psgHatMode	db 0		; Current PSGN mode
+(1) 4572/    1F84 : 00                  fmSpecial	db 0		; copy of FM3 enable bit
+(1) 4573/    1F85 : 00                  commZRead	db 0		; cmd fifo READ pointer (here)
+(1) 4574/    1F86 : 00                  trkListPage	db 0
+(1) 4575/    1F87 : 00                  marsUpd		db 0		; Flag to request a PWM transfer
+(1) 4576/    1F88 : 00                  mcdUpd		db 0		; Flag to request a PCM transfer
+(1) 4577/    1F89 : 00 00               wave_Start	dw 0		; START: 68k 24-bit pointer
+(1) 4578/    1F8B : 00                  		db 0
+(1) 4579/    1F8C : 00 00               wave_Len	dw 0		; LENGTH 24-bit
+(1) 4580/    1F8E : 00                  		db 0
+(1) 4581/    1F8F : 00 00               wave_Loop	dw 0		; LOOP POINT 24-bit
+(1) 4582/    1F91 : 00                  		db 0
+(1) 4583/    1F92 : 00 01               wave_Pitch	dw 0100h	; 01.00h
+(1) 4584/    1F94 : 00                  wave_Flags	db 0		; WAVE playback flags (%10x: 1 loop / 0 no loop)
+(1) 4585/    1F95 : 00                  wave_Priority	db 0
+(1) 4586/    1F96 : 00                  currTickBits	db 0		; Current Tick/Subbeat flags (000000BTb B-beat, T-tick)
+(1) 4587/    1F97 : 00                  dDacFifoMid	db 0		; WAVE play halfway refill flag (00h/80h)
+(1) 4588/    1F98 : 00 00 00            dDacPntr	db 0,0,0	; WAVE play current ROM position
+(1) 4589/    1F9B : 00 00 00            dDacCntr	db 0,0,0	; WAVE play length counter
+(1) 4590/    1F9E : 00                  x68ksrclsb	db 0		; transferRom temporal LSB
+(1) 4591/    1F9F : 00                  x68ksrcmid	db 0		; transferRom temporal MID
+(1) 4592/    1FA0 : 00 00               sbeatAcc	dw 0		; Accumulates on each tick to trigger the sub beats
+(1) 4593/    1FA2 : D5 00               sbeatPtck	dw 200+13	; Default global subbeats (-32 for PAL)
+(1) 4594/    1FA4 :                     headerOut	ds 00Eh		; Temporal storage for 68k pointers
+(1) 4595/    1FB2 :                     headerOut_e	ds 2		; reverse readpoint
+(1) 4596/    1FB4 :                     sampleHead	ds 006h
+(1) 4597/    1FBA :                     
+(1) 4598/    1FBA :                     ; --------------------------------------------------------
+(1) 4599/    1FBA :                     
+(1) 4600/    3F36 :                     		dephase
+(1) 4601/    3F36 :                     		cpu 68000		; [AS] Return to 68k
+(1) 4602/    3F36 :                     		padding off		; [AS] NO padding
+(1) 4603/    3F36 :                     		align 2
+(1) 4604/    3F36 :                     
      281/  883F36 :                     		phase $880000+*		; 32X cartridge: $880000+ area
      283/  883F36 :                     Z80_CODE_END:
      285/    3F36 :                     		dephase
@@ -13943,10 +13943,10 @@ DREQ RAM uses: 710
 (1)  714/FFFFFFFFFFFF22E1 : 2020 2020 2020      		dc.b "                \{DATE} \{TIME}",$0A
          FFFFFFFFFFFF22E7 : 2020 2020 2020 
          FFFFFFFFFFFF22ED : 2020 2020 3032 
-         FFFFFFFFFFFF22F3 : 2F32 302F 3230 
-         FFFFFFFFFFFF22F9 : 3234 2030 353A 
-         FFFFFFFFFFFF22FF : 3132 3A33 3120 
-         FFFFFFFFFFFF2305 : 414D 0A          
+         FFFFFFFFFFFF22F3 : 2F32 312F 3230 
+         FFFFFFFFFFFF22F9 : 3234 2030 363A 
+         FFFFFFFFFFFF22FF : 3035 3A32 3320 
+         FFFFFFFFFFFF2305 : 504D 0A          
 (1)  715/FFFFFFFFFFFF2308 : 0A                  		dc.b $0A
 (1)  716/FFFFFFFFFFFF2309 : 2020 2020 6765      		dc.b "    gemaTest",$0A
          FFFFFFFFFFFF230F : 6D61 5465 7374 0A 
@@ -14962,7 +14962,7 @@ DREQ RAM uses: 710
      481/   64038 :                     ROM_END:
      486/   64038 :                     		align $8000			; Cartridge padding
      488/   68000 :                     
- AS V1.42 Beta [Bld 212] - Source File main.asm - Page 3 - 02/20/2024 05:12:31 AM
+ AS V1.42 Beta [Bld 212] - Source File main.asm - Page 3 - 02/21/2024 06:05:23 PM
 
 
   Symbol Table (* = unused):
@@ -15049,7 +15049,7 @@ DREQ RAM uses: 710
  DAC_ON :                      135D C |  DAC_PLAY :                    1387 C |
  DAC_REFILL :                  13BB C |  DAC_REFILL.DACFILL_END :      147A C |
  DAC_REFILL.DACFILL_LOOP :     1433 C |  DAC_REFILL.DACFILL_RET :      147D C |
- DAC_REFILL.DAC_OVER :         1409 C |  DATE :                "02/20/2024" - |
+ DAC_REFILL.DAC_OVER :         1409 C |  DATE :                "02/21/2024" - |
  DDACCNTR :                    1F9B C |  DDACFIFOMID :                 1F97 C |
  DDACPNTR :                    1F98 C | *DISPENBL :                      40 - |
  DKY :                            C - | *DMAENBL :                       10 - |
@@ -15682,7 +15682,7 @@ DREQ RAM uses: 710
  TBLPSG :                      16BC C |  TBLPSGN :                     1706 C |
  TBLPWM :                      1872 C |  TH :                      20000000 - |
  TICKCNT :                     1F82 C |  TICKFLAG :                    1F81 C |
- TICKSPSET :                   1F80 C |  TIME :               "05:12:31 AM" - |
+ TICKSPSET :                   1F80 C |  TIME :               "06:05:23 PM" - |
  TIMERCTL :                      30 - | *TMR :                           2C - |
  TRACK_OUT :                    54D C |  TRACK_OUT.INDX_DEL :           55B C |
  TRACK_OUT.NOTHIN :             58D C |  TRANSFERROM :                 1125 C |
@@ -15893,7 +15893,7 @@ DREQ RAM uses: 710
    1564 symbols
     275 unused symbols
 
- AS V1.42 Beta [Bld 212] - Source File main.asm - Page 4 - 02/20/2024 05:12:31 AM
+ AS V1.42 Beta [Bld 212] - Source File main.asm - Page 4 - 02/21/2024 06:05:23 PM
 
 
   Defined Macros:
@@ -15915,7 +15915,7 @@ STRCT                                 | VDP_SHOWME
 
      26 macros
 
- AS V1.42 Beta [Bld 212] - Source File main.asm - Page 5 - 02/20/2024 05:12:31 AM
+ AS V1.42 Beta [Bld 212] - Source File main.asm - Page 5 - 02/21/2024 06:05:23 PM
 
 
   Defined Functions:
@@ -15924,7 +15924,7 @@ STRCT                                 | VDP_SHOWME
 NOTZ80                                | MAP_SIZE                             
 CELL_VRAM                             | LOCATE                               
 
- AS V1.42 Beta [Bld 212] - Source File main.asm - Page 6 - 02/20/2024 05:12:31 AM
+ AS V1.42 Beta [Bld 212] - Source File main.asm - Page 6 - 02/21/2024 06:05:23 PM
 
 
   Code Pages:
@@ -15934,10 +15934,10 @@ STANDARD (0 changed characters)
 
 1 code page
 
-0.19 seconds assembly time
+0.20 seconds assembly time
 
-  14886 lines source file
-  15656 lines incl. macro expansions
+  14893 lines source file
+  15663 lines incl. macro expansions
       5 passes
       0 errors
       0 warnings

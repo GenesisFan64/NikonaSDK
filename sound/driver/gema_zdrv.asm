@@ -3413,6 +3413,13 @@ zmars_send:
 		inc	hl
 		djnz	.clr_pwm
 .pwm_exit:
+	if EMU=0
+		rst	8		; <-- non-EMU wave sync
+		ld	b,3
+		djnz	$
+		nop
+		nop
+	endif
 	endif
 		ret
 

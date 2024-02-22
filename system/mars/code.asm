@@ -1043,7 +1043,7 @@ SH2_M_Entry:
 	endif
 		mov	#_framebuffer,r1	; Copy the other half of SDRAM
 		mov	#CS3+($20000-$38),r2
-		mov	#SH2_END&$3FFFFF,r3
+		mov	#CS3+(SH2_END&$3FFFFF),r3
 .copy_new:
 		cmp/ge	r3,r2
 		bt	.exit_send

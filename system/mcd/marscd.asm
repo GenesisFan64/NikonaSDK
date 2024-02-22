@@ -199,10 +199,10 @@ loc_2EE:
 		beq.s	.wait_adapter
 		lea	($A15100).l,a6
 		move.l	#"_CD_",$20(a6)			; Tell 32X we are ready.
-; .master:	cmp.l	#"M_OK",$20(a6)
-; 		bne.s	.master
-; .slave:	cmp.l	#"S_OK",$24(a6)
-; 		bne.s	.slave
+.master:	cmp.l	#"M_OK",$20(a6)
+		bne.s	.master
+.slave:		cmp.l	#"S_OK",$24(a6)
+		bne.s	.slave
 .wait_mstr:	move.l	$20(a6),d0
 		bne.s	.wait_mstr
 .wait_slv:	move.l	$24(a6),d0
@@ -222,7 +222,11 @@ MarsInitHeader:
 		dc.l $00000000				; Version
 		dc.l $00000000				; Not Used
 		dc.l $06000000				; SDRAM area
-		dc.l MARS_RAMCODE_e-MARS_RAMCODE	; SDRAM size (MAXIMUM SIZE: $1FFC8)
+	if EMU
+		dc.l MARS_RAMCODE_E-MARS_RAMCODE	; <-- Fusion is weird, this shouldn't be possible
+	else
+		dc.l $1FFC8				; SDRAM size (MAXIMUM TRANSFER SIZE: $1FFC8)
+	endif
 		dc.l SH2_M_Entry			; Master SH2 PC (SH2 area)
 		dc.l SH2_S_Entry			; Slave SH2 PC (SH2 area)
 		dc.l SH2_Master				; Master SH2 default VBR
