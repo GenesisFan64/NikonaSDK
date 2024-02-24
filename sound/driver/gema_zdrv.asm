@@ -1,6 +1,6 @@
 ; ====================================================================
 ; --------------------------------------------------------
-; GEMA/Nikona Z80 code v1.0
+; GEMA/Nikona Z80 code v0.9
 ; (C)2023-2024 GenesisFan64
 ; --------------------------------------------------------
 
@@ -22,7 +22,7 @@ MAX_TBLSIZE	equ 18h		; Max size for chip tables
 MAX_TRKINDX	equ 26		; Max channel indexes per buffer: 4PSG+6FM+8PCM+8PWM
 MAX_BLOCKS	equ 8		; Max Cache'd ROM blocks per track
 
-MAX_ZCMND	equ 20h		; Size of commands array, ** 1-bit SIZES ONLY **
+MAX_ZCMND	equ 10h		; Size of commands array, ** 1-bit SIZES ONLY **
 ZSET_TESTME	equ 0		; Set to 1 to check the DAC playback for quality by ear
 
 ; --------------------------------------------------------
@@ -46,22 +46,23 @@ trk_Patt	equ 06h ; ** [W] Current track's heads and patterns
 trk_Cach	equ 08h	; ** [W] Current track's cache notedata
 trk_Read	equ 0Ah	; [W] Track current pattern read
 trk_Rows	equ 0Ch	; [W] Track row counter
-trk_cachHalf	equ 0Dh ; ROM-cache halfcheck
-trk_rowPause	equ 0Eh	; Row-pause timer
-trk_tickTmr	equ 0Fh	; Ticks timer
-trk_currBlk	equ 10h	; Current block
-trk_Priority	equ 11h ; Priority level for this buffer
-trk_BankIns	equ 12h ; Instrument bank
-trk_BankHeads	equ 13h ; Header bank
-trk_BankBlk	equ 14h	; Block bank
-trk_MaxChnl	equ 15h ; MAX channels used in this track
-trk_VolMaster	equ 16h ; Master volume for this track slot (00-max), +80h update
-trk_VolFade	equ 17h	; Fade request byte
-trk_RomPattRead	equ 18h ; [3b] ROM current pattern data to be cache'd
-trk_RomPatt	equ 1Bh ; [3b] ROM BASE pattern data
-trk_RomInst	equ 1Eh ; [3b] ROM instrument data
-trk_RomBlks	equ 21h ; [3b] ROM blocks data
-trk_ChnIndx	equ 24h	; CHANNEL INDEXES START HERE
+trk_VolMaster	equ 0Eh ; [W] Master volume for this track slot (00-max), +80h update
+
+trk_cachHalf	equ 10h ; ROM-cache halfcheck
+trk_rowPause	equ 11h	; Row-pause timer
+trk_tickTmr	equ 12h	; Ticks timer
+trk_currBlk	equ 13h	; Current block
+trk_Priority	equ 14h ; Priority level for this buffer
+trk_BankIns	equ 15h ; Instrument bank
+trk_BankHeads	equ 16h ; Header bank
+trk_BankBlk	equ 17h	; Block bank
+trk_MaxChnl	equ 18h ; MAX channels used in this track
+trk_VolTarget	equ 19h	; Target fade volume
+trk_RomPattRead	equ 1Ah ; [3b] ROM current pattern data to be cache'd
+trk_RomPatt	equ 1Dh ; [3b] ROM BASE pattern data
+trk_RomInst	equ 20h ; [3b] ROM instrument data
+trk_RomBlks	equ 23h ; [3b] ROM blocks data
+trk_ChnIndx	equ 26h	; CHANNEL INDEXES START HERE
 
 ; chnBuff struct, 8 bytes ONLY
 ;
@@ -339,11 +340,10 @@ drv_loop:
 		dw .cmnd_1		; 01h - Set Master tracklist
 		dw .cmnd_2		; 02h - Play by track number
 		dw .cmnd_3		; 03h - Stop by track number
-		dw .cmnd_0		; 04h - ** Fade in or out
-		dw .cmnd_0		; 05h - ** Set maximum volume to slot
-		dw .cmnd_6		; 06h - Set GLOBAL sub-beats
-		dw .cmnd_0		; 07h -
-; 		dw .cmnd_8		; 08h - Stop ALL
+		dw .cmnd_0		; 04h - **
+		dw .cmnd_5		; 05h - Fade volume (FadeIn/FadeOut)
+		dw .cmnd_6		; 06h - Set maximum volume to slot
+		dw .cmnd_7		; 07h - Set GLOBAL sub-beats
 
 ; --------------------------------------------------------
 ; Command 00h
@@ -367,6 +367,11 @@ drv_loop:
 ; 		ld	a,1
 ; 		ld	(wave_Flags),a
 ; 		call	dac_play
+
+; 		ld	iy,trkBuff_0
+; 		ld	(iy+trk_VolMaster),64-16
+; 		ld	(iy+trk_VolTarget),64
+
 		jp	.next_cmd
 
 ; --------------------------------------------------------
@@ -376,7 +381,7 @@ drv_loop:
 ; --------------------------------------------------------
 
 .cmnd_1:
-		ld	hl,gemaMstrListPos+3	; 32-bit bigendian-address
+		ld	hl,gemaMstrListPos+3	; 32-bit big endian
 		call	.grab_arg		; $000000xx
 		ld	(hl),a
 		dec	hl
@@ -386,7 +391,7 @@ drv_loop:
 		call	.grab_arg		; $00xx0000
 		ld	(hl),a
 		dec	hl
-		call	.grab_arg		; $xx000000**
+		call	.grab_arg		; $xx000000 (filler)
 		ld	(hl),a
 		jp	.next_cmd
 
@@ -411,15 +416,7 @@ drv_loop:
 		jr	z,.srch_mode
 		cp	(nikona_BuffList_e-nikona_BuffList)/MAX_BUFFNTRY	; If maxed out slots
 		jp	nc,.next_cmd
-		add	a,a			; ** MANUAL MAX_BUFFNTRY
-		add	a,a			; id*8
-		add	a,a
-		ld	d,0
-		ld	e,a
-		add	iy,de
-		ld	a,(iy)
-		ld	h,(iy+1)
-		ld	l,a
+		call	.cmnd_rdslot
 		jr	.wrtto_slot
 ; -1
 .srch_mode:
@@ -452,7 +449,7 @@ drv_loop:
 ; --------------------------------------------------------
 ; Command 03h:
 ;
-; Stop track by sequence number
+; Stop track with the same sequence number
 ;
 ; SeqID,SlotIndex(-1 allslots)
 ; --------------------------------------------------------
@@ -466,6 +463,128 @@ drv_loop:
 		jr	z,.srch_del
 		cp	(nikona_BuffList_e-nikona_BuffList)/MAX_BUFFNTRY	; If maxed out slots
 		jp	nc,.next_cmd
+		call	.cmnd_rdslot
+		call	.wrtto_del
+		jp	.next_cmd
+; -1
+.srch_del:
+		call	.srch_for
+		cp	-1
+		jp	z,.next_cmd
+		call	.wrtto_del
+		jr	.srch_del
+.wrtto_del:
+		ld	(hl),-1		; -1 flag, stop channel and clear slot
+		inc	hl
+		ld	(hl),-1		; Reset seqId
+		rst	8
+		ret
+
+; --------------------------------------------------------
+; Command 05h:
+;
+; Fade volume (FadeIn/FadeOut)
+;
+; Arguments:
+; TargetVol,SlotIndex(If -1 autofill)
+; --------------------------------------------------------
+
+.cmnd_5:
+		call	.grab_arg		; d0: Master volume
+		ld	c,a			; copy to c
+		call	.grab_arg		; d1: Slot index
+		ld	iy,nikona_BuffList	; iy - Slot buffer list
+		cp	-1			; if -1, search for all with same ID
+		jr	z,.srch_fvol
+		cp	(nikona_BuffList_e-nikona_BuffList)/MAX_BUFFNTRY	; If maxed out slots
+		jp	nc,.next_cmd
+		call	.cmnd_rdslot
+		call	.wrtto_fvol
+		jp	.next_cmd
+; -1
+.srch_fvol:
+		ld	de,MAX_BUFFNTRY
+.next_fv:
+		ld	a,(iy)
+		cp	-1
+		jp	z,.next_cmd
+		ld	h,(iy+1)
+		ld	l,a
+		rst	8
+		add	iy,de
+		push	hl
+		pop	ix
+		call	.wrtto_fvol
+		jr	.next_fv
+.wrtto_fvol:
+		ld	(ix+trk_VolTarget),c
+		ld	(ix+trk_VolMaster+1),0
+		rst	8
+		ret
+
+; --------------------------------------------------------
+; Command 06h:
+;
+; Set track's master volume
+;
+; Arguments:
+; MasterVol,SlotIndex(If -1 autofill)
+; --------------------------------------------------------
+
+.cmnd_6:
+		call	.grab_arg		; d0: Master volume
+		ld	c,a			; copy to c
+		call	.grab_arg		; d1: Slot index
+		ld	iy,nikona_BuffList	; iy - Slot buffer list
+		cp	-1			; if -1, search for all with same ID
+		jr	z,.srch_vol
+		cp	(nikona_BuffList_e-nikona_BuffList)/MAX_BUFFNTRY	; If maxed out slots
+		jp	nc,.next_cmd
+		call	.cmnd_rdslot
+		call	.wrtto_vol
+		jp	.next_cmd
+; -1
+.srch_vol:
+		ld	de,MAX_BUFFNTRY
+.next_mv:
+		ld	a,(iy)
+		cp	-1
+		jp	z,.next_cmd
+		ld	h,(iy+1)
+		ld	l,a
+		rst	8
+		add	iy,de
+		push	hl
+		pop	ix
+		call	.wrtto_vol
+		jr	.next_mv
+.wrtto_vol:
+		ld	(ix+trk_VolMaster),c
+		ld	(ix+trk_VolTarget),c
+		ld	(ix+trk_VolMaster+1),0
+		rst	8
+		ret
+
+; --------------------------------------------------------
+; Command 07h:
+;
+; Set global sub-beats
+; --------------------------------------------------------
+
+.cmnd_7:
+		call	.grab_arg	; d0.w: $00xx
+		ld	c,a
+		call	.grab_arg	; d0.w: $xx00
+		ld	(sbeatPtck+1),a
+		ld	a,c
+		ld	(sbeatPtck),a
+		jp	.next_cmd
+
+; --------------------------------------------------------
+; Shared subs
+; --------------------------------------------------------
+
+.cmnd_rdslot:
 		add	a,a			; ** MANUAL MAX_BUFFNTRY
 		add	a,a			; id*8
 		add	a,a
@@ -475,24 +594,8 @@ drv_loop:
 		ld	a,(iy)
 		ld	h,(iy+1)
 		ld	l,a
-		call	.wrtto_del
-		jp	.next_cmd
-; -1
-.srch_del:
-		call	.srch_for
-		cp	-1
-		jp	z,.next_cmd
-		ld	a,(hl)
-		bit	7,a
-		jp	z,.srch_del
-		call	.wrtto_del
-		jp	.srch_del
-
-.wrtto_del:
-		ld	(hl),-1		; -1 flag, stop channel and clear slot
-		inc	hl
-		ld	(hl),-1		; Reset seqId
-		rst	8
+		push	hl
+		pop	ix
 		ret
 
 ; ------------------------------------------------
@@ -522,21 +625,6 @@ drv_loop:
 .found_f:
 		xor	a
 		ret
-
-; --------------------------------------------------------
-; Command 06h:
-;
-; Set global sub-beats
-; --------------------------------------------------------
-
-.cmnd_6:
-		call	.grab_arg	; d0.w: $00xx
-		ld	c,a
-		call	.grab_arg	; d0.w: $xx00
-		ld	(sbeatPtck+1),a
-		ld	a,c
-		ld	(sbeatPtck),a
-		jp	.next_cmd
 
 ; ====================================================================
 ; ----------------------------------------------------------------
@@ -581,6 +669,42 @@ upd_track:
 		cp	-1			; Flag is -1?
 		ret	z			; Return if mid-flag
 		rst	8
+	; ----------------------------------------
+	; Track setup
+		ld	l,(iy+trk_VolMaster+1)
+		ld	h,(iy+trk_VolMaster)
+		ld	c,(iy+trk_VolTarget)
+		ld	de,0100h		; <-- Manual volfade speed
+		ld	a,c
+		cp	h
+		jr	z,.keep_vol
+		jr	nc,.fade_out
+		ld	de,-80h
+		add	hl,de
+		jr	.too_much
+.fade_out:
+		add	hl,de
+		rst	8
+		ld	a,h
+		cp	c
+		jp	c,.too_much
+		ld	h,c
+		ld	l,0
+		ld	(iy+trk_VolTarget),c
+.too_much:
+		rst	8
+		ld	(iy+trk_VolMaster+1),l
+		ld	(iy+trk_VolMaster),h
+	if MCD|MARSCD
+		ld	a,1
+		ld	(mcdUpd),a
+	elseif MARS|MARSCD
+		ld	a,1
+		ld	(marsUpd),a
+	endif
+.keep_vol:
+
+	; ----------------------------------------
 		ld	a,(currTickBits)	; a - Tick/Beat bits
 		bit	0,b			; bit0: This track uses Beats?
 		jr	z,.sfxmd
@@ -652,43 +776,51 @@ upd_track:
 		dec	bc			; Decrement rowcount
 		ld	(iy+trk_Rows),c		; Write last row to memory
 		ld	(iy+(trk_Rows+1)),b
-; 		ld	c,(iy+trk_VolMaster)
-; 		bit	7,c
-; 		ret	z			; No volume changes.
-;
-; 		ld	ix,trkChnls
+		ret
+
+; 	; Set MASTER volume to this track
+; 		ld	a,(iy+trk_VolMaster)
+; 		ld	c,a			; c - Master volume to set
+; 		ld	ix,trkChnls		; ix - Channel list
 ; 		rst	8
-; 		push	iy			; Do volume changes for this slot
+; 		push	iy
 ; 		pop	hl
 ; 		ld	de,trk_ChnIndx
 ; 		add	hl,de			; hl - track indexes
-; 		ld	b,(iy+trk_MaxChnl)
-;
+; 		ld	b,(iy+trk_MaxChnl)	; b - num of channels used
 ; .next_indx:
 ; 		ld	a,(hl)
 ; 		or	a
 ; 		jr	z,.no_indxv
-; 		push	ix
-; 		add	a,a			; * 8
+; 		push	ix			; Save ix
+; 		add	a,a			; index * 8
 ; 		add	a,a
+; 		rst	8
 ; 		add	a,a
+; 		ld	d,0
 ; 		ld	e,a
 ; 		add	ix,de
+; ; 		ld	a,(ix+chnl_Flags)	; Check VOLUME bit ONLY
+; ; 		bit	2,a
+; ; 		jr	z,.no_vflag
+;
+; 	; TODO: flags with volume changes
 ; 		ld	a,(ix+chnl_Vol)
-; 		add	a,c
-; 		ld	e,40h
-; 		cp	a
-; 		jr	c,.max_out
-; 		ld	a,c
-; .max_out
+; 		sub	a,c
+; 		jp	nc,.max_out
+; 		jp	p,.max_out
+; 		nop
+; 		xor	a
+; .max_out:
 ; 		ld	(ix+chnl_Vol),a
-; 		pop	ix
+; .no_vflag:
+; 		pop	ix			; Get ix back
 ; .no_indxv:
 ; 		rst	8
 ; 		inc	hl
 ; 		nop
 ; 		djnz	.next_indx
-		ret				; Exit.
+; 		ret				; Exit.
 
 ; --------------------------------
 ; New note request
@@ -1198,16 +1330,17 @@ track_out:
 		ld	e,a
 		rst	8
 		add	ix,de
+		xor	a
 		ld	(ix+chnl_Note),-2
 		ld	(ix+chnl_Flags),1
 		ld	(ix+chnl_Vol),64
-		ld	(ix+chnl_EffId),0
+		ld	(ix+chnl_EffId),a
 		rst	8
-		ld	(ix+chnl_EffArg),0
-		ld	(ix+chnl_Ins),0
-		ld	(ix+chnl_Type),0
+		ld	(ix+chnl_EffArg),a
+		ld	(ix+chnl_Ins),a
+		ld	(ix+chnl_Type),a
 		pop	ix
-		ld	(hl),0
+		ld	(hl),a
 		nop
 .nothin:
 		inc	hl
@@ -1417,11 +1550,14 @@ tblbuff_read:
 	; de - instrument data
 		cp	-1			; Found any link?
 		ret	z
-		ld	a,(iy+trk_Priority)	; a - Set priority level
 		inc	hl			; Skip link
 		inc	hl
-		ld	(hl),a			; Write priority
-		ld	bc,10h-2		; Move to instr data
+		ld	a,(iy+trk_Priority)
+		ld	(hl),a			; Write priority level
+		inc	hl
+		ld	a,(iy+trk_VolMaster)
+		ld	(hl),a			; Write current MASTER volume
+		ld	bc,10h-3		; Move to instr data
 		add	hl,bc
 		ex	hl,de			; <-- swap for ldir
 		ld	bc,8
@@ -1928,7 +2064,8 @@ dtbl_frommul:
 		ld	(ix+DTL),l
 		ld	(ix+DTH),h
 .psg_keyon:
-		ld	a,(iy+08h)	; Set volume
+		ld	a,(iy+08h)	; Set current Volume
+		sub	a,(iy+03h)	; + MASTER vol
 		neg	a
 		rst	8
 		add	a,a
@@ -2185,9 +2322,8 @@ dtbl_frommul:
 		ld	b,0
 		ld	c,a
 		add	hl,bc
-		ld	a,(iy+08h)
-		sra	a		; volume / 2
-		and	01111111b
+		ld	a,(iy+08h)	; Read current Volume
+		sub	a,(iy+03h)	; + MASTER vol
 		ld	c,a
 		rst	8
 		ld	b,(hl)
@@ -2228,6 +2364,9 @@ dtbl_frommul:
 .write_tl:
 		ld	a,(hl)
 		sub	a,c
+		jp	p,.keep_tlmx
+		ld	a,7Fh
+.keep_tlmx:
 		push	bc
 		ld	e,a
 		ld	c,(iy+05h)
@@ -2400,13 +2539,20 @@ dtbl_frommul:
 		add	ix,de
 		ld	(ix),l
 		add	ix,de
-		ld	c,-1		; Set volume
-		ld	a,(iy+08h)
+
+		ld	c,-1
+		ld	a,(iy+08h)	; Read current Volume
+		sub	a,(iy+03h)	; + MASTER vol
 		add	a,a
 		add	a,a
-		jr	c,.v_overfl
 		add	a,c
-.v_overfl:
+; 		ld	c,a
+
+; 		ld	a,-1
+; 		add	a,c
+; 		jp	nc,.v_ovset
+; 		xor	a
+; .v_ovset:
 		ld	(ix),a
 		add	ix,de
 		ld	a,(iy+0Ah)
@@ -2471,13 +2617,11 @@ dtbl_frommul:
 		rst	8
 		ld	e,a		; e - set panning bits
 		xor	a
-		ld	a,(iy+08h)	; Read volume
+		ld	a,(iy+08h)	; Read current volume
+		sub	a,(iy+03h)	; + MASTER vol
 		neg	a
 		add	a,a
 		add	a,a
-; 		sla	a
-; 		sla	a
-; 		sla	a
 		jr	nc,.pwv_much
 		ld	a,-1
 .pwv_much:
@@ -4332,8 +4476,8 @@ wavFreq_List:
 	dw 0100h,0110h,0120h,012Eh,0147h,015Ah,016Ah,017Fh,0191h,01ACh,01C2h,01E0h	; x-5
 	dw 01F8h,0210h,0240h,0260h,0280h,02A0h,02D0h,02F8h,0320h,0350h,0380h,03C0h	; x-6
 	dw 0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h	; x-7
-	dw 0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h	; x-8
-	dw 0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h	; x-9
+; 	dw 0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h	; x-8
+; 	dw 0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h	; x-9
 
 ; ----------------------------------------
 ; SegaCD PCM ONLY
@@ -4349,15 +4493,96 @@ wavFreq_CdPcm:
 	dw  03F0h, 0424h, 0468h, 04A8h, 04ECh, 0540h, 0590h, 05E4h, 063Ch, 0698h, 0704h, 0760h	; x-4 16000 ok
 	dw  07DCh, 0848h, 08D4h, 0960h, 09F0h, 0A64h, 0B04h, 0BAAh, 0C60h, 0D18h, 0DE4h, 0EB6h	; x-5 32000 ok
 	dw  0FB0h, 1074h, 1184h, 1280h, 139Ch, 14C8h, 1624h, 174Ch, 18DCh, 1A38h, 1BE0h, 1D94h	; x-6 64000 unstable
-	dw  1F64h, 20FCh, 2330h, 2524h, 2750h, 29B4h, 2C63h, 2F63h, 31E0h, 347Bh, 377Bh, 3B41h	; x-7 128000 bad
-	dw  3EE8h, 4206h, 4684h, 4A5Ah, 4EB5h, 5379h, 58E1h, 5DE0h, 63C0h, 68FFh, 6EFFh, 783Ch	; x-8 256000 bad
-	dw  7FC2h, 83FCh, 8D14h, 9780h,0AA5Dh,0B1F9h,   -1 ,   -1 ,   -1 ,   -1 ,   -1 ,   -1 	; x-9 bad
+; 	dw  1F64h, 20FCh, 2330h, 2524h, 2750h, 29B4h, 2C63h, 2F63h, 31E0h, 347Bh, 377Bh, 3B41h	; x-7 128000 bad
+; 	dw  3EE8h, 4206h, 4684h, 4A5Ah, 4EB5h, 5379h, 58E1h, 5DE0h, 63C0h, 68FFh, 6EFFh, 783Ch	; x-8 256000 bad
+; 	dw  7FC2h, 83FCh, 8D14h, 9780h,0AA5Dh,0B1F9h,   -1 ,   -1 ,   -1 ,   -1 ,   -1 ,   -1 	; x-9 bad
 
+; ====================================================================
+; ----------------------------------------------------------------
+; MASTER buffers list
+;
+; dw track_buffer
+; dw channel_list,block_cache,header_cache,track_cache
+;
+; (track_cache: 1BIT SIZES ONLY, ALIGNED)
+; ----------------------------------------------------------------
+
+nikona_BuffList:
+	dw trkBuff_0,trkBlks_0,trkHdrs_0,trkCach_0
+	dw trkBuff_1,trkBlks_1,trkHdrs_1,trkCach_1
+	dw trkBuff_2,trkBlks_2,trkHdrs_2,trkCach_2
+; 	dw trkBuff_3,trkBlks_3,trkHdrs_3,trkCach_3
+nikona_BuffList_e:
+	dw -1	; ENDOFLIST
+
+; ====================================================================
+; ----------------------------------------------------------------
+; Buffer section
+; ----------------------------------------------------------------
+
+pcmcom:	db 00h,00h,00h,00h,00h,00h,00h,00h	; 0 - Playback bits: %0000PCOK /Pitchbend/keyCut/keyOff/KeyOn
+	db 00h,00h,00h,00h,00h,00h,00h,00h	; 8 - Pitch MSB
+	db 00h,00h,00h,00h,00h,00h,00h,00h	; 16 - Pitch LSB
+	db 00h,00h,00h,00h,00h,00h,00h,00h	; 24 - Volume
+	db 00h,00h,00h,00h,00h,00h,00h,00h	; 32 - Panning %RRRRLLLL
+	db 00h,00h,00h,00h,00h,00h,00h,00h	; 40 - LoopEnable bit | 24-bit sample location in Sub-CPU area
+	db 00h,00h,00h,00h,00h,00h,00h,00h	; 48
+	db 00h,00h,00h,00h,00h,00h,00h,00h	; 56
+
+pwmcom:	db 00h,00h,00h,00h,00h,00h,00h,00h	; 0 - Playback bits: %0000PCOK Pitchbend/keyCut/keyOff/KeyOn
+	db 00h,00h,00h,00h,00h,00h,00h,00h	; 8 - Volume | Pitch MSB
+	db 00h,00h,00h,00h,00h,00h,00h,00h	; 16 - Pitch LSB
+	db 00h,00h,00h,00h,00h,00h,00h,00h	; 24 - Flags+MSB bits of sample %SlLRxxxx Stereo/Loop/Left/Right
+	db 00h,00h,00h,00h,00h,00h,00h,00h	; 32 -
+	db 00h,00h,00h,00h,00h,00h,00h,00h
+	db 00h,00h,00h,00h,00h,00h,00h,00h
+
+psgcom:	db 00h,00h,00h,00h	;  0 - command 1 = key on, 2 = key off, 4 = stop snd
+	db -1, -1, -1, -1	;  4 - output level attenuation (%llll.0000, -1 = silent)
+	db 00h,00h,00h,00h	;  8 - attack rate (START)
+	db 00h,00h,00h,00h	; 12 - decay rate
+	db 00h,00h,00h,00h	; 16 - sustain level attenuation (MAXIMUM)
+	db 00h,00h,00h,00h	; 20 - release rate
+	db 00h,00h,00h,00h	; 24 - envelope mode 0 = off, 1 = attack, 2 = decay, 3 = sustain
+	db 00h,00h,00h,00h	; 28 - freq bottom 4 bits
+	db 00h,00h,00h,00h	; 32 - freq upper 6 bits
+	db 00h,00h,00h,00h	; 36 - attack level attenuation
+	db 00h,00h,00h,00h	; 40 - flags to indicate hardware should be updated
+	db 00h,00h,00h,00h	; 44 - timer for sustain
+	db 00h,00h,00h,00h	; 48 - MAX Volume
+	db 00h,00h,00h,00h	; 52 - Vibrato value
+	db 00h,00h,00h,00h	; 56 - General timer
+; FM instrument storage
+fmcach_1	ds 28h
+fmcach_2	ds 28h
+fmcach_3	ds 28h
+fmcach_4	ds 28h
+fmcach_5	ds 28h
+fmcach_6	ds 28h
+
+; --------------------------------------------------------
+; * USER customizable section *
+;
+; trkCach's MUST BE 00h ALIGNED.
+; --------------------------------------------------------
+
+trkHdrs_0	ds 8*4			; dw point,rowcntr
+trkHdrs_1	ds 8*4
+trkHdrs_2	ds 8*4
+trkBuff_0	ds trk_ChnIndx+MAX_TRKINDX
+trkBuff_1	ds trk_ChnIndx+MAX_TRKINDX
+trkBuff_2	ds trk_ChnIndx+MAX_TRKINDX
+trkBlks_0	ds 8
+trkBlks_1	ds 8
+trkBlks_2	ds 8
+
+; ====================================================================
 ; --------------------------------------------------------
 ; Channel table struct:
 ; 00  - DIRECT Linked channel from trkChnls
-; 02  - 00h-7Fh: Priority level / 80h+ Silence request (chip ID)
-; 03  - FREE
+; 02  - 00h-7Fh: Priority level or 80h+ Silence request (chip ID)
+; 03  - MASTER Volume for this channel
+; 04  - FREE
 ; 05  - Chip index (YM2612: KEY index)
 ; 06  - Frequency list index (YM2612: %oooiiiii oct|index)
 ; 07  - Pitchbend add/sub
@@ -4464,85 +4689,6 @@ tblPWM:		db 00h,00h,00h,00h,00h,00h,00h,00h	; Channel 1
 		db 00h,00h,00h,00h,00h,00h,00h,00h
 		db 00h,00h,00h,00h,00h,00h,00h,00h
 		dw -1	; end-of-list
-
-; ====================================================================
-; ----------------------------------------------------------------
-; MASTER buffers list
-;
-; dw track_buffer
-; dw channel_list,block_cache,header_cache,track_cache
-;
-; (track_cache: 1BIT SIZES ONLY, ALIGNED)
-; ----------------------------------------------------------------
-
-nikona_BuffList:
-	dw trkBuff_0,trkBlks_0,trkHdrs_0,trkCach_0
-	dw trkBuff_1,trkBlks_1,trkHdrs_1,trkCach_1
-	dw trkBuff_2,trkBlks_2,trkHdrs_2,trkCach_2
-; 	dw trkBuff_3,trkBlks_3,trkHdrs_3,trkCach_3
-nikona_BuffList_e:
-	dw -1	; ENDOFLIST
-
-; ====================================================================
-; ----------------------------------------------------------------
-; Buffer section
-; ----------------------------------------------------------------
-
-pcmcom:	db 00h,00h,00h,00h,00h,00h,00h,00h	; 0 - Playback bits: %0000PCOK /Pitchbend/keyCut/keyOff/KeyOn
-	db 00h,00h,00h,00h,00h,00h,00h,00h	; 8 - Pitch MSB
-	db 00h,00h,00h,00h,00h,00h,00h,00h	; 16 - Pitch LSB
-	db 00h,00h,00h,00h,00h,00h,00h,00h	; 24 - Volume
-	db 00h,00h,00h,00h,00h,00h,00h,00h	; 32 - Panning %RRRRLLLL
-	db 00h,00h,00h,00h,00h,00h,00h,00h	; 40 - LoopEnable bit | 24-bit sample location in Sub-CPU area
-	db 00h,00h,00h,00h,00h,00h,00h,00h	; 48
-	db 00h,00h,00h,00h,00h,00h,00h,00h	; 56
-
-pwmcom:	db 00h,00h,00h,00h,00h,00h,00h,00h	; 0 - Playback bits: %0000PCOK Pitchbend/keyCut/keyOff/KeyOn
-	db 00h,00h,00h,00h,00h,00h,00h,00h	; 8 - Volume | Pitch MSB
-	db 00h,00h,00h,00h,00h,00h,00h,00h	; 16 - Pitch LSB
-	db 00h,00h,00h,00h,00h,00h,00h,00h	; 24 - Flags+MSB bits of sample %SlLRxxxx Stereo/Loop/Left/Right
-	db 00h,00h,00h,00h,00h,00h,00h,00h	; 32 -
-	db 00h,00h,00h,00h,00h,00h,00h,00h
-	db 00h,00h,00h,00h,00h,00h,00h,00h
-
-psgcom:	db 00h,00h,00h,00h	;  0 - command 1 = key on, 2 = key off, 4 = stop snd
-	db -1, -1, -1, -1	;  4 - output level attenuation (%llll.0000, -1 = silent)
-	db 00h,00h,00h,00h	;  8 - attack rate (START)
-	db 00h,00h,00h,00h	; 12 - decay rate
-	db 00h,00h,00h,00h	; 16 - sustain level attenuation (MAXIMUM)
-	db 00h,00h,00h,00h	; 20 - release rate
-	db 00h,00h,00h,00h	; 24 - envelope mode 0 = off, 1 = attack, 2 = decay, 3 = sustain
-	db 00h,00h,00h,00h	; 28 - freq bottom 4 bits
-	db 00h,00h,00h,00h	; 32 - freq upper 6 bits
-	db 00h,00h,00h,00h	; 36 - attack level attenuation
-	db 00h,00h,00h,00h	; 40 - flags to indicate hardware should be updated
-	db 00h,00h,00h,00h	; 44 - timer for sustain
-	db 00h,00h,00h,00h	; 48 - MAX Volume
-	db 00h,00h,00h,00h	; 52 - Vibrato value
-	db 00h,00h,00h,00h	; 56 - General timer
-; FM instrument storage
-fmcach_1	ds 28h
-fmcach_2	ds 28h
-fmcach_3	ds 28h
-fmcach_4	ds 28h
-fmcach_5	ds 28h
-fmcach_6	ds 28h
-
-; --------------------------------------------------------
-; * USER customizable section *
-;
-; trkCach's MUST BE 00h ALIGNED.
-; --------------------------------------------------------
-
-trkHdrs_0	ds 8*4			; dw point,rowcntr
-trkHdrs_1	ds 8*4
-trkHdrs_2	ds 8*4
-trkBuff_0	ds trk_ChnIndx+MAX_TRKINDX
-trkBuff_1	ds trk_ChnIndx+MAX_TRKINDX
-trkBuff_2	ds trk_ChnIndx+MAX_TRKINDX
-trkBlks_0	ds 8
-trkBlks_1	ds 8
-trkBlks_2	ds 8
 
 trkListCach	ds 8*3		; per track slot
 instListOut	ds 8*3

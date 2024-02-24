@@ -11,74 +11,84 @@
 
 ; --------------------------------------------------------
 
-PcmIns_Arena1_01:
-	gSmpHead .end-.start,0
-.start:	binclude "sound/instr/smpl/arena1/01.wav",$2C
+PcmIns_menu_01:
+	gSmpHead .end-.start,784
+.start:	binclude "sound/instr/smpl/menu/01.wav",$2C
 .end:
 	align 2
-PcmIns_Arena1_02:
-	gSmpHead .end-.start,0
-.start:	binclude "sound/instr/smpl/arena1/02.wav",$2C
+PcmIns_menu_02:
+	gSmpHead .end-.start,700
+.start:	binclude "sound/instr/smpl/menu/02.wav",$2C
 .end:
 	align 2
-PcmIns_Arena1_03:
+PcmIns_menu_03:
 	gSmpHead .end-.start,0
-.start:	binclude "sound/instr/smpl/arena1/03.wav",$2C
+.start:	binclude "sound/instr/smpl/menu/03.wav",$2C
 .end:
 	align 2
-PcmIns_Arena1_04:
-	gSmpHead .end-.start,0
-.start:	binclude "sound/instr/smpl/arena1/04.wav",$2C
+; PcmIns_menu_04:
+; 	gSmpHead .end-.start,0
+; .start:	binclude "sound/instr/smpl/menu/04.wav",$2C
+; .end:
+	align 2
+PcmIns_menu_05:
+	gSmpHead .end-.start,5348
+.start:	binclude "sound/instr/smpl/menu/05.wav",$2C
 .end:
 	align 2
-PcmIns_Arena1_05:
+PcmIns_menu_06:
 	gSmpHead .end-.start,0
-.start:	binclude "sound/instr/smpl/arena1/05.wav",$2C
+.start:	binclude "sound/instr/smpl/menu/06.wav",$2C
 .end:
 	align 2
-PcmIns_Arena1_06:
+PcmIns_menu_07:
 	gSmpHead .end-.start,0
-.start:	binclude "sound/instr/smpl/arena1/06.wav",$2C
+.start:	binclude "sound/instr/smpl/menu/07.wav",$2C
 .end:
 	align 2
-PcmIns_Arena1_07:
+PcmIns_menu_08:
 	gSmpHead .end-.start,0
-.start:	binclude "sound/instr/smpl/arena1/07.wav",$2C
+.start:	binclude "sound/instr/smpl/menu/08.wav",$2C
 .end:
 	align 2
-PcmIns_Arena1_08:
+PcmIns_menu_09:
 	gSmpHead .end-.start,0
-.start:	binclude "sound/instr/smpl/arena1/08.wav",$2C
+.start:	binclude "sound/instr/smpl/menu/09.wav",$2C
 .end:
 	align 2
-PcmIns_Arena1_09:
+; PcmIns_menu_10:
+; 	gSmpHead .end-.start,0
+; .start:	binclude "sound/instr/smpl/menu/10.wav",$2C
+; .end:
+	align 2
+PcmIns_menu_11:
 	gSmpHead .end-.start,0
-.start:	binclude "sound/instr/smpl/arena1/09.wav",$2C
+.start:	binclude "sound/instr/smpl/menu/11.wav",$2C
 .end:
 	align 2
-PcmIns_Arena1_10:
+PcmIns_menu_12:
 	gSmpHead .end-.start,0
-.start:	binclude "sound/instr/smpl/arena1/10.wav",$2C
+.start:	binclude "sound/instr/smpl/menu/12.wav",$2C
 .end:
 	align 2
-PcmIns_Arena1_11:
+PcmIns_menu_13:
 	gSmpHead .end-.start,0
-.start:	binclude "sound/instr/smpl/arena1/11.wav",$2C
+.start:	binclude "sound/instr/smpl/menu/13.wav",$2C
 .end:
 	align 2
-PcmIns_Arena1_12:
-	gSmpHead .end-.start,0
-.start:	binclude "sound/instr/smpl/arena1/12.wav",$2C
+PcmIns_menu_14:
+	gSmpHead .end-.start,4080
+.start:	binclude "sound/instr/smpl/menu/14.wav",$2C
 .end:
 	align 2
-PcmIns_Arena1_13:
+PcmIns_menu_15:
 	gSmpHead .end-.start,0
-.start:	binclude "sound/instr/smpl/arena1/13.wav",$2C
+.start:	binclude "sound/instr/smpl/menu/15.wav",$2C
 .end:
 	align 2
-PcmIns_Arena1_14:
+PcmIns_menu_16:
 	gSmpHead .end-.start,0
-.start:	binclude "sound/instr/smpl/arena1/14.wav",$2C
+.start:	binclude "sound/instr/smpl/menu/16.wav",$2C
 .end:
 	align 2
 

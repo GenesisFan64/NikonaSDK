@@ -1,6 +1,6 @@
 ; ====================================================================
 ; --------------------------------------------------------
-; GEMA/Nikona sound driver v1.0
+; GEMA/Nikona sound driver v0.9
 ; (C)2023-2024 GenesisFan64
 ;
 ; Features:
@@ -410,9 +410,9 @@ gemaSetMasterList:
 ; Play a sequence with arguments
 ;
 ; Input:
-; d0.b - Sequence number
-; d1.b - Playback slot number
+; d0.b - Playback slot number
 ;        If -1: use auto-search
+; d1.b - Sequence number
 ; d2.b - Starting block
 ; --------------------------------------------------------
 
@@ -420,32 +420,81 @@ gemaPlayTrack:
 		bsr	sndReq_Enter
 		move.w	#$02,d7		; Command $02
 		bsr	sndReq_scmd
-		move.b	d0,d7		; d0.b Seq number
+		move.b	d1,d7		; d1.b Seq number
 		bsr	sndReq_sbyte
 		move.b	d2,d7		; d2.b Block <--
 		bsr	sndReq_sbyte
-		move.b	d1,d7		; d1.b Slot
+		move.b	d0,d7		; d0.b Slot
 		bsr	sndReq_sbyte
 		bra 	sndReq_Exit
 
 ; --------------------------------------------------------
 ; gemaStopTrack
 ;
-; Play a sequence with arguments
+; Stops tracks with the same sequence number
 ;
 ; Input:
-; d0.b - Sequence number
-; d1.b - Playback slot number
+; d0.b - Playback slot number
 ;        If -1: stop all slots with the same number
+; d1.b - Sequence number to search for
 ; --------------------------------------------------------
 
 gemaStopTrack:
 		bsr	sndReq_Enter
 		move.w	#$03,d7		; Command $03
 		bsr	sndReq_scmd
-		move.b	d0,d7		; d0.b Seq number
+		move.b	d1,d7		; d0.b Seq number
 		bsr	sndReq_sbyte
-		move.b	d1,d7		; d1.b Slot
+		move.b	d0,d7		; d1.b Slot
+		bsr	sndReq_sbyte
+		bra 	sndReq_Exit
+
+; --------------------------------------------------------
+; gemaFadeTrack
+;
+; Set Master volume to a track slot.
+;
+; Input:
+; d0.b - Playback slot number
+;        If -1: Apply to all slots
+; d1.b - Target volume
+; d2.b - Fade speed TODO
+;
+; Notes:
+; DO NOT MIX THIS WITH gemaSetTrackVol
+; --------------------------------------------------------
+
+gemaFadeTrack:
+		bsr	sndReq_Enter
+		move.w	#$05,d7		; Command $05
+		bsr	sndReq_scmd
+		move.b	d1,d7		; d0.b Target volume
+		bsr	sndReq_sbyte
+		move.b	d0,d7		; d1.b Slot
+		bsr	sndReq_sbyte
+		bra 	sndReq_Exit
+
+; --------------------------------------------------------
+; gemaSetTrackVol
+;
+; Set Master volume to a track slot.
+;
+; Input:
+; d0.b - Playback slot number
+;        If -1: Set to all slots
+; d1.b - Master volume ($00-$40 max-min)
+;
+; Notes:
+; DO NOT MIX THIS WITH gemaFadeTrack
+; --------------------------------------------------------
+
+gemaSetTrackVol:
+		bsr	sndReq_Enter
+		move.w	#$06,d7		; Command $06
+		bsr	sndReq_scmd
+		move.b	d1,d7		; d0.b Volume data <--
+		bsr	sndReq_sbyte
+		move.b	d0,d7		; d1.b Slot
 		bsr	sndReq_sbyte
 		bra 	sndReq_Exit
 
@@ -457,9 +506,12 @@ gemaStopTrack:
 ; d0.w - sub-beats
 ; --------------------------------------------------------
 
+; TODO: find a way to calculate this and
+; explain to the user.
+
 gemaSetBeats:
 		bsr	sndReq_Enter
-		move.w	#$06,d7		; Command $06
+		move.w	#$07,d7		; Command $07
 		bsr	sndReq_scmd
 		move.w	d0,d7
 		bsr	sndReq_sword

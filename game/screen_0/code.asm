@@ -31,6 +31,10 @@ RAM_CurrPick		ds.w 1
 RAM_GemaArg0		ds.w 1
 RAM_GemaArg1		ds.w 1
 RAM_GemaArg2		ds.w 1
+
+RAM_GemaArg3		ds.w 1
+RAM_GemaArg4		ds.w 1
+RAM_GemaArg5		ds.w 1
 RAM_ChnlLinks		ds.w 26
 sizeof_thisbuff		ds.l 0
 			endstrct
@@ -110,6 +114,9 @@ sizeof_thisbuff		ds.l 0
 		clr.w	(RAM_GemaArg0).w
 		clr.w	(RAM_GemaArg1).w
 		clr.w	(RAM_GemaArg2).w
+		clr.w	(RAM_GemaArg3).w
+		clr.w	(RAM_GemaArg4).w
+		clr.w	(RAM_GemaArg5).w
 		move.w	#200+32,d0
 		bsr	gemaSetBeats
 ; 		moveq	#1,d0
@@ -158,7 +165,7 @@ sizeof_thisbuff		ds.l 0
 		move.w	on_press(a6),d7
 		btst	#bitJoyDown,d7
 		beq.s	.n_down
-		cmp.w	#9,(a5)		; MAX OPTIONS
+		cmp.w	#4,(a5)		; MAX OPTIONS
 		beq.s	.n_down
 		addq.w	#1,(a5)
 		bsr.s	.show_me
@@ -189,8 +196,8 @@ sizeof_thisbuff		ds.l 0
 		bra.w	.nothing
 		bra.w	.option_1
 		bra.w	.option_2
-		bra.w	.nothing
-		bra.w	.nothing
+		bra.w	.option_3
+		bra.w	.option_4
 		bra.w	.nothing
 		bra.w	.nothing
 		bra.w	.nothing
@@ -221,7 +228,7 @@ sizeof_thisbuff		ds.l 0
 		move.w	(a5)+,d1
 		move.w	(a5)+,d2
 		bsr	gemaPlayTrack
-		move.w	(RAM_GemaArg0).w,d0
+		move.w	(RAM_GemaArg1).w,d0
 		move.w	d0,d1
 		add.w	d1,d1
 		lea	.extnal_beats(pc),a0
@@ -273,15 +280,36 @@ sizeof_thisbuff		ds.l 0
 ; ------------------------------------------------------
 
 .option_3:
-		rts
+		lea	(RAM_GemaArg3).w,a5
+		move.w	on_press(a6),d7
+		btst	#bitJoyStart,d7
+		beq.s	.option1_args
+		move.w	(a5)+,d0
+		move.w	(a5)+,d1
+		bra	gemaFadeTrack
+		bra	.show_me
 
 ; ------------------------------------------------------
-; CUSTOM BEATS FOR EACH TRACK
+; OPTION 4
+; ------------------------------------------------------
+
+.option_4:
+		lea	(RAM_GemaArg3).w,a5
+		move.w	on_press(a6),d7
+		btst	#bitJoyStart,d7
+		beq.s	.option1_args
+		move.w	(a5)+,d0
+		move.w	(a5)+,d1
+		bra	gemaSetTrackVol
+		bra	.show_me
+
+; ------------------------------------------------------
+; EXTERNAL BEATS FOR EACH TRACK
 ; ------------------------------------------------------
 
 .extnal_beats:
-	dc.w 200+20
 	dc.w 200+32
+	dc.w 200+20
 	dc.w 200+32
 	dc.w 200+32
 	dc.w 200+32
@@ -716,17 +744,15 @@ str_TesterInit:
 		dc.b "    gemaTest",$0A
 		dc.b "    gemaPlayTrack",$0A
 		dc.b "    gemaStopTrack",$0A
-		dc.b "    gemaFadeOut",$0A
-		dc.b "    gemaFadeIn",$0A
-		dc.b "    TEST 6",$0A
-		dc.b "    TEST 7",$0A
-		dc.b "    TEST 8",$0A
-		dc.b "    TEST 9",$0A
-		dc.b "    TEST 10",$0A
+		dc.b "    gemaFadeTrack",$0A
+		dc.b "    gemaSetTrackVol",0
 		dc.b 0
 		align 2
-str_ShowMe:	dc.b "\\w \\w \\w",0
+str_ShowMe:	dc.b "\\w \\w \\w",$A
+		dc.b $A
+		dc.b "\\w \\w \\w",0
 		dc.l RAM_GemaArg0,RAM_GemaArg1,RAM_GemaArg2
+		dc.l RAM_GemaArg3,RAM_GemaArg4,RAM_GemaArg5
 		align 2
 str_Info:
 		dc.b "\\l",0

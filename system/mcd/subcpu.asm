@@ -90,6 +90,10 @@ sizeof_cdpcm	ds.l 0
 ; ----------------------------------------------------------------
 
 SP_Init:
+		bclr	#3,(scpu_reg+$33).w
+		move.b	#$FF,(scpu_reg+$31).w
+		move.l	#SP_Timer,($00005F82+2).l
+
 		move.b	#0,(scpu_reg+mcd_memory).l
 		bsr	spInitFS
 		lea	file_subdata(pc),a0
@@ -98,6 +102,8 @@ SP_Init:
 		bsr	spReadSectorsN
 		bsr	CDPCM_Init
 		move.b	#0,(scpu_reg+mcd_comm_s).w	; Reset SUB-status
+
+		bset	#3,(scpu_reg+$33).w
 		rts
 
 ; --------------------------------------------------------
@@ -114,6 +120,7 @@ file_subdata:
 ; ----------------------------------------------------------------
 
 SP_IRQ:
+		bclr	#3,(scpu_reg+$33).w		; Disable Timer interrupt
 		move.b	(scpu_reg+mcd_comm_m).w,d0
 		andi.w	#$F0,d0
 		cmpi.w	#$F0,d0
@@ -152,6 +159,7 @@ SP_IRQ:
 .exit_now:
 		st.b	(RAM_CdSub_PcmTblUpd).l		; Set table update flag
 .not_now:
+		bset	#3,(scpu_reg+$33).w		; Enable Timer interrupt
 		rts
 
 ; =====================================================================
@@ -162,8 +170,9 @@ SP_IRQ:
 SP_Timer:
 ; 		movem.l	a0-a6/d0-d7,-(sp)
 ; 		ori.w	#$0700,sr
+; 		bsr	CDPCM_ReadTable			; Process table we just got.
+; 		bsr	CDPCM_Update
 ; 		bsr	CDPCM_Stream
-; 		add.w	#1,(scpu_reg+mcd_dcomm_s+$0C).w
 ; 		andi.w	#$F8FF,sr
 ; 		movem.l	(sp)+,a0-a6/d0-d7
 		rte	; <--
@@ -191,12 +200,11 @@ SP_User:
 ; ----------------------------------------------------------------
 
 SP_Main:
-	rept 5
-		bsr	CDPCM_ReadTable
+	rept 6
+		bsr	CDPCM_ReadTable			; Process table we just got.
 		bsr	CDPCM_Update
 		bsr	CDPCM_Stream
 	endm
-; 		add.w	#1,(scpu_reg+mcd_dcomm_s+$0E).w
 		move.b	(scpu_reg+mcd_comm_m).w,d0		; d7
 		move.b	d0,d1
 		andi.w	#$F0,d1
@@ -204,6 +212,7 @@ SP_Main:
 		beq.s	SP_Main
 		andi.w	#%00111111,d0				; <-- current limit
 		beq.s	SP_Main
+		bclr	#3,(scpu_reg+$33).w
 		move.b	(scpu_reg+mcd_comm_s).w,d7
 		bset	#7,d7
 		move.b	d7,(scpu_reg+mcd_comm_s).w		; Set as BUSY
@@ -213,7 +222,9 @@ SP_Main:
 		move.b	(scpu_reg+mcd_comm_s).w,d7
 		bclr	#7,d7
 		move.b	d7,(scpu_reg+mcd_comm_s).w		; Remove BUSY bit, finished
-		bra.s	SP_Main
+		bset	#3,(scpu_reg+$33).w
+		bra	SP_Main
+	; DO NOT RETURN WITH RTS, THAT IRQ IS USED BY THE Z80
 
 ; =====================================================================
 ; ----------------------------------------------------------------
@@ -654,9 +665,9 @@ CDPCM_Init:
 
 CDPCM_ReadTable:
 		tst.b	(RAM_CdSub_PcmTblUpd).l
-		beq.s	.dont_swap
+		beq.s	.dont_upd
 		clr.b	(RAM_CdSub_PcmTblUpd).l
-		ori.w	#$0700,sr
+; 		ori.w	#$0700,sr
 		lea	(RAM_CdSub_PcmBuff),a6
 		lea	(RAM_CdSub_PcmTable),a5
 		moveq	#8-1,d7			; 8 channels
@@ -680,8 +691,8 @@ CDPCM_ReadTable:
 		adda	#1,a5			; Next PCM table column
 		addq.w	#1,d6
 		dbf	d7,.get_tbl
-		andi.w	#$F8FF,sr
-.dont_swap:
+; 		andi.w	#$F8FF,sr
+.dont_upd:
 		rts
 
 ; --------------------------------------------------------
@@ -933,6 +944,9 @@ CDPCM_Update:
 ; --------------------------------------------------------
 
 .update_set:
+		move.b	d6,d0
+		or.b	#$C0,d0
+		move.b	d0,CTREG(a5)
 		move.w	cdpcm_pitch(a6),d2
 		move.b	d2,FDL(a5)
 		bsr	CDPCM_Wait

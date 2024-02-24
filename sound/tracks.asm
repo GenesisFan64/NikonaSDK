@@ -128,11 +128,11 @@ gemaHead macro blk,pat,ins,num
 
 	align 2
 Gema_MasterList:
+	gemaTrk 7,GemaTrk_Arena1
 	gemaTrk 6|$80,GemaTrk_MOVEME
 	gemaTrk 6|$80,GemaTrk_NadieMD
 	gemaTrk 6|$80,GemaTrk_NadieMCD
 	gemaTrk 6|$80,GemaTrk_NadieMARS
-	gemaTrk 7,GemaTrk_Arena1
 	gemaTrk 3|$80,GemaTrk_Crystal
 	gemaTrk 3,GemaTrk_Dream
 
@@ -160,26 +160,28 @@ GemaSfx_All:
 GemaTrk_TEST_0:
 
 GemaTrk_Arena1:
-	gemaHead shrd_blk,shrd_pat,.ins,5
+	gemaHead shrd_blk,shrd_pat,.ins,6
 .ins:
-	gInsPcm -17-6,PcmIns_Arena1_01,0
-	gInsPcm -17-6,PcmIns_Arena1_02,0
-	gInsPcm -17-6,PcmIns_Arena1_03,0
-	gInsPcm -17-6,PcmIns_Arena1_04,0
-	gInsPcm -17-6,PcmIns_Arena1_05,1
-	gInsPcm -17-6,PcmIns_Arena1_06,0
-	gInsPcm -17-6,PcmIns_Arena1_07,0
-	gInsPcm -17-6,PcmIns_Arena1_08,0
-	gInsPcm -17-6,PcmIns_Arena1_09,0
-	gInsPcm -17-6,PcmIns_Arena1_10,0
-	gInsPcm -17-6,PcmIns_Arena1_11,0
-	gInsPcm -17-6,PcmIns_Arena1_12,0
-	gInsPcm -17-6,PcmIns_Arena1_13,0
-	gInsPcm -17-6,PcmIns_Arena1_14,0
+	gInsPcm -17-7,PcmIns_Menu_01,1
+	gInsPcm -17-7,PcmIns_Menu_02,1
+	gInsPcm -17-7,PcmIns_Menu_03,0
+	gInsNull
+	gInsPcm -17-7,PcmIns_Menu_05,1
+	gInsPcm -17-7,PcmIns_Menu_06,0
+	gInsPcm -17-7,PcmIns_Menu_07,0
+	gInsPcm -17-7,PcmIns_Menu_08,0
+	gInsPcm -17-7,PcmIns_Menu_09,0
+	gInsNull
+	gInsPcm -17-7,PcmIns_Menu_11,0
+	gInsPcm -17-7,PcmIns_Menu_12,0
+	gInsPcm -17-7,PcmIns_Menu_13,0
+	gInsPcm -17-7,PcmIns_Menu_14,1
+	gInsPcm -17-7,PcmIns_Menu_15,0
+	gInsPcm -17-7,PcmIns_Menu_16,0
 shrd_blk:
-	binclude "sound/tracks/arena1_blk.bin"
+	binclude "sound/tracks/menu_blk.bin"
 shrd_pat:
-	binclude "sound/tracks/arena1_patt.bin"
+	binclude "sound/tracks/menu_patt.bin"
 
 ; ------------------------------------------------------------
 
@@ -252,6 +254,8 @@ GemaTrk_Crystal:
 	gInsFm3 0,FmIns_Sp_OpenHat
 	gInsNull
 	gInsFm 0,FmIns_Bass_low_1
+
+; ------------------------------------------------------------
 
 GemaTrk_NadieMD:
 	gemaHead .blk,.patt,.inst,7
