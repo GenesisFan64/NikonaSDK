@@ -32,10 +32,11 @@ ZSET_TESTME	equ 0		; Set to 1 to check the DAC playback for quality by ear
 ; trkBuff struct: 00h-30h
 ; unused bytes are free.
 ;
-; trk_Status: %ERP- ---0
+; trk_Status: %ERP- V--0
 ; E - enabled
 ; R - Init|Restart track
 ; P - refill-on-playback
+; V - volume change flag
 ; 0 - Use global sub-beats
 trk_Status	equ 00h	; ** Track Status and Flags (MUST BE at 00h)
 trk_SeqId	equ 01h ; ** Track ID to play.
@@ -57,7 +58,7 @@ trk_BankIns	equ 15h ; Instrument bank
 trk_BankHeads	equ 16h ; Header bank
 trk_BankBlk	equ 17h	; Block bank
 trk_MaxChnl	equ 18h ; MAX channels used in this track
-trk_VolTarget	equ 19h	; Target fade volume
+trk_VolFdTarget	equ 19h	; Target fade volume
 trk_RomPattRead	equ 1Ah ; [3b] ROM current pattern data to be cache'd
 trk_RomPatt	equ 1Dh ; [3b] ROM BASE pattern data
 trk_RomInst	equ 20h ; [3b] ROM instrument data
@@ -370,7 +371,7 @@ drv_loop:
 
 ; 		ld	iy,trkBuff_0
 ; 		ld	(iy+trk_VolMaster),64-16
-; 		ld	(iy+trk_VolTarget),64
+; 		ld	(iy+trk_VolFdTarget),64
 
 		jp	.next_cmd
 
@@ -405,36 +406,28 @@ drv_loop:
 ; --------------------------------------------------------
 
 .cmnd_2:
-		call	.grab_arg		; d0: Sequence ID
+		call	.grab_arg		; d1: Sequence ID
 		ld	c,a			; copy as c
-		call	.grab_arg		; d1: Block from
+		call	.grab_arg		; d2: Block from
 		ld	b,a			; copy as b
 		rst	8
-		call	.grab_arg		; d2: Slot index
+		call	.grab_arg		; d0: Slot index
 		ld	iy,nikona_BuffList	; iy - Slot buffer list
-		cp	-1			; if d2 == -1, search free slot
+		cp	-1			; if d2 == -1, search
 		jr	z,.srch_mode
 		cp	(nikona_BuffList_e-nikona_BuffList)/MAX_BUFFNTRY	; If maxed out slots
 		jp	nc,.next_cmd
 		call	.cmnd_rdslot
-		jr	.wrtto_slot
+		call	.wrtto_slot
+		jp	.next_cmd
 ; -1
 .srch_mode:
-		ld	d,0
-.next:
-		ld	a,(iy)
-		cp	-1			; End of list?
+		call	.srch_slot
+		cp	-1
 		jp	z,.next_cmd		; Then skip, no free slot.
-		ld	h,(iy+1)		; hl - Current track slot
-		ld	l,a
-		rst	8
-		ld	a,(hl)			; trk_Status: Is this slot free == 0?
-		or	a
-		jr	z,.wrtto_slot
-		ld	de,MAX_BUFFNTRY		; Search the next slot from the buff list
-		add	iy,de
-		rst	8
-		jr	.next
+		bit	7,(hl)			; Is this track free?
+		jp	z,.wrtto_slot
+		jr	.srch_mode
 .wrtto_slot:
 		ld	(hl),0C0h		; ** Write trk_Status flags: Enable+Restart
 		inc	hl
@@ -455,9 +448,9 @@ drv_loop:
 ; --------------------------------------------------------
 
 .cmnd_3:
-		call	.grab_arg		; d0: Sequence ID
+		call	.grab_arg		; d1: Sequence ID
 		ld	c,a			; copy to c
-		call	.grab_arg		; d1: Slot index
+		call	.grab_arg		; d0: Slot index
 		ld	iy,nikona_BuffList	; iy - Slot buffer list
 		cp	-1			; if -1, search for all with same ID
 		jr	z,.srch_del
@@ -468,12 +461,17 @@ drv_loop:
 		jp	.next_cmd
 ; -1
 .srch_del:
-		call	.srch_for
+		call	.srch_slot
 		cp	-1
 		jp	z,.next_cmd
 		call	.wrtto_del
 		jr	.srch_del
 .wrtto_del:
+		bit	7,(hl)
+		ret	z
+		ld	a,(ix+trk_SeqId)
+		cp	c
+		ret	nz
 		ld	(hl),-1		; -1 flag, stop channel and clear slot
 		inc	hl
 		ld	(hl),-1		; Reset seqId
@@ -490,9 +488,9 @@ drv_loop:
 ; --------------------------------------------------------
 
 .cmnd_5:
-		call	.grab_arg		; d0: Master volume
+		call	.grab_arg		; d1: Master volume
 		ld	c,a			; copy to c
-		call	.grab_arg		; d1: Slot index
+		call	.grab_arg		; d0: Slot index
 		ld	iy,nikona_BuffList	; iy - Slot buffer list
 		cp	-1			; if -1, search for all with same ID
 		jr	z,.srch_fvol
@@ -503,21 +501,16 @@ drv_loop:
 		jp	.next_cmd
 ; -1
 .srch_fvol:
-		ld	de,MAX_BUFFNTRY
-.next_fv:
-		ld	a,(iy)
+		call	.srch_slot
 		cp	-1
-		jp	z,.next_cmd
-		ld	h,(iy+1)
-		ld	l,a
-		rst	8
-		add	iy,de
-		push	hl
-		pop	ix
+		jp	z,.next_cmd		; Then skip, no free slot.
 		call	.wrtto_fvol
-		jr	.next_fv
+		jr	.srch_fvol
 .wrtto_fvol:
-		ld	(ix+trk_VolTarget),c
+		bit	7,(hl)			; Active?
+		ret	z
+		set	3,(hl)			; Volume update flag
+		ld	(ix+trk_VolFdTarget),c
 		ld	(ix+trk_VolMaster+1),0
 		rst	8
 		ret
@@ -532,9 +525,9 @@ drv_loop:
 ; --------------------------------------------------------
 
 .cmnd_6:
-		call	.grab_arg		; d0: Master volume
+		call	.grab_arg		; d1: Master volume
 		ld	c,a			; copy to c
-		call	.grab_arg		; d1: Slot index
+		call	.grab_arg		; d0: Slot index
 		ld	iy,nikona_BuffList	; iy - Slot buffer list
 		cp	-1			; if -1, search for all with same ID
 		jr	z,.srch_vol
@@ -545,22 +538,15 @@ drv_loop:
 		jp	.next_cmd
 ; -1
 .srch_vol:
-		ld	de,MAX_BUFFNTRY
-.next_mv:
-		ld	a,(iy)
+		call	.srch_slot
 		cp	-1
-		jp	z,.next_cmd
-		ld	h,(iy+1)
-		ld	l,a
-		rst	8
-		add	iy,de
-		push	hl
-		pop	ix
+		jp	z,.next_cmd		; Then skip, no free slot.
 		call	.wrtto_vol
-		jr	.next_mv
+		jr	.srch_vol
 .wrtto_vol:
+		set	3,(hl)			; Volume update flag
 		ld	(ix+trk_VolMaster),c
-		ld	(ix+trk_VolTarget),c
+		ld	(ix+trk_VolFdTarget),c
 		ld	(ix+trk_VolMaster+1),0
 		rst	8
 		ret
@@ -599,31 +585,18 @@ drv_loop:
 		ret
 
 ; ------------------------------------------------
-; c - Sequence ID to search
+; iy - nikona_BuffList
 
-.srch_for:
-		ld	d,0
-.next_f:
-		ld	a,(iy)
-		cp	-1
-		ret	z
-		ld	h,(iy+1)
-		ld	l,a
+.srch_slot:
 		ld	de,MAX_BUFFNTRY
-		add	iy,de
+		ld	a,(iy)
+		cp	-1			; End of list?
+		ret	z
+		ld	h,(iy+1)		; hl - Current track slot
+		ld	l,a
 		push	hl
 		pop	ix
-		rst	8
-		ld	a,(ix+trk_Status)			; trk_Status: Track is active != 0?
-		or	a
-		jr	z,.next_f
-		ld	a,(ix+trk_SeqId)
-		cp	c
-		jr	z,.found_f
-		rst	8
-		jr	.next_f
-.found_f:
-		xor	a
+		add	iy,de			; Next entry for later
 		ret
 
 ; ====================================================================
@@ -670,11 +643,11 @@ upd_track:
 		ret	z			; Return if mid-flag
 		rst	8
 	; ----------------------------------------
-	; Track setup
+	; Track effects
 		ld	l,(iy+trk_VolMaster+1)
 		ld	h,(iy+trk_VolMaster)
-		ld	c,(iy+trk_VolTarget)
-		ld	de,0100h		; <-- Manual volfade speed
+		ld	c,(iy+trk_VolFdTarget)
+		ld	de,0100h		; <-- Manual volfade speed MAX 0100h
 		ld	a,c
 		cp	h
 		jr	z,.keep_vol
@@ -687,23 +660,15 @@ upd_track:
 		rst	8
 		ld	a,h
 		cp	c
-		jp	c,.too_much
+		jr	c,.too_much
 		ld	h,c
 		ld	l,0
-		ld	(iy+trk_VolTarget),c
+		ld	(iy+trk_VolFdTarget),c
 .too_much:
-		rst	8
+		set	3,(iy+trk_Status)	; Volume update flag
 		ld	(iy+trk_VolMaster+1),l
 		ld	(iy+trk_VolMaster),h
-	if MCD|MARSCD
-		ld	a,1
-		ld	(mcdUpd),a
-	elseif MARS|MARSCD
-		ld	a,1
-		ld	(marsUpd),a
-	endif
 .keep_vol:
-
 	; ----------------------------------------
 		ld	a,(currTickBits)	; a - Tick/Beat bits
 		bit	0,b			; bit0: This track uses Beats?
@@ -714,6 +679,7 @@ upd_track:
 		bit	0,a			; TICK passed?
 		ret	z			; No TICK.
 		rst	8
+	; ----------------------------------------
 	; *** Start reading notes ***
 		bit	6,b			; bit6: Restart/First time?
 		call	nz,.first_fill
@@ -776,51 +742,7 @@ upd_track:
 		dec	bc			; Decrement rowcount
 		ld	(iy+trk_Rows),c		; Write last row to memory
 		ld	(iy+(trk_Rows+1)),b
-		ret
-
-; 	; Set MASTER volume to this track
-; 		ld	a,(iy+trk_VolMaster)
-; 		ld	c,a			; c - Master volume to set
-; 		ld	ix,trkChnls		; ix - Channel list
-; 		rst	8
-; 		push	iy
-; 		pop	hl
-; 		ld	de,trk_ChnIndx
-; 		add	hl,de			; hl - track indexes
-; 		ld	b,(iy+trk_MaxChnl)	; b - num of channels used
-; .next_indx:
-; 		ld	a,(hl)
-; 		or	a
-; 		jr	z,.no_indxv
-; 		push	ix			; Save ix
-; 		add	a,a			; index * 8
-; 		add	a,a
-; 		rst	8
-; 		add	a,a
-; 		ld	d,0
-; 		ld	e,a
-; 		add	ix,de
-; ; 		ld	a,(ix+chnl_Flags)	; Check VOLUME bit ONLY
-; ; 		bit	2,a
-; ; 		jr	z,.no_vflag
-;
-; 	; TODO: flags with volume changes
-; 		ld	a,(ix+chnl_Vol)
-; 		sub	a,c
-; 		jp	nc,.max_out
-; 		jp	p,.max_out
-; 		nop
-; 		xor	a
-; .max_out:
-; 		ld	(ix+chnl_Vol),a
-; .no_vflag:
-; 		pop	ix			; Get ix back
-; .no_indxv:
-; 		rst	8
-; 		inc	hl
-; 		nop
-; 		djnz	.next_indx
-; 		ret				; Exit.
+		ret	; Exit.
 
 ; --------------------------------
 ; New note request
@@ -956,14 +878,12 @@ upd_track:
 		ld	a,(ix+chnl_EffId)
 		or	a		; 00h = invalid effect
 		jp	z,.next_note
-
-	; TODO: cambiar esto por jumps
 		cp	1		; Effect A: Tick set
-		call	z,.eff_A
+		jr	z,.eff_A
 		cp	2		; Effect B: Position Jump
-		call	z,.eff_B
+		jr	z,.eff_B
 		cp	3		; Effect C: Pattern break
-		jp	z,.eff_C	; <-- JUMP and exit.
+		jr	z,.eff_C	; <-- JUMP and exit.
 		jp	.next_note
 
 ; ----------------------------------------
@@ -971,21 +891,18 @@ upd_track:
 ; ----------------------------------------
 
 .eff_A:
-		push	af
 		rst	8
 		ld	e,(ix+chnl_EffArg)	; e - ticks number
 		ld	(iy+trk_TickSet),e	; set for both Set and Timer.
 		ld	(iy+trk_tickTmr),e
 		res	3,(ix+chnl_Flags)	; <-- Clear EFFECT bit
-		pop	af
-		ret
+		jp	.next_note
 
 ; ----------------------------------------
 ; Effect B: jump to a new block
 ; ----------------------------------------
 
 .eff_B:
-		push	af			; Save Flagbits
 		ld	e,(ix+chnl_EffArg)	; e - Block SLOT to jump
 		ld 	(iy+trk_currBlk),e
 		rst	8
@@ -995,8 +912,7 @@ upd_track:
 		ld	a,80h
 		ld	(iy+trk_BankHeads),a
 		ld	(iy+trk_BankBlk),a
-		pop	af
-		ret
+		jp	.next_note
 
 ; ----------------------------------------
 ; Effect C: Pattern break/exit
@@ -1219,13 +1135,12 @@ upd_track:
 		ld	a,(iy+trk_SetBlk)	; Make start block as current block
 		rst	8
 		ld 	(iy+trk_currBlk),a	; block
-		ld	de,0
-		ld	hl,trkListCach		; Read MASTER Nikona track list
-		ld	a,(iy+trk_SeqId)
-		and	00000111b		; Filter sequence bits
-		add	a,a			; *4
-		rst	8
+		ld	hl,trkInfoCach		; Read MASTER Nikona track list
+		ld	a,(iy+trk_Priority)	; Pick slot
+		dec	a
 		add	a,a
+		add	a,a
+		ld	d,0
 		ld	e,a
 		add	hl,de
 		ld	a,(hl)
@@ -1356,37 +1271,35 @@ track_out:
 ; ----------------------------------------
 
 get_RomTrcks:
-		and	11111000b
+		push	hl
+		add	a,a
+		add	a,a
+		ld	d,0
 		ld	e,a
-		ld	a,(trkListPage)
-		cp	e
-		ret	z
-		ld	a,e
-		ld	(trkListPage),a
-init_RomTrcks:
-		rlca
-		rlca			; 10h*4=40h
-		ld	d,a
-		and	11100000b
-		ld	e,a
-		ld	a,d
-		rst	8
-		and	00000011b	; * 40h
-		ld	d,a
 		ld	hl,gemaMstrListPos
 		inc	hl
-		ld	a,(hl)
+		ld	a,(hl)		; $00xx0000
 		inc	hl
-		ld	c,(hl)
+		ld	c,(hl)		; $0000xx00
 		inc	hl
-		ld	l,(hl)
+		ld	l,(hl)		; $000000xx
 		rst	8
 		ld	h,c
 		add	hl,de
 		adc	a,0
-		ld	de,trkListCach
-		ld	bc,4*8
-		jp	transferRom	; *** ROM ACCESS ***
+		ex	hl,de
+		ld	hl,trkInfoCach
+		ld	c,(ix+trk_Priority)
+		dec	c
+		sla	c		; * 4
+		sla	c
+		ld	b,0
+		add	hl,bc
+		ex	hl,de
+		ld	bc,4
+		call	transferRom	; *** ROM ACCESS ***
+		pop	hl
+		ret
 
 ; ============================================================
 ; --------------------------------------------------------
@@ -1461,12 +1374,11 @@ tblbuff_read:
 		rst	8
 		ld	b,a
 .next_indx:
-; 		rst	20h			; Refill wave
 		ld	a,(hl)			; Read index
 		or	a
 		jr	nz,.has_indx		; non-zero: valid
 		push	bc			; waste CPU to
-		ld	b,4			; sync the wave
+		ld	b,4			; ** wave sync
 		nop
 		nop
 		rst	8
@@ -1485,9 +1397,9 @@ tblbuff_read:
 		push	hl
 		push	ix
 		add	ix,de
-		ld	a,(ix)			; ** chnl_Flags
+		ld	a,(ix)		; Read evin
 		and	00001111b
-		call	nz,.do_chip
+		call	nz,.do_chip	; Call if non-zero
 		rst	8
 		pop	ix
 		pop	hl
@@ -1495,6 +1407,7 @@ tblbuff_read:
 .no_indx:
 		inc	hl
 		djnz	.next_indx
+		res	3,(iy+trk_Status)	; RESET Volume update bit
 		ret
 
 ; ----------------------------------------
@@ -1511,6 +1424,7 @@ tblbuff_read:
 		ld	hl,instListOut		; temporal storage for instrument
 		ld	d,0
 		ld	e,(iy+trk_Priority)
+		dec	e			; -1
 		rlc	e
 		rlc	e
 		rlc	e
@@ -1586,9 +1500,9 @@ tblbuff_read:
 		ld	e,a			; e - NEW chip
 		ld	a,(ix+chnl_Chip)	; a - our current chip
 		and	11110000b		; Filter bits too.
-		jp	z,.new_chip		; If 0: It's a NEW chip
+		jr	z,.new_chip		; If 0: It's a NEW chip
 		cp 	e			; Same chip as NEW?
-		jp	z,.srch_link		; then re-use the slot
+		jr	z,.srch_link		; then re-use the slot
 		rst	8
 		ld	d,a			; d - Chip to silence
 		push	de
@@ -1598,7 +1512,7 @@ tblbuff_read:
 		ret	z
 		rst	8
 		call	.reset_link
-		jp	.new_chip
+		jr	.new_chip
 
 ; ----------------------------------------
 ; ** RELINK **
@@ -1632,7 +1546,7 @@ tblbuff_read:
 .reroll:
 	; *** Special re-roll check ***
 		push	hl
-		ld	bc,5		; <-- fake iy+05h
+		ld	bc,4		; <-- fake iy+04h
 		add	hl,bc
 		rst	8
 		ld	c,(hl)		; c - ID
@@ -1833,7 +1747,9 @@ tblbuff_read:
 		ld	(hl),0
 		inc	hl
 		ld	(hl),d			; Set "silence" chip ID.
-		ld	bc,8-2			; Go to 08h
+		inc	hl
+		ld	(hl),0			; Clear master volume
+		ld	bc,8-3			; Go to 08h
 		add	hl,bc
 		ld	b,8/2
 .clrfull:
@@ -1856,7 +1772,7 @@ dtbl_multi:
 		ld	a,(iy)
 		cp	-1
 		ret	z
-		call	dtbl_frommul
+		call	dtbl_singl
 		rst	8
 		ld	de,MAX_TBLSIZE
 		add	iy,de
@@ -1865,9 +1781,6 @@ dtbl_multi:
 		rst	8
 		jr	dtbl_multi
 dtbl_singl:
-; 		rst	8
-
-dtbl_frommul:
 		ld	e,(iy)		; Read link
 		ld	d,(iy+1)
 		ld	a,d		; If no-zero, active
@@ -1926,7 +1839,7 @@ dtbl_frommul:
 
 .rcyl_com:
 		ld	b,0
-		ld	c,(iy+05h)
+		ld	c,(iy+04h)
 		add	ix,bc
 		ld	(ix),100b	; key-cut
 		ret
@@ -1946,7 +1859,7 @@ dtbl_frommul:
 .linked:
 		ld	a,(de)		; ** chnl_Flags
 		ld	b,a		; b - flags to check
-		and	00001111b	; Filter flags
+		and	00001111b	; evin flags?
 		ret	z
 		ld	a,b
 		and	11110000b	; Keep OTHER bits
@@ -1957,9 +1870,6 @@ dtbl_frommul:
 		pop	hl
 		ld	de,10h
 		add	hl,de
-; 		ld	l,(iy+03h)	; trk_Instr
-; 		ld	h,(iy+04h)
-
 	;  b - Flags LR00evin (Eff|Vol|Ins|Note)
 	; iy - Our chip table
 	; ix - Track channel
@@ -1973,22 +1883,12 @@ dtbl_frommul:
 		call	nz,.volu
 		bit	3,b		; Effect
 		call	nz,.effc
-		ld	a,b
-		and	00001111b
-		ret	z
+		ld	a,(hl)		; Read INS type
+		and	01110000b	; Filter bits
+		rrca
+		rrca
+		rrca
 		rst	8
-
-; ----------------------------------------
-; Process channel now
-;
-; b - Note bits
-; ----------------------------------------
-
-		ld	a,(hl)
-		and	01110000b	; <--
-		rrca
-		rrca
-		rrca
 		ld	d,0
 		ld	e,a
 		ld	hl,.mk_list
@@ -2009,34 +1909,47 @@ dtbl_frommul:
 		dw .mk_pwm
 
 ; --------------------------------
+; PSGN
+; --------------------------------
 
 .mk_psgn:
+		bit	0,b
+		jr	z,.psg_keyon
 		ld	a,(ix+chnl_Note)
 		push	ix
-		ld	ix,psgcom+3	; <-- steal PSG3
+		ld	ix,psgcom+3	; Steal PSG3
 		rst	8
 		cp	-2
 		jr	z,.kycut_psgn
 		cp	-1
 		jr	z,.kyoff_psgn
+		ld	(ix+COM),001b	; Key ON
 		ld	e,a
 		ld	a,(psgHatMode)	; Tone 3?
 		and	011b
 		cp	011b
 		jr	nz,.psg_keyon	; Normal
 		jr	.from_psgn	; Tone 3
+
+; --------------------------------
+; PSG
+; --------------------------------
+
 .mk_psg:
+		bit	0,b
+		jr	z,.psg_keyon
 		rst	8
 		ld	a,(ix+chnl_Note)
 		push	ix
 		ld	ix,psgcom	; ix - psgcom
-		ld	e,(iy+05h)
+		ld	e,(iy+04h)
 		ld	d,0
 		add	ix,de
 		cp	-2
 		jr	z,.kycut_psg
 		cp	-1
 		jr	z,.kyoff_psg
+		ld	(ix+COM),001b	; Key ON
 .from_psgn:
 		rst	8
 		ld	d,0		; de - note*2
@@ -2074,12 +1987,11 @@ dtbl_frommul:
 		ld	a,-1
 .vmuch:
 		ld	(ix+PVOL),a
-		bit	0,b		; Note change?
-		jr	z,.psgnone
-		ld	(ix+COM),001b	; Key ON
-.psgnone:
 		pop	ix
 		ret
+
+; --------------------------------
+
 ; -1
 .kyoff_psgn:
 		call	.kypsgn_hatoff
@@ -2096,7 +2008,6 @@ dtbl_frommul:
 		ld	(ix),c
 		pop	ix
 		jp	.chnl_ulnkcut
-
 .kypsgn_hatoff:
 		ld	a,000b
 		ld	(psgHatMode),a	; ** GLOBAL SETTING
@@ -2104,8 +2015,12 @@ dtbl_frommul:
 		ret
 
 ; --------------------------------
+; FM
+; --------------------------------
 
 .mk_fm:
+		bit	0,b		; NEW note?
+		jr	z,.mkfm_set
 		ld	a,(ix+chnl_Note)
 		cp	-2
 		jp	z,.fm_cut
@@ -2113,17 +2028,14 @@ dtbl_frommul:
 		jp	z,.fm_off
 ; 		call	.fm_tloff
 		rst	8
-		ld	c,(iy+05h)	; c - KeyID
-		ld	a,b		; Note bit?
-		and	0001b
-		ret	z
+		ld	c,(iy+04h)	; c - KeyID
 		ld	a,c
 		cp	6
 		jr	nz,.not_dac
 		call	dac_off
 		jr	.not_dspc
 .not_dac:
-		ld	a,c
+; 		ld	a,c
 		cp	2
 		jr	nz,.not_dspc
 		ld	a,(fmSpecial)
@@ -2135,7 +2047,7 @@ dtbl_frommul:
 		ld	(fmSpecial),a
 .not_dspc:
 		call	.fm_keyoff
-
+		push	bc
 		ld	a,(iy+06h)
 		ld	b,a
 		and	00011111b
@@ -2164,43 +2076,43 @@ dtbl_frommul:
 		ld	d,a
 		add	hl,de
 		call	.fm_setfreq
-.fmspc_set:
-		call	.fm_wrtalpan	; Panning and effects
-		call	.fm_wrtlvol	; FM volume control
+		pop	bc
+
+; --------------------------------
+
+.mkfm_set:
 	if ZSET_TESTME
 		ret
 	else
+		call	.fm_wrtalpan	; Panning and effects
+		call	.fm_wrtlvol	; FM volume control
 		ld	a,(iy+0Fh)	; 0Fh - keys ***
 		and	11110000b
-		or	c
+		or	c		; Merge FM channel
 		ld	e,a
 		ld	d,28h
-		call	fm_send_1
+		call	fm_send_1	; Set keys
 		rst	8
 .nofm_note:
 		ret
 	endif
 
 ; --------------------------------
+; FM3 special
+; --------------------------------
 
 .mk_fmspc:
+		bit	0,b		; NEW Note?
+		jr	z,.mkfm_set
 		ld	a,(ix+chnl_Note)
 		cp	-2
 		jp	z,.fm_cut
 		cp	-1
 		jp	z,.fm_off
-
-		ld	a,b		; Note bit?
-		and	0001b
-		ret	z
-
-		ld	c,(iy+05h)	; c - KeyID
-		ld	a,b
-		and	0001b
-		jr	z,.fmspc_set
+		ld	c,(iy+04h)	; c - KeyID (011b always)
 		call	.fm_keyoff
-		ld	hl,fmcach_list	; Manual freqs
-		ld	a,(iy+05h)
+		ld	hl,fmcach_list	; Read external freqs
+		ld	a,(iy+04h)
 		and	0111b
 		ld	d,0
 		add	a,a
@@ -2230,14 +2142,14 @@ dtbl_frommul:
 		call	fm_send_1
 		ld	a,1
 		ld	(fmSpecial),a
-		jp	.fmspc_set
+		jp	.mkfm_set
 .spcreglist:
 		db 0ADh,0A9h
 		db 0ACh,0A8h
 		db 0AEh,0AAh
 		db 0A6h,0A2h
 
-; --------------------------------
+; ----------------------------------------
 
 .fm_off:
 		call	.fm_keyoff
@@ -2251,17 +2163,18 @@ dtbl_frommul:
 
 .fm_keyoff:
 		ld	d,28h
-		ld	e,(iy+05h)
+		ld	e,(iy+04h)
 		jp	fm_send_1
 .fm_tloff:
 		ld	b,4
-		ld	c,(iy+05h)
+		ld	c,(iy+04h)
 		ld	a,c
 		and	011b
 		or	40h	; TL regs
+		ld	e,7Fh
 .tl_down:
 		ld	d,a
-		ld	e,7Fh
+; 		ld	e,7Fh
 		call	fm_autoreg
 		rst	8
 		ld	a,d
@@ -2291,7 +2204,7 @@ dtbl_frommul:
 
 .fm_wrtlvol:
 		ld	hl,fmcach_list
-		ld	a,(iy+05h)
+		ld	a,(iy+04h)
 		and	0111b
 		ld	d,0
 		rst	8
@@ -2307,7 +2220,7 @@ dtbl_frommul:
 		inc	hl
 		rst	8
 		inc	hl		; Point to TL's
-		ld	a,(iy+05h)
+		ld	a,(iy+04h)
 		and	011b
 		or	40h		; TL registers
 		ld	d,a
@@ -2316,17 +2229,19 @@ dtbl_frommul:
 ; .fm_wrtlvol:
 		push	bc
 		push	hl
-		ld	hl,.fm_cindx
+		ld	hl,.fm_cindx	; hl - jump carry list
 		ld	a,(iy+0Ch)	; Read 0B0h copy
 		and	0111b
 		ld	b,0
 		ld	c,a
 		add	hl,bc
 		ld	a,(iy+08h)	; Read current Volume
-		sub	a,(iy+03h)	; + MASTER vol
-		ld	c,a
 		rst	8
-		ld	b,(hl)
+		sub	a,(iy+03h)	; + MASTER vol
+
+		add	a,a		; * 2
+		ld	c,a		; c - Current Volume
+		ld	b,(hl)		; b - Current jump-carry byte
 		pop	hl
 		rrc	b		; OP1
 		call	c,.write_tl
@@ -2363,13 +2278,13 @@ dtbl_frommul:
 		ret
 .write_tl:
 		ld	a,(hl)
-		sub	a,c
+		sub	a,c		; reg - volume
 		jp	p,.keep_tlmx
-		ld	a,7Fh
+		ld	a,7Fh		; <-- maximum TL
 .keep_tlmx:
 		push	bc
 		ld	e,a
-		ld	c,(iy+05h)
+		ld	c,(iy+04h)
 		call	fm_autoreg
 		rst	8
 		pop	bc
@@ -2392,26 +2307,26 @@ dtbl_frommul:
 		and	011b
 		or	0B0h
 		ld	d,a
-		call	fm_autoreg
+		call	fm_autoreg		; Write algorithm
 		rst	8
 		ld	a,(ix+chnl_Flags)	; Read panning bits
 		cpl				; REVERSE bits
 		and	00110000b
+		rlca				; << 2
 		rlca
-		rlca
-		ld	e,a
-		ld	a,(iy+0Dh)		; 0B4h %LRaa0ppp
+		ld	e,a			; save as e
+		ld	a,(iy+0Dh)		; 0B4h %00aa0ppp
 		and	00111111b
-		or	e
+		or	e			; Merge panning
 		ld	e,a
 		ld	a,c
+		rst	8
 		and	011b
 		or	0B4h
 		ld	d,a
 		call	fm_autoreg
-		rst	8
-		ld	a,(iy+0Eh)
-		bit	3,a
+		ld	a,(iy+0Eh)		; Read LFO
+		bit	3,a			; Intrument wants LFO?
 		jr	z,.no_lfo
 		ld	e,a
 		ld	d,22h
@@ -2419,6 +2334,8 @@ dtbl_frommul:
 .no_lfo:
 		ret
 
+; --------------------------------
+; DAC
 ; --------------------------------
 
 .mk_dac:
@@ -2428,25 +2345,18 @@ dtbl_frommul:
 		cp	-1
 		jp	z,.dac_off
 		call	.dac_pitch
-
-		bit	0,b
-		jr	nz,.dac_note
-		bit	3,b
-		ret	z
-.dac_pan:
 		ld	a,(ix+chnl_Flags)	; Read panning
 		cpl				; REVERSE bits
 		and	00110000b
 		rlca
 		rlca
+		rst	8
 		ld	e,a
 		ld	d,0B6h			; Channel 6 panning
 		call	fm_send_2
-		rst	8
-		ret
-.dac_note:
+		bit	0,b			; Note update?
+		ret	z
 		call	dac_off
-		call	.dac_pan
 		jp	dac_play
 .dac_cut:
 		call	dac_off
@@ -2456,14 +2366,14 @@ dtbl_frommul:
 .dac_pitch:
 		ld	d,0		; Freq index
 		ld	e,(iy+06h)
-		ld	hl,wavFreq_List-(36*2)
+		ld	hl,wavFreq_List-(2*36)
 		add	hl,de
 		ld	a,(hl)
 		inc	hl
 		ld	h,(hl)
-		rst	8
 		ld	l,a
 		ld	e,(iy+07h)	; pitchbend
+		rst	8
 		xor	a		; Clear high
 		ccf			; Clear carry
 		sla	e		; << 3
@@ -2480,24 +2390,75 @@ dtbl_frommul:
 
 ; --------------------------------
 ; PCM
+; --------------------------------
+
+; TODO MEJORAR ESTO
+
 .mk_pcm:
 		ld	a,(ix+chnl_Note)
 		ld	d,0
-		ld	e,(iy+05h)
-		ld	c,(ix+chnl_Flags)
-		push	ix
+		ld	e,(iy+04h)		; e - Channel ID
+		ld	c,(ix+chnl_Flags)	; c - Panning bits
 		ld	ix,pcmcom
 		add	ix,de
+		bit	0,b			; Note update?
+		ret	z
 		cp	-2
 		jp	z,.pcm_cut
 		cp	-1
 		jp	z,.pcm_off
 		rst	8
-		bit	0,b			; Note?
+		bit	0,b			; Note flag?
 		jr	nz,.pcm_note
-		bit	3,b			; Effect?
+		bit	3,b			; Effect flag?
 		jr	nz,.pcm_effc
-		pop	ix
+		bit	2,b			; Volume flag?
+		jr	nz,.pcm_effc
+		ret
+
+; --------------------------------
+
+.pcm_effc:
+		ld	e,00001001b
+		jr	.mkpcm_wrton
+.pcm_note:
+		ld	a,c		; <-- Lazy panning reset
+		and	00110000b	; Read LR bits
+		or	a
+		jr	nz,.mp_reset
+		ld	(iy+0Ah),0	; If 0, reset panning on table
+.mp_reset:
+		ld	e,00000001b	; KeyON request
+.mkpcm_wrton:
+		ld	(ix),e		; Write key-on bit
+.mkpcm_proc:
+		call	.readfreq_pcm
+		ld	de,8		; Go to Pitch
+		add	ix,de
+		ld	(ix),h		; Set pitch
+		add	ix,de
+		ld	(ix),l
+		add	ix,de
+		ld	c,-1		; <-- Lazy job
+		ld	a,(iy+08h)	; Read current Volume
+		sub	a,(iy+03h)	; + MASTER vol
+		ccf
+		adc	a,a
+		adc	a,a
+		jr	c,.vpcm_carry
+		xor	a
+		add	a,c
+.vpcm_carry:
+		ld	(1),a
+		ld	(ix),a
+		add	ix,de
+		ld	a,(iy+0Ah)
+		cpl
+		ld	(ix),a
+	if ZSET_TESTME=0
+		ld	a,1
+		ld	(mcdUpd),a
+	endif
 		ret
 
 ; --------------------------------
@@ -2513,67 +2474,17 @@ dtbl_frommul:
 .pcm_setcoff:
 		ld	a,1
 		ld	(mcdUpd),a
-		pop	ix
 		jp	.chnl_ulnkoff
 
 ; --------------------------------
-
-.pcm_effc:
-		call	.setpcm_freq
-		ld	c,00001001b
-		jr	.pcm_send
-.pcm_note:
-		ld	a,c		; <-- Lazy panning reset
-		and	00110000b	; Read LR bits
-		or	a
-		jr	nz,.mp_reset
-		ld	(iy+0Ah),0	; If 0, reset value on table
-.mp_reset:
-		call	.setpcm_freq
-		ld	c,00000001b	; KeyON request
-.pcm_send:
-		ld	(ix),c		; Write key-on bit
-		ld	de,8		; Go to Pitch
-		add	ix,de
-		ld	(ix),h		; Set pitch
-		add	ix,de
-		ld	(ix),l
-		add	ix,de
-
-		ld	c,-1
-		ld	a,(iy+08h)	; Read current Volume
-		sub	a,(iy+03h)	; + MASTER vol
-		add	a,a
-		add	a,a
-		add	a,c
-; 		ld	c,a
-
-; 		ld	a,-1
-; 		add	a,c
-; 		jp	nc,.v_ovset
-; 		xor	a
-; .v_ovset:
-		ld	(ix),a
-		add	ix,de
-		ld	a,(iy+0Ah)
-		cpl
-		ld	(ix),a
-	if ZSET_TESTME=0
-		ld	a,1
-		ld	(mcdUpd),a
-	endif
-		pop	ix
-		ret
-
-; --------------------------------
 ; PWM
+; --------------------------------
 
 .mk_pwm:
 		ld	a,(ix+chnl_Note)
 		ld	d,0
-		ld	e,(iy+05h)
+		ld	e,(iy+04h)		; e - Channel ID
 		ld	c,(ix+chnl_Flags)	; c - Panning bits
-		push	ix
 		ld	ix,pwmcom
 		add	ix,de
 		cp	-2
@@ -2586,7 +2497,49 @@ dtbl_frommul:
 		jr	nz,.pw_note
 		bit	3,b			; Effect?
 		jr	nz,.pw_effc
-		pop	ix
+		ret
+.pw_effc:
+		ld	e,00001001b
+		jr	.pw_send
+.pw_note:
+		ld	e,00000001b	; KeyON request
+.pw_send:
+		ld	(ix),e		; Set command
+		call	.readfreq_pwm
+		ld	a,c		; Read panning bits
+; 		rrca
+; 		rrca
+		cpl
+		and	00110000b
+		rst	8
+		ld	e,a		; e - set panning bits
+		xor	a
+		ld	a,(iy+08h)	; Read current volume
+		sub	a,(iy+03h)	; + MASTER vol
+		neg	a
+		ccf
+		adc	a,a
+		adc	a,a
+		jr	nc,.pwv_much
+		ld	a,-1
+.pwv_much:
+		and	11111100b
+		or	h		; Merge MSB freq
+		ld	bc,8
+		add	ix,bc
+		ld	(ix),a
+		add	ix,bc
+		ld	(ix),l
+		add	ix,bc
+		rst	8
+		ld	a,(ix)
+		and	11001111b
+		or	e		; Set panning bits
+		ld	(ix),a
+	if ZSET_TESTME=0
+		ld	a,1
+		ld	(marsUpd),a
+	endif
 		ret
 
 ; --------------------------------
@@ -2606,67 +2559,13 @@ dtbl_frommul:
 		jp	.chnl_ulnkoff
 
 ; --------------------------------
-
-.pw_setup:
-		call	.setpwm_freq
-		ld	a,c		; Read panning bits
-; 		rrca
-; 		rrca
-		cpl
-		and	00110000b
-		rst	8
-		ld	e,a		; e - set panning bits
-		xor	a
-		ld	a,(iy+08h)	; Read current volume
-		sub	a,(iy+03h)	; + MASTER vol
-		neg	a
-		add	a,a
-		add	a,a
-		jr	nc,.pwv_much
-		ld	a,-1
-.pwv_much:
-		and	11111100b
-		or	h		; Merge MSB freq
-		ret
-
-; --------------------------------
-
-.pw_effc:
-		call	.pw_setup
-		ld	c,00001001b
-		jr	.pw_send
-.pw_note:
-		call	.pw_setup
-		ld	c,00000001b	; KeyON request
-.pw_send:
-		ld	(ix),c		; Set command
-		ld	bc,8
-		add	ix,bc
-		ld	(ix),a
-		add	ix,bc
-		ld	(ix),l
-		add	ix,bc
-		rst	8
-		ld	a,(ix)
-		and	11001111b
-		or	e		; Set panning bits
-		ld	(ix),a
-	if ZSET_TESTME=0
-		ld	a,1
-		ld	(marsUpd),a
-	endif
-		pop	ix
-		ret
-
-; --------------------------------
 ; SHARED routine
 
-.setpcm_freq:
+.readfreq_pcm:
 		ld	hl,wavFreq_CdPcm-(36*2)
 		jr	.set_wavfreq
-.setpwm_freq:
+.readfreq_pwm:
 		ld	hl,wavFreq_List-(36*2)
-
 .set_wavfreq:
 		ld	d,0		; Freq index
 		ld	e,(iy+06h)
@@ -2816,7 +2715,7 @@ dtbl_frommul:
 ; ----------------------------------------
 ; Effect X
 ;
-; Panning format:
+; Common panning values:
 ;  00h LEFT
 ;  80h MIDDLE
 ; 0FFh RIGHT
@@ -2968,14 +2867,14 @@ dtbl_frommul:
 .ins_psgn:
 		ld	a,(hl)		; Grab noise setting
 		and	0111b
-		ld	(psgHatMode),a	; ** GLOBAL SETTING
+		ld	(psgHatMode),a	; ** SET GLOBAL SETTING
 .ins_psg:
 		rst	8
 		push	ix
 		push	hl
 		inc	hl		; Skip ID
 		ld	ix,psgcom	; Read psg control
-		ld	e,(iy+05h)
+		ld	e,(iy+04h)
 		ld	d,0
 		add	ix,de
 		ld	a,(hl)
@@ -3013,7 +2912,7 @@ dtbl_frommul:
 		push	bc
 ; 		ld	b,(ix+chnl_Ins)	; b - current Ins
 		ld	b,(iy+02h)
-		ld	a,(iy+05h)
+		ld	a,(iy+04h)
 		and	0111b
 		ld	d,0
 		add	a,a
@@ -3055,7 +2954,7 @@ dtbl_frommul:
 		call	transferRom	; *** ROM ACCESS ***
 
 		pop	hl
-		ld	a,(iy+05h)
+		ld	a,(iy+04h)
 		ld	c,a		; c - FM Key ID
 
 	; hl - fmcach intrument
@@ -3111,11 +3010,6 @@ dtbl_frommul:
 ; ----------------------------------------
 
 .ins_dac:
-; 		ld	e,(ix+chnl_Ins)	; b - current Ins
-; 		ld	a,(iy+0Bh)	; 0Bh: DON'T reload flag
-; 		cp	e
-; 		jr	z,.same_dac
-; 		ld	(iy+0Bh),e
 		push	hl
 		push	bc
 		call	dac_off
@@ -3195,7 +3089,7 @@ dtbl_frommul:
 	; e,hl - 24-bit pointer + loop bit
 		ld	ix,pcmcom
 		ld	b,0
-		ld	c,(iy+05h)
+		ld	c,(iy+04h)
 		add	ix,bc
 		ld	bc,40		; Go to 40
 		add	ix,bc
@@ -3239,7 +3133,7 @@ dtbl_frommul:
 	; de,hl - 32-bit PWM pointer
 		ld	ix,pwmcom
 		ld	b,0
-		ld	c,(iy+05h)
+		ld	c,(iy+04h)
 		add	ix,bc
 		ld	bc,24
 		add	ix,bc	; Move to PWOUTF
@@ -3363,6 +3257,7 @@ dtbl_frommul:
 		ld	(iy),a			; Delete link, chip and prio
 		ld	(iy+1),a
 		ld	(iy+2),a
+		ld	(iy+3),a
 		ld	(iy+08h),a
 		ld	(iy+09h),a
 		ld	(iy+0Ah),a
@@ -3388,11 +3283,14 @@ dtbl_frommul:
 ; --------------------------------------------------------
 ; Communication with the SCD and 32X
 ;
-; SCD: Sends a level2 interrupt to Sub-CPU
-; 32X: Interrupts Slave SH2 directly
+; SCD: Sends a level2 interrupt to Sub-CPU*
+; 32X: Interrupts Slave SH2 with CMD request
+;
+; *Originally meant for waiting VBlank, that's
+; the only one available for sending the table
 ; --------------------------------------------------------
 
-; TODO: careful modifing this
+; NOTE: careful modifing this
 
 zmars_send:
 	; ----------------------------------------
@@ -3606,7 +3504,7 @@ gema_init:
 		ld	(hl),0BFh
 		ld	(hl),0DFh
 		ld	(hl),0FFh
-		ld	de,2208h|3	; Set Default LFO
+		ld	de,2208h|03h	; Set Default LFO
 		call	fm_send_1
 		ld	de,2700h	; CH3 special and timers off
 		call	fm_send_1
@@ -3652,10 +3550,12 @@ gema_init:
 		inc	c
 		jr	.setup_list
 .end_setup:
-		ld	a,-1			; Reset
-		ld	(trkListPage),a
-		xor	a
-		jp	init_RomTrcks
+		ret
+
+; 		ld	a,-1			; Reset
+; 		ld	(trkListPage),a
+; 		xor	a
+; 		jp	init_RomTrcks
 
 ; --------------------------------------------------------
 ; get_tick
@@ -3710,7 +3610,7 @@ get_tick:
 ; --------------------------------------------------------
 
 transferRom:
-		cp	0FFh		; ** WORKAROUND FOR $FF0000 area
+		cp	0FFh		; <-- WORKAROUND FOR $FF0000 area
 		jr	z,.from_ram
 		rst	8
 		push	ix
@@ -3757,7 +3657,6 @@ transferRom:
 
 ; ------------------------------------------------
 ; WORKAROUND FOR READING FROM $FF0000 RAM
-; SEGA CD ONLY
 ;
 ; On the 68K side YOU MUST CALL
 ; Sound_Update on a loop during Display.
@@ -3767,14 +3666,14 @@ transferRom:
 		ld	(cdRamDst),de
 		ld	(cdRamSrc),hl
 		ld	(cdRamSrcB),a
-		call	gema_lastbank			; Set bank to $FF8000 area
+		call	gema_lastbank			; ** Set bank to $FF8000 area
 		rst	8
 		ld	a,c
 		ld	(cdRamLen),a
-		ld	hl,RAM_ZCdFlag_D&07FFFh+8000h	; ** EXTERNAL **
+		ld	hl,RAM_ZCdFlag_D&07FFFh+8000h	; ** EXTERNAL WRITE TO 68K RAM **
 		ld	(hl),1				; WRITE TO RAM: Set request, 68k clears.
 .wait:
-		ld	a,(cdRamLen)
+		ld	a,(cdRamLen)			; Wait until 68K clears this
 		or	a
 		jr	nz,.wait
 		ret
@@ -3820,7 +3719,7 @@ transferRom:
 	; while playing the cache'd sample
 	; *** CRITICAL PROCESS ***
 	;
-	; pseudo-reference for ldir:
+	; pseudo-ref for ldir:
 	; ld (de),(hl)	; load (hl) to (de) directly
 	; inc de	; next de
 	; inc hl	; next hl
@@ -3835,7 +3734,7 @@ transferRom:
 		rst	8
 		nop
 		ld	c,MAX_TRFRPZ-1
-		bit	0,(ix)		; Genesis requests LOCK?
+		bit	0,(ix)		; Genesis requests BUS?
 		call	nz,.x68klpwt
 		ldir			; (de) to (hl) until bc == 0
 		rst	8
@@ -3846,7 +3745,7 @@ transferRom:
 .x68klast:
 		add	a,MAX_TRFRPZ
 		ld	c,a
-		bit	0,(ix)		; Genesis requests LOCK?
+		bit	0,(ix)		; Genesis requests BUS?
 		call	nz,.x68klpwt
 		ldir
 		rst	8
@@ -3872,7 +3771,7 @@ transferRom:
 ; --------------------------------------------------------
 ; chip_env
 ;
-; Process PSG
+; Process the PSG
 ; --------------------------------------------------------
 
 chip_env:
@@ -4170,7 +4069,7 @@ dac_play:
 		ld	de,(wave_Pitch)		; de - Pitch
 		ld	hl,(dWaveBuff&0FFh)<<8	; hl - WAVFIFO LSB pointer (xx.00)
 		exx				; move them back
-		ld	hl,(wave_Start)
+		ld	hl,(wave_Start)		; copy Start and length
 		ld 	a,(wave_Start+2)
 		ld	(dDacPntr),hl
 		ld	(dDacPntr+2),a
@@ -4179,7 +4078,7 @@ dac_play:
 		ld	(dDacCntr),hl
 		ld	(dDacCntr+2),a
 		xor	a
-		ld	(dDacFifoMid),a
+		ld	(dDacFifoMid),a		; Reset half-way
 		call	dac_refill
 		call	dac_on
 		ei
@@ -4223,8 +4122,9 @@ dac_refill:
 		ld	(dDacPntr+2),a
 		jp	.dacfill_ret
 
-; NOTE:
-; This doesn't finish at the exact END point.
+; NOTE: This doesn't finish at the exact END point
+; but the player won't notice it.
+
 .dac_over:
 		ld	d,dWaveBuff>>8
 		ld	a,(wave_Flags)	; LOOP enabled?
@@ -4313,6 +4213,18 @@ gema_lastbank:
 		rst	8
 		ret
 
+; ----------------------------------------------------------------
+; FM cache list
+; ----------------------------------------------------------------
+
+fmcach_list:	dw fmcach_1
+		dw fmcach_2
+		dw fmcach_3
+		dw 0		; <-- skipped
+		dw fmcach_4
+		dw fmcach_5
+		dw fmcach_6
+
 ; ====================================================================
 ; ----------------------------------------------------------------
 ; Tables
@@ -4331,134 +4243,17 @@ fmFreq_List:	dw 644
 		dw 1146
 		dw 1214
 psgFreq_List:
-; 		dw -1		; C-0 00
-; 		dw -1
-; 		dw -1
-; 		dw -1
-; 		dw -1
-; 		dw -1
-; 		dw -1
-; 		dw -1
-; 		dw -1
-; 		dw -1
-; 		dw -1
-; 		dw -1
-; 		dw -1		; C-1 0C
-; 		dw -1
-; 		dw -1
-; 		dw -1
-; 		dw -1
-; 		dw -1
-; 		dw -1
-; 		dw -1
-; 		dw -1
-; 		dw -1
-; 		dw -1
-; 		dw -1
-; 		dw -1		; C-2 18
-; 		dw -1
-; 		dw -1
-; 		dw -1
-; 		dw -1
-; 		dw -1
-; 		dw -1
-; 		dw -1
-; 		dw -1
-; 		dw -1
-; 		dw -1
-; 		dw -1
-		dw -1		; C-3 24
-		dw -1
-		dw -1
-		dw -1
-		dw -1
-		dw -1
-		dw -1
-		dw -1
-		dw -1
-		dw 3F8h
-		dw 3BFh
-		dw 389h
-		dw 356h		; C-4 30
-		dw 326h
-		dw 2F9h
-		dw 2CEh
-		dw 2A5h
-		dw 280h
-		dw 25Ch
-		dw 23Ah
-		dw 21Ah
-		dw 1FBh
-		dw 1DFh
-		dw 1C4h
-		dw 1ABh		; C-5 3C
-		dw 193h
-		dw 17Dh
-		dw 167h
-		dw 153h
-		dw 140h
-		dw 12Eh
-		dw 11Dh
-		dw 10Dh
-		dw 0FEh
-		dw 0EFh
-		dw 0E2h
-		dw 0D6h		; C-6 48
-		dw 0C9h
-		dw 0BEh
-		dw 0B4h
-		dw 0A9h
-		dw 0A0h
-		dw 097h
-		dw 08Fh
-		dw 087h
-		dw 07Fh
-		dw 078h
-		dw 071h
-		dw 06Bh		; C-7 54
-		dw 065h
-		dw 05Fh
-		dw 05Ah
-		dw 055h
-		dw 050h
-		dw 04Bh
-		dw 047h
-		dw 043h
-		dw 040h
-		dw 03Ch
-		dw 039h
-		dw 036h		; C-8 60
-		dw 033h
-		dw 030h
-		dw 02Dh
-		dw 02Bh
-		dw 028h
-		dw 026h
-		dw 024h
-		dw 022h
-		dw 020h
-		dw 01Fh
-		dw 01Dh
-		dw 01Bh		; C-9 6C
-		dw 01Ah
-		dw 018h
-		dw 017h
-		dw 016h
-		dw 015h
-		dw 013h
-		dw 012h
-		dw 011h
- 		dw 010h
- 		dw 009h
- 		dw 008h
-		dw 006h
-fmcach_list:	dw fmcach_1
-		dw fmcach_2
-		dw fmcach_3
-		dw 0		; <-- skipped
-		dw fmcach_4
-		dw fmcach_5
-		dw fmcach_6
+; 	dw    -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1	; x-0
+; 	dw    -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1	; x-1
+; 	dw    -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1	; x-2
+	dw    -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,03F8h,03BFh,0389h	; x-3
+	dw 0356h,0326h,02F9h,02CEh,02A5h,0280h,025Ch,023Ah,021Ah,01FBh,01DFh,01C4h	; x-4
+	dw 01ABh,0193h,017Dh,0167h,0153h,0140h,012Eh,011Dh,010Dh,00FEh,00EFh,00E2h	; x-5
+	dw 00D6h,00C9h,00BEh,00B4h,00A9h,00A0h,0097h,008Fh,0087h,007Fh,0078h,0071h	; x-6
+; 	dw 006Bh,0065h,005Fh,005Ah,0055h,0050h,004Bh,0047h,0043h,0040h,003Ch,0039h	; x-7
+; 	dw 0036h,0033h,0030h,002Dh,002Bh,0028h,0026h,0024h,0022h,0020h,001Fh,001Dh	; x-8 *
+; 	dw 001Bh,001Ah,0018h,0017h,0016h,0015h,0013h,0012h,0011h,0010h,0009h,0008h	; x-9 *
+
 
 ; ----------------------------------------
 ; DAC and PWM
@@ -4475,7 +4270,7 @@ wavFreq_List:
 	dw 0085h,0087h,008Ch,009Ah,00A4h,00ADh,00B2h,00C0h,00CCh,00D7h,00E6h,00F0h	; x-4
 	dw 0100h,0110h,0120h,012Eh,0147h,015Ah,016Ah,017Fh,0191h,01ACh,01C2h,01E0h	; x-5
 	dw 01F8h,0210h,0240h,0260h,0280h,02A0h,02D0h,02F8h,0320h,0350h,0380h,03C0h	; x-6
-	dw 0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h	; x-7
+; 	dw 0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h	; x-7
 ; 	dw 0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h	; x-8
 ; 	dw 0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h	; x-9
 
@@ -4552,6 +4347,7 @@ psgcom:	db 00h,00h,00h,00h	;  0 - command 1 = key on, 2 = key off, 4 = stop snd
 	db 00h,00h,00h,00h	; 48 - MAX Volume
 	db 00h,00h,00h,00h	; 52 - Vibrato value
 	db 00h,00h,00h,00h	; 56 - General timer
+
 ; FM instrument storage
 fmcach_1	ds 28h
 fmcach_2	ds 28h
@@ -4582,8 +4378,8 @@ trkBlks_2	ds 8
 ; 00  - DIRECT Linked channel from trkChnls
 ; 02  - 00h-7Fh: Priority level or 80h+ Silence request (chip ID)
 ; 03  - MASTER Volume for this channel
-; 04  - FREE
-; 05  - Chip index (YM2612: KEY index)
+; 04  - Chip index (YM2612: KEY index)
+; 05  - FREE
 ; 06  - Frequency list index (YM2612: %oooiiiii oct|index)
 ; 07  - Pitchbend add/sub
 ; 08  - Current volume: 00-max
@@ -4613,84 +4409,84 @@ tblList:	dw tblPSG-tblList		;  80h
 tblPSG:		db 00h,00h,00h,00h,00h,00h,00h,00h	; Channel 1
 		db 00h,00h,00h,00h,00h,00h,00h,00h
 		db 00h,00h,00h,00h,00h,00h,00h,00h
-		db 00h,00h,00h,00h,00h,01h,00h,00h	; Channel 2
+		db 00h,00h,00h,00h,01h,00h,00h,00h	; Channel 2
 		db 00h,00h,00h,00h,00h,00h,00h,00h
 		db 00h,00h,00h,00h,00h,00h,00h,00h
-		db 00h,00h,00h,00h,00h,02h,00h,00h	; Channel 3
+		db 00h,00h,00h,00h,02h,00h,00h,00h	; Channel 3
 		db 00h,00h,00h,00h,00h,00h,00h,00h
 		db 00h,00h,00h,00h,00h,00h,00h,00h
 		dw -1	; end-of-list
-tblPSGN:	db 00h,00h,00h,00h,00h,03h,00h,03h	; Noise
+tblPSGN:	db 00h,00h,00h,00h,03h,00h,00h,03h	; Noise
 		db 00h,00h,00h,00h,00h,00h,00h,00h
 		db 00h,00h,00h,00h,00h,00h,00h,00h
 tblFM:		db 00h,00h,00h,00h,00h,00h,00h,00h	; Channel 1
 		db 00h,00h,00h,00h,00h,00h,00h,00h
 		db 00h,00h,00h,00h,00h,00h,00h,00h
-		db 00h,00h,00h,00h,00h,01h,00h,00h	; Channel 2
+		db 00h,00h,00h,00h,01h,00h,00h,00h	; Channel 2
 		db 00h,00h,00h,00h,00h,00h,00h,00h
 		db 00h,00h,00h,00h,00h,00h,00h,00h
-		db 00h,00h,00h,00h,00h,04h,00h,00h	; Channel 4 <--
+		db 00h,00h,00h,00h,04h,00h,00h,00h	; Channel 4 <--
 		db 00h,00h,00h,00h,00h,00h,00h,00h
 		db 00h,00h,00h,00h,00h,00h,00h,00h
-		db 00h,00h,00h,00h,00h,05h,00h,00h	; Channel 5
+		db 00h,00h,00h,00h,05h,00h,00h,00h	; Channel 5
 		db 00h,00h,00h,00h,00h,00h,00h,00h
 		db 00h,00h,00h,00h,00h,00h,00h,00h
-tblFM3:		db 00h,00h,00h,00h,00h,02h,00h,00h	; Channel 3 <--
+tblFM3:		db 00h,00h,00h,00h,02h,00h,00h,00h	; Channel 3 <--
 		db 00h,00h,00h,00h,00h,00h,00h,00h
 		db 00h,00h,00h,00h,00h,00h,00h,00h
-tblFM6:		db 00h,00h,00h,00h,00h,06h,00h,00h	; Channel 6 <--
+tblFM6:		db 00h,00h,00h,00h,06h,00h,00h,00h	; Channel 6 <--
 		db 00h,00h,00h,00h,00h,00h,00h,00h
 		db 00h,00h,00h,00h,00h,00h,00h,00h
 		dw -1	; end-of-list
 tblPCM:		db 00h,00h,00h,00h,00h,00h,00h,00h	; Channel 1
 		db 00h,00h,00h,00h,00h,00h,00h,00h
 		db 00h,00h,00h,00h,00h,00h,00h,00h
-		db 00h,00h,00h,00h,00h,01h,00h,00h	; Channel 2
+		db 00h,00h,00h,00h,01h,00h,00h,00h	; Channel 2
 		db 00h,00h,00h,00h,00h,00h,00h,00h
 		db 00h,00h,00h,00h,00h,00h,00h,00h
-		db 00h,00h,00h,00h,00h,02h,00h,00h	; Channel 3
+		db 00h,00h,00h,00h,02h,00h,00h,00h	; Channel 3
 		db 00h,00h,00h,00h,00h,00h,00h,00h
 		db 00h,00h,00h,00h,00h,00h,00h,00h
-		db 00h,00h,00h,00h,00h,03h,00h,00h	; Channel 4
+		db 00h,00h,00h,00h,03h,00h,00h,00h	; Channel 4
 		db 00h,00h,00h,00h,00h,00h,00h,00h
 		db 00h,00h,00h,00h,00h,00h,00h,00h
-		db 00h,00h,00h,00h,00h,04h,00h,00h	; Channel 5
+		db 00h,00h,00h,00h,04h,00h,00h,00h	; Channel 5
 		db 00h,00h,00h,00h,00h,00h,00h,00h
 		db 00h,00h,00h,00h,00h,00h,00h,00h
-		db 00h,00h,00h,00h,00h,05h,00h,00h	; Channel 6
+		db 00h,00h,00h,00h,05h,00h,00h,00h	; Channel 6
 		db 00h,00h,00h,00h,00h,00h,00h,00h
 		db 00h,00h,00h,00h,00h,00h,00h,00h
-		db 00h,00h,00h,00h,00h,06h,00h,00h	; Channel 7
+		db 00h,00h,00h,00h,06h,00h,00h,00h	; Channel 7
 		db 00h,00h,00h,00h,00h,00h,00h,00h
 		db 00h,00h,00h,00h,00h,00h,00h,00h
-		db 00h,00h,00h,00h,00h,07h,00h,00h	; Channel 7
+		db 00h,00h,00h,00h,07h,00h,00h,00h	; Channel 7
 		db 00h,00h,00h,00h,00h,00h,00h,00h
 		db 00h,00h,00h,00h,00h,00h,00h,00h
 		dw -1	; end-of-list
 tblPWM:		db 00h,00h,00h,00h,00h,00h,00h,00h	; Channel 1
 		db 00h,00h,00h,00h,00h,00h,00h,00h
 		db 00h,00h,00h,00h,00h,00h,00h,00h
-		db 00h,00h,00h,00h,00h,01h,00h,00h	; Channel 2
+		db 00h,00h,00h,00h,01h,00h,00h,00h	; Channel 2
 		db 00h,00h,00h,00h,00h,00h,00h,00h
 		db 00h,00h,00h,00h,00h,00h,00h,00h
-		db 00h,00h,00h,00h,00h,02h,00h,00h	; Channel 3
+		db 00h,00h,00h,00h,02h,00h,00h,00h	; Channel 3
 		db 00h,00h,00h,00h,00h,00h,00h,00h
 		db 00h,00h,00h,00h,00h,00h,00h,00h
-		db 00h,00h,00h,00h,00h,03h,00h,00h	; Channel 4
+		db 00h,00h,00h,00h,03h,00h,00h,00h	; Channel 4
 		db 00h,00h,00h,00h,00h,00h,00h,00h
 		db 00h,00h,00h,00h,00h,00h,00h,00h
-		db 00h,00h,00h,00h,00h,04h,00h,00h	; Channel 5
+		db 00h,00h,00h,00h,04h,00h,00h,00h	; Channel 5
 		db 00h,00h,00h,00h,00h,00h,00h,00h
 		db 00h,00h,00h,00h,00h,00h,00h,00h
-		db 00h,00h,00h,00h,00h,05h,00h,00h	; Channel 6
+		db 00h,00h,00h,00h,05h,00h,00h,00h	; Channel 6
 		db 00h,00h,00h,00h,00h,00h,00h,00h
 		db 00h,00h,00h,00h,00h,00h,00h,00h
-		db 00h,00h,00h,00h,00h,06h,00h,00h	; Channel 7
+		db 00h,00h,00h,00h,06h,00h,00h,00h	; Channel 7
 		db 00h,00h,00h,00h,00h,00h,00h,00h
 		db 00h,00h,00h,00h,00h,00h,00h,00h
 		dw -1	; end-of-list
 
-trkListCach	ds 8*3		; per track slot
+trkInfoCach	ds 4*3		; per track slot
 instListOut	ds 8*3
 
 ; ====================================================================

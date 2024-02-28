@@ -461,7 +461,9 @@ gemaStopTrack:
 ; d2.b - Fade speed TODO
 ;
 ; Notes:
-; DO NOT MIX THIS WITH gemaSetTrackVol
+; - DO NOT MIX THIS WITH gemaSetTrackVol
+; - In v1.0 this only works on (re)start
+;   or during new notes on playback.
 ; --------------------------------------------------------
 
 gemaFadeTrack:
@@ -485,7 +487,9 @@ gemaFadeTrack:
 ; d1.b - Master volume ($00-$40 max-min)
 ;
 ; Notes:
-; DO NOT MIX THIS WITH gemaFadeTrack
+; - DO NOT MIX THIS WITH gemaFadeTrack
+; - In v1.0 this only works on (re)start
+;   or during new notes on playback.
 ; --------------------------------------------------------
 
 gemaSetTrackVol:

@@ -128,12 +128,13 @@ gemaHead macro blk,pat,ins,num
 
 	align 2
 Gema_MasterList:
-	gemaTrk 7,GemaTrk_Arena1
+	gemaTrk 12,GemaTrk_TEST_0
 	gemaTrk 6|$80,GemaTrk_MOVEME
 	gemaTrk 6|$80,GemaTrk_NadieMD
 	gemaTrk 6|$80,GemaTrk_NadieMCD
 	gemaTrk 6|$80,GemaTrk_NadieMARS
 	gemaTrk 3|$80,GemaTrk_Crystal
+	gemaTrk 7,GemaTrk_Arena1
 	gemaTrk 3,GemaTrk_Dream
 
 ; ------------------------------------------------------------
@@ -158,6 +159,16 @@ GemaSfx_All:
 ; ------------------------------------------------------------
 
 GemaTrk_TEST_0:
+	gemaHead .blk,.pat,.ins,3
+.ins:
+; 	gInsPsgN 0,$00,$00,$00,$00,$00,0,%101
+; 	gInsFm -36-6,FmIns_Ambient_dark
+; 	gInsPcm -12,PcmIns_MoveMe_BrassL,%11
+	gInsPwm 0,PwmIns_Piano,%00
+.blk:
+	binclude "sound/tracks/test_blk.bin"
+.pat:
+	binclude "sound/tracks/test_patt.bin"
 
 GemaTrk_Arena1:
 	gemaHead shrd_blk,shrd_pat,.ins,6

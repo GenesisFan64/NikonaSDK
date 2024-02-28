@@ -162,6 +162,9 @@ sizeof_thisbuff		ds.l 0
 		lea	(Controller_1).w,a6
 		lea	(RAM_CurrPick).w,a5
 	; UP/DOWN
+		move.w	on_hold(a6),d7
+		btst	#bitJoyB,d7
+		bne.s.	.n_up
 		move.w	on_press(a6),d7
 		btst	#bitJoyDown,d7
 		beq.s	.n_down
@@ -259,6 +262,18 @@ sizeof_thisbuff		ds.l 0
 		subq.w	#1,(a5)
 		bra	.show_me
 .op1_left:
+		move.w	on_hold(a6),d7
+		btst	#bitJoyUp,d7
+		beq.s	.op1_down
+		addq.w	#1,(a5)
+		bra	.show_me
+.op1_down:
+		btst	#bitJoyDown,d7
+		beq.s	.op1_up
+		subq.w	#1,(a5)
+		bra	.show_me
+.op1_up:
+
 		rts
 
 ; ------------------------------------------------------
@@ -283,7 +298,7 @@ sizeof_thisbuff		ds.l 0
 		lea	(RAM_GemaArg3).w,a5
 		move.w	on_press(a6),d7
 		btst	#bitJoyStart,d7
-		beq.s	.option1_args
+		beq	.option1_args
 		move.w	(a5)+,d0
 		move.w	(a5)+,d1
 		bra	gemaFadeTrack
@@ -297,7 +312,7 @@ sizeof_thisbuff		ds.l 0
 		lea	(RAM_GemaArg3).w,a5
 		move.w	on_press(a6),d7
 		btst	#bitJoyStart,d7
-		beq.s	.option1_args
+		beq	.option1_args
 		move.w	(a5)+,d0
 		move.w	(a5)+,d1
 		bra	gemaSetTrackVol
@@ -738,7 +753,7 @@ PAL_TEST:
 ; 		align 2
 
 str_TesterInit:
-		dc.b "GEMA/Nikona player",$0A
+		dc.b "GEMA/Nikona tester",$0A
 		dc.b "                \{DATE} \{TIME}",$0A
 		dc.b $0A
 		dc.b "    gemaTest",$0A

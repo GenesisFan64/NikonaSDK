@@ -1,6 +1,8 @@
 # NikonaSDK
 A SDK in pure assembly for the SEGA 16-bit console famly of systems: Genesis, Sega CD, Sega 32X, Sega CD32X and Sega Pico.
 
+by GenesisFan64 2023-2024
+
 - Sega Genesis and Sega 32X ROMs are tested on real hardware.
 - Sega CD, Sega CD32X and Sega Pico are UNTESTED as I don't have either Sega CD or the Sega Pico (There's no flashcarts for Pico anyway)
 
@@ -12,5 +14,3 @@ Code targets a modified version of AS Macro Assembler by Flamewing and a custom 
 
 - Windows: tools/AS/win32
 - Linux: tools/AS/linux
-
-DISCLAIMER: THIS CODE CONTAINS PLACEHOLDER IMAGES AND SOUNDS
