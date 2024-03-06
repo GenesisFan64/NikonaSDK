@@ -54,7 +54,9 @@ cdpcm_pitch	ds.w 1
 cdpcm_start	ds.l 1
 cdpcm_len	ds.l 1
 cdpcm_loop	ds.l 1
-cdpcm_freel	ds.l 1
+cdpcm_nstart	ds.l 1
+cdpcm_nlen	ds.l 1
+cdpcm_nloop	ds.l 1
 sizeof_cdpcm	ds.l 0
 		endstrct
 
@@ -120,11 +122,11 @@ file_subdata:
 ; ----------------------------------------------------------------
 
 SP_IRQ:
-		bclr	#3,(scpu_reg+$33).w		; Disable Timer interrupt
 		move.b	(scpu_reg+mcd_comm_m).w,d0
 		andi.w	#$F0,d0
-		cmpi.w	#$F0,d0
+		cmpi.w	#$F0,d0				; Z80 is communicating?
 		bne.s	.not_now
+		bclr	#3,(scpu_reg+$33).w		; Disable Timer interrupt
 		move.b	#-1,(scpu_reg+mcd_comm_s).w	; Respond to Z80
 .wait_start:
 		move.b	(scpu_reg+mcd_comm_m).w,d0	; MAIN is ready?
@@ -157,7 +159,9 @@ SP_IRQ:
 		move.b	#$00,(scpu_reg+mcd_comm_s).w	; Sub-CPU is free
 		bra	.next_packet
 .exit_now:
-		st.b	(RAM_CdSub_PcmTblUpd).l		; Set table update flag
+; 		st.b	(RAM_CdSub_PcmTblUpd).l		; Set table update flag
+		bsr	CDPCM_ReadTable			; Process table we just got.
+		bsr	CDPCM_Stream
 .not_now:
 		bset	#3,(scpu_reg+$33).w		; Enable Timer interrupt
 		rts
@@ -168,13 +172,9 @@ SP_IRQ:
 ; ----------------------------------------------------------------
 
 SP_Timer:
-; 		movem.l	a0-a6/d0-d7,-(sp)
-; 		ori.w	#$0700,sr
-; 		bsr	CDPCM_ReadTable			; Process table we just got.
-; 		bsr	CDPCM_Update
-; 		bsr	CDPCM_Stream
-; 		andi.w	#$F8FF,sr
-; 		movem.l	(sp)+,a0-a6/d0-d7
+		movem.l	a0-a6/d0-d7,-(sp)
+	; CURRENTLY USELESS.
+		movem.l	(sp)+,a0-a6/d0-d7
 		rte	; <--
 
 ; =====================================================================
@@ -200,31 +200,34 @@ SP_User:
 ; ----------------------------------------------------------------
 
 SP_Main:
-	rept 6
-		bsr	CDPCM_ReadTable			; Process table we just got.
-		bsr	CDPCM_Update
+	rept 3
+		bsr	CDPCM_Update			; <-- Timing issues.
 		bsr	CDPCM_Stream
 	endm
-		move.b	(scpu_reg+mcd_comm_m).w,d0		; d7
+		move.b	(scpu_reg+mcd_comm_m).w,d0
 		move.b	d0,d1
 		andi.w	#$F0,d1
-		cmpi.b	#$F0,d1
+		cmpi.b	#$F0,d1				; Z80 is communicating?
 		beq.s	SP_Main
 		andi.w	#%00111111,d0				; <-- current limit
 		beq.s	SP_Main
 		bclr	#3,(scpu_reg+$33).w
 		move.b	(scpu_reg+mcd_comm_s).w,d7
 		bset	#7,d7
-		move.b	d7,(scpu_reg+mcd_comm_s).w		; Set as BUSY
-		add.w	d0,d0					; * 2
+		move.b	d7,(scpu_reg+mcd_comm_s).w		; Tell MAIN we are working.
+		add.w	d0,d0					; index*2
 		move.w	SP_cmdlist(pc,d0.w),d1
 		jsr	SP_cmdlist(pc,d1.w)
 		move.b	(scpu_reg+mcd_comm_s).w,d7
 		bclr	#7,d7
-		move.b	d7,(scpu_reg+mcd_comm_s).w		; Remove BUSY bit, finished
+		move.b	d7,(scpu_reg+mcd_comm_s).w		; Tell MAIN we finished.
 		bset	#3,(scpu_reg+$33).w
 		bra	SP_Main
-	; DO NOT RETURN WITH RTS, THAT IRQ IS USED BY THE Z80
+
+	; ** DO NOT RETURN WITH RTS **
+	; The IRQ that triggers after return
+	; is now used by the Z80 to Transfer the PCM table
+	; (Z80->here)
 
 ; =====================================================================
 ; ----------------------------------------------------------------
@@ -664,9 +667,9 @@ CDPCM_Init:
 ; --------------------------------------------------------
 
 CDPCM_ReadTable:
-		tst.b	(RAM_CdSub_PcmTblUpd).l
-		beq.s	.dont_upd
-		clr.b	(RAM_CdSub_PcmTblUpd).l
+; 		tst.b	(RAM_CdSub_PcmTblUpd).l
+; 		beq.s	.dont_upd
+; 		clr.b	(RAM_CdSub_PcmTblUpd).l
 ; 		ori.w	#$0700,sr
 		lea	(RAM_CdSub_PcmBuff),a6
 		lea	(RAM_CdSub_PcmTable),a5
@@ -737,7 +740,7 @@ CDPCM_ReadTable:
 		move.b	(a2)+,d1
 		swap	d1
 		or.l	d1,d0
-		move.l	d0,cdpcm_len(a6)
+		move.l	d0,cdpcm_nlen(a6)
 		moveq	#0,d1			; Read LEN
 		moveq	#0,d0
 		move.b	(a2)+,d0
@@ -747,8 +750,8 @@ CDPCM_ReadTable:
 		move.b	(a2)+,d1
 		swap	d1
 		or.l	d1,d0
-		move.l	d0,cdpcm_loop(a6)
-		move.l	a2,cdpcm_start(a6)
+		move.l	d0,cdpcm_nloop(a6)
+		move.l	a2,cdpcm_nstart(a6)
 		rol.b	#1,d3
 		andi.b	#1,d3
 		or.b	#$C0,d3
@@ -969,6 +972,10 @@ CDPCM_Update:
 		bset	d6,d5
 		move.b	d5,ONREG(a5)		; Stop channel first
 		bsr	CDPCM_Wait
+		move.l	cdpcm_nstart(a6),cdpcm_start(a6)
+		move.l	cdpcm_nlen(a6),cdpcm_len(a6)
+		move.l	cdpcm_nloop(a6),cdpcm_loop(a6)
+
 		move.l	cdpcm_start(a6),a0	; Make first block
 		move.l	cdpcm_len(a6),d1
 		bsr	.make_lblk
@@ -1096,7 +1103,7 @@ CDPCM_WavToPcm:
 			align $80
 SP_RAM:
 			strct SP_RAM
-RAM_CdSub_PcmBuff	ds.b 8*$20
+RAM_CdSub_PcmBuff	ds.b 8*sizeof_cdpcm
 RAM_CdSub_PcmTable	ds.b 8*8		; Z80 table
 RAM_CdSub_PcmEnbl	ds.b 1			; PCM enable bits
 RAM_CdSub_PcmPlay	ds.b 1

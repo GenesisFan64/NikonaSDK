@@ -1875,8 +1875,10 @@ SH2_END:
 ; USER data pointer
 ; ----------------------------------------------------------------
 
+
 SH2_USER_DATA:
 		cpu 68000
 		padding off
 		dephase
 		phase (SH2_END-SH2_Master)+MARS_RAMCODE
+		align 4

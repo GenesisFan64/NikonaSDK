@@ -1,4 +1,4 @@
-; ====================================================================
+; ===========================================================================
 ; --------------------------------------------------------
 ; GEMA/Nikona PWM instruments
 ;
@@ -8,22 +8,8 @@
 ; --------------------------------------------------------
 
 	align 4
-PwmIns_Nadie:
-	gSmpHead .end-.start,0
-.start:	binclude "sound/instr/smpl/nadie_st.wav",$2C
-.end:
-	align 4
-PwmIns_PKick:
-	gSmpHead .end-.start,0
-.start:	binclude "sound/instr/smpl/wegot_kick.wav",$2C
-.end:
-	align 4
-PwmIns_Piano:
-	gSmpHead .end-.start,0
-.start:	binclude "sound/instr/smpl/piano.wav",$2C
-.end:
-	align 4
-PwmIns_PTom:
-	gSmpHead .end-.start,0
-.start:	binclude "sound/instr/smpl/sauron_tom.wav",$2C
-.end:
+; 	gSmplData Label,"filepath",loop_point(0-start)
+ 	gSmplData PwmIns_Nadie,"sound/instr/smpl/nadie_st.wav",0
+ 	gSmplData PwmIns_PKick,"sound/instr/smpl/wegot_kick.wav",0
+ 	gSmplData PwmIns_Piano,"sound/instr/smpl/piano.wav",0
+ 	gSmplData PwmIns_PTom,"sound/instr/smpl/sauron_tom.wav",0

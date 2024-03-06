@@ -1,4 +1,4 @@
-; ====================================================================
+; ===========================================================================
 ; ----------------------------------------------------------------
 ; Genesis header
 ; ----------------------------------------------------------------
@@ -131,7 +131,13 @@ MD_Entry:
 		cmp.l	d1,a0
 		bcs.s	.loop_ram
 		movem.l	($FF0000),d0-a6			; Clean registers using zeros from RAM
-		lea	(vdp_ctrl).l,a6
-.wait_dma:	move.w	(a6),d7				; Check if our DMA is active.
+		lea	(vdp_data),a6
+.wait_dma:	move.w	4(a6),d7			; Check if DMA is active.
 		btst	#1,d7
 		bne.s	.wait_dma
+		move.l	#$C0000000,4(a6)		; Clear palette
+		moveq	#64-1,d7
+		moveq	#0,d6
+.palclear:
+		move.w	d6,(a6)
+		dbf	d7,.palclear

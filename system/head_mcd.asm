@@ -1,4 +1,4 @@
-; ====================================================================
+; ===========================================================================
 ; ----------------------------------------------------------------
 ; SEGA CD header
 ;
@@ -51,12 +51,12 @@ IP_Start:
 .wait_vint:	move.w	4(a0),d0
 		btst	#3,d0
 		beq.s	.wait_vint
-		move.l	#$C0000000,4(a0)
-		move.w	#64-1,d1
-		moveq	#0,d0
-.color_out:
-		move.w	d0,(a0)
-		dbf	d1,.color_out
+; 		move.l	#$C0000000,4(a0)
+; 		move.w	#64-1,d1
+; 		moveq	#0,d0
+; .color_out:
+; 		move.w	d0,(a0)
+; 		dbf	d1,.color_out
 		move.w	#$FD0C,(sysmcd_reg+mcd_hint).l	; Relocate Hblank
 ; 		move.l	#RAM_MdMarsHInt,($FFFFFD06+2).w
 		jmp	($FF0600+MCD_Main).l

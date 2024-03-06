@@ -1,11 +1,12 @@
-; ================================================================
+; ===========================================================================
 ; ------------------------------------------------------------
-; SOUND DATA SECTION
+; SOUND TRACKS SECTION
 ; ------------------------------------------------------------
 
-; --------------------------------------------
+; ====================================================================
+; ------------------------------------------------------------
 ; Instrument macros
-; --------------------------------------------
+; ------------------------------------------------------------
 
 gInsNull macro
 	dc.b $00,$00,$00,$00
@@ -24,7 +25,7 @@ gInsPsg	macro pitch,alv,atk,slv,dky,rrt,vib
 	endm
 
 ; same args as gInsPsg
-; only one more argument for the noise type:
+; but this has one more argument for the noise type:
 ; mode: noise mode
 ;       %tmm
 ;        t  - Bass(0)|Noise(1)
@@ -35,22 +36,22 @@ gInsPsgN macro pitch,alv,atk,slv,dky,rrt,vib,mode
 	dc.b slv,dky,rrt,vib
 	endm
 
-; 24-bit ROM pointer to FM patch data
+; 24-bit 68k pointer to FM patch data
 gInsFm macro pitch,fmins
 	dc.b $A0,pitch,((fmins>>16)&$FF),((fmins>>8)&$FF)
 	dc.b fmins&$FF,$00,$00,$00
 	endm
 
-; Same args as gInsFm, but the last 4 words of the data
-; are the custom freqs for each operator in this order:
-; OP1 OP2 OP3 OP4
+; Same args as gInsFm but for FM3 special.
 ;
-; Pitch is useless here, set to 0
+; ** Pitch is useless here, set to 0 **
 gInsFm3	macro pitch,fmins
 	dc.b $B0,pitch,((fmins>>16)&$FF),((fmins>>8)&$FF)
 	dc.b fmins&$FF,$00,$00,$00
 	endm
 
+; DAC Sample
+;
 ; flags: %000L
 ;        L - Loop sample No/Yes
 gInsDac	macro pitch,start,flags
@@ -58,6 +59,8 @@ gInsDac	macro pitch,start,flags
 	dc.b start&$FF,0,0,0
 	endm
 
+; Sega CD PCM Sample
+;
 ; flags: %000L
 ;        L - Loop sample No/Yes
 gInsPcm	macro pitch,start,flags
@@ -70,9 +73,11 @@ gInsPcm	macro pitch,start,flags
  endif
 	endm
 
+; Sega 32X PWM Sample
+;
 ; flags: %00SL
 ;        L - Loop sample No/Yes
-;        S  - Sample data is on STEREO
+;        S - Sample data is in STEREO
 gInsPwm	macro pitch,start,flags
  if MARS|MARSCD
 	dc.b $E0|flags,pitch,((start>>24)&$FF),((start>>16)&$FF)
@@ -93,8 +98,8 @@ gemaTrk macro ticks,loc
 	endm
 
 ; gemaHead
-; block point, patt point, ins point
-; numof_blocks,numof_patts,numof_ins
+;
+; blk_data,patt_data,ins_list,num_chnlsused
 gemaHead macro blk,pat,ins,num
 	dc.w num
 	dc.l blk
@@ -102,18 +107,9 @@ gemaHead macro blk,pat,ins,num
 	dc.l ins
 	endm
 
-; gemaTrack macro num,name
-; 	gemaHead .blk,.pat,.ins,num
-; .blk:
-; 	binclude "sound/tracks/"+name+"_blk.bin"
-; .pat:
-; 	binclude "sound/tracks/"+name+"_patt.bin"
-; .ins:
-; 	endm
-
-; ================================================================
+; ====================================================================
 ; ------------------------------------------------------------
-; Nikona MAIN track-list
+; Nikona DEFAULT track-list
 ;
 ; gemaTrk ticks+beatsbit*,track_data
 ; Add $80 ($80|ticks) to make the track use global sub-beats
@@ -163,8 +159,8 @@ GemaTrk_TEST_0:
 .ins:
 ; 	gInsPsgN 0,$00,$00,$00,$00,$00,0,%101
 ; 	gInsFm -36-6,FmIns_Ambient_dark
-; 	gInsPcm -12,PcmIns_MoveMe_BrassL,%11
-	gInsPwm 0,PwmIns_Piano,%00
+	gInsPcm -12,PcmIns_MoveMe_BrassL,%11
+; 	gInsPwm 0,PwmIns_Piano,%00
 .blk:
 	binclude "sound/tracks/test_blk.bin"
 .pat:

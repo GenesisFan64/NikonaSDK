@@ -1,8 +1,8 @@
-; ====================================================================
-; --------------------------------------------------------
+; ===========================================================================
+; -------------------------------------------------------------------
 ; GEMA/Nikona Z80 code v0.9
-; (C)2023-2024 GenesisFan64
-; --------------------------------------------------------
+; by GenesisFan64 2023-2024
+; -------------------------------------------------------------------
 
 		phase 0
 		cpu Z80		; Enter Z80 CPU
@@ -11,26 +11,23 @@
 ; SETTINGS
 ; --------------------------------------------------------
 
-; !! = leave as-is unless you know what you are doing.
-
+; !! = HARDCODED
 MAX_TRFRPZ	equ 8		; !! Max transferRom packets(bytes) **AFFECTS WAVE QUALITY**
 MAX_TRKCHN	equ 32		; !! Max internal shared tracker channel slots *** LIMTED to 32 ***
 MAX_RCACH	equ 20h		; !! Max storage for ROM pattern data *** 1-BIT SIZES ONLY, MUST BE ALIGNED ***
 MAX_BUFFNTRY	equ 4*2		; !! nikona_BuffList buffer entry size
-
-MAX_TBLSIZE	equ 18h		; Max size for chip tables
+MAX_TBLSIZE	equ 18h		; Maximum size for chip tables (MINIMUM: 10h)
 MAX_TRKINDX	equ 26		; Max channel indexes per buffer: 4PSG+6FM+8PCM+8PWM
-MAX_BLOCKS	equ 8		; Max Cache'd ROM blocks per track
+MAX_ZCMND	equ 10h		; Size of command array ** 1-bit SIZES ONLY ** (68k uses this label too)
 
-MAX_ZCMND	equ 10h		; Size of commands array, ** 1-bit SIZES ONLY **
-ZSET_TESTME	equ 0		; Set to 1 to check the DAC playback for quality by ear
+; Debug:
+ZSET_TESTME	equ 0		; Set to 1 to check the DAC playback quality
 
 ; --------------------------------------------------------
 ; Structs
 ; --------------------------------------------------------
 
-; trkBuff struct: 00h-30h
-; unused bytes are free.
+; trkBuff struct
 ;
 ; trk_Status: %ERP- V--0
 ; E - enabled
@@ -48,7 +45,6 @@ trk_Cach	equ 08h	; ** [W] Current track's cache notedata
 trk_Read	equ 0Ah	; [W] Track current pattern read
 trk_Rows	equ 0Ch	; [W] Track row counter
 trk_VolMaster	equ 0Eh ; [W] Master volume for this track slot (00-max), +80h update
-
 trk_cachHalf	equ 10h ; ROM-cache halfcheck
 trk_rowPause	equ 11h	; Row-pause timer
 trk_tickTmr	equ 12h	; Ticks timer
@@ -65,7 +61,7 @@ trk_RomInst	equ 20h ; [3b] ROM instrument data
 trk_RomBlks	equ 23h ; [3b] ROM blocks data
 trk_ChnIndx	equ 26h	; CHANNEL INDEXES START HERE
 
-; chnBuff struct, 8 bytes ONLY
+; chnBuff struct: 8 bytes ONLY
 ;
 ; chnl_Flags: E0LRevin
 ; E  - Channel is active
@@ -74,7 +70,6 @@ trk_ChnIndx	equ 26h	; CHANNEL INDEXES START HERE
 ; v  - Volume*
 ; i  - Intrument*
 ; n  - Note*
-
 chnl_Flags	equ 0	; Playback flags ** DON'T MOVE **
 chnl_Chip	equ 1	; Current Chip ID + priority for this channel
 chnl_Note	equ 2
@@ -413,8 +408,10 @@ drv_loop:
 		rst	8
 		call	.grab_arg		; d0: Slot index
 		ld	iy,nikona_BuffList	; iy - Slot buffer list
-		cp	-1			; if d2 == -1, search
-		jr	z,.srch_mode
+		or	a
+		jp	m,.srch_mode
+; 		cp	-1			; if d2 == -1, search
+; 		jr	z,.srch_mode
 		cp	(nikona_BuffList_e-nikona_BuffList)/MAX_BUFFNTRY	; If maxed out slots
 		jp	nc,.next_cmd
 		call	.cmnd_rdslot
@@ -436,7 +433,6 @@ drv_loop:
 		inc	hl
 		ld	(hl),b			; ** write trk_SetBlk
 		ld	a,c
-		call	get_RomTrcks		; ** ROM READ: Get track list
 		jp	.next_cmd
 
 ; --------------------------------------------------------
@@ -452,8 +448,10 @@ drv_loop:
 		ld	c,a			; copy to c
 		call	.grab_arg		; d0: Slot index
 		ld	iy,nikona_BuffList	; iy - Slot buffer list
-		cp	-1			; if -1, search for all with same ID
-		jr	z,.srch_del
+		or	a
+		jp	m,.srch_del
+; 		cp	-1			; if -1, search for all with same ID
+; 		jr	z,.srch_del
 		cp	(nikona_BuffList_e-nikona_BuffList)/MAX_BUFFNTRY	; If maxed out slots
 		jp	nc,.next_cmd
 		call	.cmnd_rdslot
@@ -492,8 +490,10 @@ drv_loop:
 		ld	c,a			; copy to c
 		call	.grab_arg		; d0: Slot index
 		ld	iy,nikona_BuffList	; iy - Slot buffer list
-		cp	-1			; if -1, search for all with same ID
-		jr	z,.srch_fvol
+		or	a
+		jp	m,.srch_fvol
+; 		cp	-1			; if -1, search for all with same ID
+; 		jr	z,.srch_fvol
 		cp	(nikona_BuffList_e-nikona_BuffList)/MAX_BUFFNTRY	; If maxed out slots
 		jp	nc,.next_cmd
 		call	.cmnd_rdslot
@@ -529,8 +529,10 @@ drv_loop:
 		ld	c,a			; copy to c
 		call	.grab_arg		; d0: Slot index
 		ld	iy,nikona_BuffList	; iy - Slot buffer list
-		cp	-1			; if -1, search for all with same ID
-		jr	z,.srch_vol
+		or	a
+		jp	m,.srch_vol
+; 		cp	-1			; if -1, search for all with same ID
+; 		jr	z,.srch_vol
 		cp	(nikona_BuffList_e-nikona_BuffList)/MAX_BUFFNTRY	; If maxed out slots
 		jp	nc,.next_cmd
 		call	.cmnd_rdslot
@@ -588,7 +590,6 @@ drv_loop:
 ; iy - nikona_BuffList
 
 .srch_slot:
-		ld	de,MAX_BUFFNTRY
 		ld	a,(iy)
 		cp	-1			; End of list?
 		ret	z
@@ -596,6 +597,7 @@ drv_loop:
 		ld	l,a
 		push	hl
 		pop	ix
+		ld	de,MAX_BUFFNTRY
 		add	iy,de			; Next entry for later
 		ret
 
@@ -1135,14 +1137,29 @@ upd_track:
 		ld	a,(iy+trk_SetBlk)	; Make start block as current block
 		rst	8
 		ld 	(iy+trk_currBlk),a	; block
-		ld	hl,trkInfoCach		; Read MASTER Nikona track list
-		ld	a,(iy+trk_Priority)	; Pick slot
-		dec	a
+		ld	a,(iy+trk_SeqId)
+		cp	-1			; TODO
+		ret	z
 		add	a,a
 		add	a,a
 		ld	d,0
 		ld	e,a
+		ld	hl,gemaMstrListPos
+		inc	hl
+		ld	a,(hl)		; $00xx0000
+		inc	hl
+		ld	c,(hl)		; $0000xx00
+		inc	hl
+		ld	l,(hl)		; $000000xx
+		rst	8
+		ld	h,c
 		add	hl,de
+		adc	a,0
+		ld	de,trkInfoCach
+		push	de
+		ld	bc,4
+		call	transferRom	; *** ROM ACCESS ***
+		pop	hl
 		ld	a,(hl)
 		inc	hl
 		bit	7,a
@@ -1264,42 +1281,14 @@ track_out:
 		ld	(marsUpd),a
 		ret
 
-; ----------------------------------------
-; Load tracklist from ROM
+; ; ----------------------------------------
+; ; Load tracklist from ROM
+; ;
+; ; a - SeqID
+; ; ----------------------------------------
 ;
-; a - SeqID
-; ----------------------------------------
-
-get_RomTrcks:
-		push	hl
-		add	a,a
-		add	a,a
-		ld	d,0
-		ld	e,a
-		ld	hl,gemaMstrListPos
-		inc	hl
-		ld	a,(hl)		; $00xx0000
-		inc	hl
-		ld	c,(hl)		; $0000xx00
-		inc	hl
-		ld	l,(hl)		; $000000xx
-		rst	8
-		ld	h,c
-		add	hl,de
-		adc	a,0
-		ex	hl,de
-		ld	hl,trkInfoCach
-		ld	c,(ix+trk_Priority)
-		dec	c
-		sla	c		; * 4
-		sla	c
-		ld	b,0
-		add	hl,bc
-		ex	hl,de
-		ld	bc,4
-		call	transferRom	; *** ROM ACCESS ***
-		pop	hl
-		ret
+; get_RomTrcks:
+; 		ret
 
 ; ============================================================
 ; --------------------------------------------------------
@@ -1422,13 +1411,13 @@ tblbuff_read:
 		dec	a			; inst-1
 		and	01111111b
 		ld	hl,instListOut		; temporal storage for instrument
-		ld	d,0
-		ld	e,(iy+trk_Priority)
-		dec	e			; -1
-		rlc	e
-		rlc	e
-		rlc	e
-		add	hl,de
+; 		ld	d,0
+; 		ld	e,(iy+trk_Priority)
+; 		dec	e			; -1
+; 		rlc	e
+; 		rlc	e
+; 		rlc	e
+; 		add	hl,de
 		ld	c,(iy+trk_BankIns)	; c - current intrument loaded
 		bit	7,c			; First time?
 		jr	nz,.first_ins
@@ -2238,8 +2227,6 @@ dtbl_singl:
 		ld	a,(iy+08h)	; Read current Volume
 		rst	8
 		sub	a,(iy+03h)	; + MASTER vol
-
-		add	a,a		; * 2
 		ld	c,a		; c - Current Volume
 		ld	b,(hl)		; b - Current jump-carry byte
 		pop	hl
@@ -2392,9 +2379,8 @@ dtbl_singl:
 ; PCM
 ; --------------------------------
 
-; TODO MEJORAR ESTO
-
 .mk_pcm:
+	if MCD|MARSCD
 		ld	a,(ix+chnl_Note)
 		ld	d,0
 		ld	e,(iy+04h)		; e - Channel ID
@@ -2439,16 +2425,20 @@ dtbl_singl:
 		add	ix,de
 		ld	(ix),l
 		add	ix,de
-		ld	c,-1		; <-- Lazy job
+		ld	c,-1
 		ld	a,(iy+08h)	; Read current Volume
 		sub	a,(iy+03h)	; + MASTER vol
+		or	a		; If == 0, do nothing
+		jr	z,.vpcm_carry
 		ccf
 		adc	a,a
 		adc	a,a
 		jr	c,.vpcm_carry
 		xor	a
-		add	a,c
+		jr	.vpcm_zero
 .vpcm_carry:
+		add	a,c
+.vpcm_zero:
 		ld	(1),a
 		ld	(ix),a
 		add	ix,de
@@ -2475,12 +2465,16 @@ dtbl_singl:
 		ld	a,1
 		ld	(mcdUpd),a
 		jp	.chnl_ulnkoff
+	else
+		ret
+	endif
 
 ; --------------------------------
 ; PWM
 ; --------------------------------
 
 .mk_pwm:
+	if MARS|MARSCD
 		ld	a,(ix+chnl_Note)
 		ld	d,0
 		ld	e,(iy+04h)		; e - Channel ID
@@ -2507,13 +2501,10 @@ dtbl_singl:
 		ld	(ix),e		; Set command
 		call	.readfreq_pwm
 		ld	a,c		; Read panning bits
-; 		rrca
-; 		rrca
-		cpl
+		cpl			; Reverse and filter bits
 		and	00110000b
 		rst	8
-		ld	e,a		; e - set panning bits
-		xor	a
+		ld	e,a		; Save panning to e
 		ld	a,(iy+08h)	; Read current volume
 		sub	a,(iy+03h)	; + MASTER vol
 		neg	a
@@ -2557,6 +2548,9 @@ dtbl_singl:
 		ld	(marsUpd),a
 		pop	ix
 		jp	.chnl_ulnkoff
+	else
+		ret
+	endif
 
 ; --------------------------------
 ; SHARED routine
@@ -3552,11 +3546,6 @@ gema_init:
 .end_setup:
 		ret
 
-; 		ld	a,-1			; Reset
-; 		ld	(trkListPage),a
-; 		xor	a
-; 		jp	init_RomTrcks
-
 ; --------------------------------------------------------
 ; get_tick
 ;
@@ -4123,7 +4112,7 @@ dac_refill:
 		jp	.dacfill_ret
 
 ; NOTE: This doesn't finish at the exact END point
-; but the player won't notice it.
+; but the USER won't notice it.
 
 .dac_over:
 		ld	d,dWaveBuff>>8
@@ -4197,7 +4186,7 @@ dac_refill:
 ; Set the BANK to the very last part of memory for the
 ; transferRom to read from RAM
 ;
-; On 32X, sets the bank out of the ROM reading areas due
+; On 32X this sets the bank out of the ROM-reading areas due
 ; to a conflict with the PSG
 ;
 ; Uses:
@@ -4258,8 +4247,7 @@ psgFreq_List:
 ; ----------------------------------------
 ; DAC and PWM
 ;
-; DAC base: 16000hz
-; PWM base: 22050hz
+; base C-5 freq: 16000hz
 ; ----------------------------------------
 wavFreq_List:
 	;   C     C#    D     D#    E     F     F#    G     G#    A     A#    B
@@ -4275,9 +4263,9 @@ wavFreq_List:
 ; 	dw 0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h	; x-9
 
 ; ----------------------------------------
-; SegaCD PCM ONLY
+; SegaCD ONLY
 ;
-; PCM base: 32000hz
+; base C-5 freq: 32000hz
 ; ----------------------------------------
 wavFreq_CdPcm:
 	;     C     C#     D      D#     E      F      F#     G      G#     A      A#     B
@@ -4306,7 +4294,7 @@ nikona_BuffList:
 	dw trkBuff_0,trkBlks_0,trkHdrs_0,trkCach_0
 	dw trkBuff_1,trkBlks_1,trkHdrs_1,trkCach_1
 	dw trkBuff_2,trkBlks_2,trkHdrs_2,trkCach_2
-; 	dw trkBuff_3,trkBlks_3,trkHdrs_3,trkCach_3
+	dw trkBuff_3,trkBlks_3,trkHdrs_3,trkCach_3
 nikona_BuffList_e:
 	dw -1	; ENDOFLIST
 
@@ -4365,12 +4353,16 @@ fmcach_6	ds 28h
 trkHdrs_0	ds 8*4			; dw point,rowcntr
 trkHdrs_1	ds 8*4
 trkHdrs_2	ds 8*4
-trkBuff_0	ds trk_ChnIndx+MAX_TRKINDX
-trkBuff_1	ds trk_ChnIndx+MAX_TRKINDX
-trkBuff_2	ds trk_ChnIndx+MAX_TRKINDX
+trkHdrs_3	ds 8*4
 trkBlks_0	ds 8
 trkBlks_1	ds 8
 trkBlks_2	ds 8
+trkBlks_3	ds 8
+trkBuff_0	ds trk_ChnIndx+MAX_TRKINDX
+trkBuff_1	ds trk_ChnIndx+MAX_TRKINDX
+trkBuff_2	ds trk_ChnIndx+MAX_TRKINDX
+trkBuff_3	ds trk_ChnIndx+MAX_TRKINDX
+instListOut	ds 8
 
 ; ====================================================================
 ; --------------------------------------------------------
@@ -4398,6 +4390,7 @@ trkBlks_2	ds 8
 ; PWM  0E0h
 ; --------------------------------------------------------
 
+		org 1A00h	; <-- MUST BE 00h ALIGNED
 tblList:	dw tblPSG-tblList		;  80h
 		dw tblPSGN-tblList|8000h	;  90h *
 		dw tblFM-tblList		; 0A0h
@@ -4486,8 +4479,35 @@ tblPWM:		db 00h,00h,00h,00h,00h,00h,00h,00h	; Channel 1
 		db 00h,00h,00h,00h,00h,00h,00h,00h
 		dw -1	; end-of-list
 
-trkInfoCach	ds 4*3		; per track slot
-instListOut	ds 8*3
+; Variables to fill this space
+tickSpSet	db 0		; **
+tickFlag	db 0		; Tick flag from VBlank
+tickCnt		db 0		; ** Tick counter (PUT THIS AFTER tickFlag)
+psgHatMode	db 0		; Current PSGN mode
+fmSpecial	db 0		; copy of FM3 enable bit
+dDacFifoMid	db 0		; WAVE play halfway refill flag (00h/80h)
+dDacPntr	db 0,0,0	; WAVE play current ROM position
+dDacCntr	db 0,0,0	; WAVE play length counter
+commZRead	db 0		; cmd fifo READ pointer (here)
+marsUpd		db 0		; Flag to request a PWM transfer
+mcdUpd		db 0		; Flag to request a PCM transfer
+wave_Start	dw 0		; START: 68k 24-bit pointer
+		db 0
+wave_Len	dw 0		; LENGTH 24-bit
+		db 0
+wave_Loop	dw 0		; LOOP POINT 24-bit
+		db 0
+wave_Pitch	dw 0100h	; 01.00h
+wave_Flags	db 0		; WAVE playback flags (%10x: 1 loop / 0 no loop)
+currTickBits	db 0		; Current Tick/Subbeat flags (000000BTb B-beat, T-tick)
+x68ksrclsb	db 0		; transferRom temporal LSB
+x68ksrcmid	db 0		; transferRom temporal MID
+sbeatAcc	dw 0		; Accumulates on each tick to trigger the sub beats
+sbeatPtck	dw 200+13	; Default global subbeats (this-32 for PAL)
+headerOut	ds 00Eh		; Temporal storage for 68k pointers
+headerOut_e	ds 2		; <-- reverse readpoint
+trkInfoCach	;ds 4
+sampleHead	ds 006h
 
 ; ====================================================================
 ; ----------------------------------------------------------------
@@ -4499,43 +4519,10 @@ instListOut	ds 8*3
 		org 1D00h
 dWaveBuff	ds 100h		; WAVE data buffer: 100h bytes, updates every 80h
 trkChnls	ds 8*MAX_TRKCHN
-trkCach_0	ds MAX_RCACH	; <--
+trkCach_0	ds MAX_RCACH
 trkCach_1	ds MAX_RCACH
 trkCach_2	ds MAX_RCACH
 trkCach_3	ds MAX_RCACH
-
-; --------------------------------------------------------
-
-; last temporals...
-tickSpSet	db 0		; **
-tickFlag	db 0		; Tick flag from VBlank
-tickCnt		db 0		; ** Tick counter (PUT THIS AFTER tickFlag)
-psgHatMode	db 0		; Current PSGN mode
-fmSpecial	db 0		; copy of FM3 enable bit
-commZRead	db 0		; cmd fifo READ pointer (here)
-trkListPage	db 0
-marsUpd		db 0		; Flag to request a PWM transfer
-mcdUpd		db 0		; Flag to request a PCM transfer
-wave_Start	dw 0		; START: 68k 24-bit pointer
-		db 0
-wave_Len	dw 0		; LENGTH 24-bit
-		db 0
-wave_Loop	dw 0		; LOOP POINT 24-bit
-		db 0
-wave_Pitch	dw 0100h	; 01.00h
-wave_Flags	db 0		; WAVE playback flags (%10x: 1 loop / 0 no loop)
-wave_Priority	db 0
-currTickBits	db 0		; Current Tick/Subbeat flags (000000BTb B-beat, T-tick)
-dDacFifoMid	db 0		; WAVE play halfway refill flag (00h/80h)
-dDacPntr	db 0,0,0	; WAVE play current ROM position
-dDacCntr	db 0,0,0	; WAVE play length counter
-x68ksrclsb	db 0		; transferRom temporal LSB
-x68ksrcmid	db 0		; transferRom temporal MID
-sbeatAcc	dw 0		; Accumulates on each tick to trigger the sub beats
-sbeatPtck	dw 200+13	; Default global subbeats (-32 for PAL)
-headerOut	ds 00Eh		; Temporal storage for 68k pointers
-headerOut_e	ds 2		; reverse readpoint
-sampleHead	ds 006h
 
 ; --------------------------------------------------------
 

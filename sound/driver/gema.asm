@@ -1,13 +1,12 @@
-; ====================================================================
-; --------------------------------------------------------
-; GEMA/Nikona sound driver v0.9
-; (C)2023-2024 GenesisFan64
+; ===========================================================================
+; -------------------------------------------------------------------
+; GEMA/Nikona Sound Driver v1.0
+; by GenesisFan64 2023-2024
 ;
 ; Features:
 ; - Support for SEGA CD's PCM channels:
 ;   | All 8 channels with streaming support
 ;   | for larger samples.
-;
 ; - Support for 32X's PWM:
 ;   | 7 pseudo-channels in either MONO
 ;   | or STEREO.
@@ -18,6 +17,14 @@
 ; - DAC Playback at 16000hz
 ; - FM special mode with custom frequencies
 ; - Autodetection for the PSG's Tone3 mode
+;
+; Notes:
+; This sound driver uses RAM area $FFFF00-$FFFFFF,
+; reserved in case I'll make a 68k version of this driver
+; just for the Sega PICO
+; Currently the Z80 writes a flag directly for a
+; workaround to bypass a data-reading hardware
+; limitation. (see Sound_Update)
 ;
 ; ⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣠⣴⣶⡿⠿⠿⠿⣶⣦⣄⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 ; ⠀⠀⠀⠀⠀⠀⢀⣠⣶⢟⣿⠟⠁⢰⢋⣽⡆⠈⠙⣿⡿⣶⣄⡀⠀⠀⠀⠀⠀⠀
@@ -31,7 +38,7 @@
 ; ⠀⠀⠀⠀⠀⣠⡶⠟⠋⢉⣀⣽⠿⠉⠉⠉⠹⢿⣍⣈⠉⠛⠷⣦⡀⠀⠀⠀⠀⠀
 ; ⠀⠀⠀⠀⢾⣯⣤⣴⡾⠟⠋⠁⠀⠀⠀⠀⠀⠀⠉⠛⠷⣶⣤⣬⣿⠀⠀⠀⠀⠀
 ; ⠀⠀⠀⠀⠀⠉⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠁⠀⠀⠀⠀⠀
-; --------------------------------------------------------
+; -------------------------------------------------------------------
 
 ; ====================================================================
 ; --------------------------------------------------------
@@ -39,10 +46,21 @@
 ; --------------------------------------------------------
 
 ; Shared for all DAC, PCM, PWM
-gSmpHead macro len,loop
-	dc.b ((len)&$FF),(((len)>>8)&$FF),(((len)>>16)&$FF)	; length
+; FOR WAV SAMPLES, OFFSET STARTS AT $2C
+gSmplData macro labl,file,loop
+labl	label *
+	dc.b ((labl_e-labl_s)&$FF),(((labl_e-labl_s)>>8)&$FF),(((labl_e-labl_s)>>16)&$FF)
 	dc.b ((loop)&$FF),(((loop)>>8)&$FF),(((loop)>>16)&$FF)
+labl_s:
+	binclude file,$2C
+labl_e:
 	endm
+
+; ; Failsafe version:
+; gSmpHead macro len,loop
+; 	dc.b ((len)&$FF),(((len)>>8)&$FF),(((len)>>16)&$FF)	; length
+; 	dc.b ((loop)&$FF),(((loop)>>8)&$FF),(((loop)>>16)&$FF)
+; 	endm
 
 ; --------------------------------------------------------
 ; Variables
@@ -62,7 +80,7 @@ zDrvRamSrc	equ cdRamSrcB		; RAM-read source+dest pointers
 zDrvRamLen	equ cdRamLen		; RAM-read length and flag
 
 ; --------------------------------------------------------
-; Variables
+; Labels
 ; --------------------------------------------------------
 
 RAM_ZCdFlag_D	equ RAM_ZSndBuff	; transferRom flag
@@ -113,8 +131,8 @@ Sound_Init:
 ; ----------------------------------------------------------------
 ; Sound_Update
 ;
-; Call and LOOP this during DISPLAY to communicate
-; with the Z80
+; Call this during DISPLAY or call it during a VBlank wait-loop
+; to communicate with the Z80
 ;
 ; SegaCD/CD32X:
 ; This checks if the Z80 wants to read from RAM (as it can't
@@ -123,12 +141,14 @@ Sound_Init:
 ; THIS IS REQUIRED for the tracks and instruments stored
 ; on RAM in case you are doing ASIC-Stamps.
 ;
-; DAC samples are safe to read from WORD-RAM (if NOT using Stamps)
-; but careful when loading new data, and make sure MAIN
+; DAC samples are safe to read from WORD-RAM
+; (again: if NOT using Stamps)
+; but careful when loading new data, and make sure MAIN-CPU
 ; has the permission to read the data.
 ;
 ; Sega Pico:
-; * For later *
+; This will be the entire sound driver rewritten from Z80 to 68k,
+; but this will be done in the future.
 ;
 ; Uses:
 ; d5-d7,a4-a6
@@ -209,7 +229,6 @@ sndReq_Enter:
 	if PICO=0
 		move.w	#$0100,(z80_bus).l		; Request Z80 Stop
 	endif
-; 		or.w	#$0700,sr			; Disable interrupts
 		suba	#4,sp				; Extra jump return
 		movem.l	d6-d7/a5-a6,-(sp)		; Save these regs to the stack
 		adda	#(4*4)+4,sp			; Go back to the RTS jump
@@ -249,7 +268,7 @@ sndReq_Exit:
 sndReq_scmd:
 		move.b	#-1,(a6,d6.w)			; write command-start flag
 		addq.b	#1,d6				; next fifo pos
-		andi.b	#MAX_ZCMND-1,d6
+		andi.b	#MAX_ZCMND-1,d6			; * Z80 label *
 		bra.s	sndReq_sbyte
 sndReq_slong:
 		bsr	sndReq_sbyte
@@ -263,7 +282,7 @@ sndReq_sword:
 sndReq_sbyte:
 		move.b	d7,(a6,d6.w)			; write byte
 		addq.b	#1,d6				; next fifo pos
-		andi.b	#MAX_ZCMND-1,d6
+		andi.b	#MAX_ZCMND-1,d6			; * Z80 label *
 		move.b	d6,(a5)				; update commZWrite
 		rts
 

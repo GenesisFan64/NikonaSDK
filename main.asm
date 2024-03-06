@@ -1,32 +1,32 @@
 ; ===========================================================================
 ; NIKONA MD 16-BIT/32-BIT SDK
-; (C)2023-2024 GenesisFan64
+; by GenesisFan64 2023-2024
 ;
-; For developing games on the Genesis-family of systems
-; including Sega CD, Sega 32X, Sega CD32X and Sega Pico
+; For developing games on the Genesis-family of systems:
+; Genesis only, Sega CD, Sega 32X, Sega CD32X and Sega Pico
 ;
 ; Assemble with a modified AS Macro Assembler by flamewing
 ; and a custom version of p2bin:
 ;
-; asl main.asm -i "." -olist ROM.lst -q -xx -A -L -D (flags)
+; asl main.asm -i "." -olist ROM_list.lst -q -xx -A -L -D (flags=value)
 ; p2bin -p=00 main.p ROM.bin
 ;
 ; ASSEMBLER FLAGS:
 ; MCD,MARS,MARSCD,PICO,CDREGION,EMU
 
-; * System targets, MUST include ALL and set 1 to
-; the target console and the others to 0
+; * System targets *
+; ONLY enable ONE TARGET at the time (as 1)
+; and set the others to 0
 ;    MCD - Sega CD
 ;   MARS - Sega 32X
 ; MARSCD - Sega CD32X
 ;   PICO - Sega Pico
-; * ONLY CHOOSE ONE TARGET AT THE TIME *
+; The code builds to stock Genesis by default.
 ;
-; By default the code builds to stock Genesis
-;
-; CDREGION - SEGACD/CD32X ONLY, Set ROM region:
+; CDREGION - SEGACD/CD32X ONLY: Set ROM region
 ;            0=Japan 1=USA 2=Europe
-;      EMU - 0=Real hardware, 1=Emulator only
+;      EMU - EMULATOR PATCHES
+;            0=Real hardware, 1=Run on emulator
 ;
 ; ⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣠⣴⣶⡿⠿⠿⠿⣶⣦⣄⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 ; ⠀⠀⠀⠀⠀⠀⢀⣠⣶⢟⣿⠟⠁⢰⢋⣽⡆⠈⠙⣿⡿⣶⣄⡀⠀⠀⠀⠀⠀⠀
@@ -58,23 +58,25 @@
 ; RESERVED RAM ADDRESSES:
 ; $FFFB00-$FFFD00 | Stack area a7
 ; $FFFD00-$FFFDFF | RESERVED for the Sega CD Vector jumps
-;                   FREE if running on cartridge
-;                   (Genesis,32X,Pico)
-; $FFFE00-$FFFEFF | RESERVED for Sega CD, BIOS uses this
-;                   area as temporals
-;                   ** Not sure if this can be used after
-;                   during the application **
-; $FFFF00-$FFFFFF | RESERVED for the Sound Driver:
+;                   but free to use if running on
+;                   cartridge ONLY: Genesis,32X,Pico.
+; $FFFE00-$FFFEFF | RESERVED for Sega CD for the BIOS
+;                   BUT this might free to use after
+;                   booting.
+;                   ** NEEDS testing **
+;                   Free on cartridge
+; $FFFF00-$FFFFFF | RESERVED for the Sound Driver, ALL.
 ;                   The Z80 driver writes to this area
-;                   AND posibilly for the PICO 68k
-;                   driver version of GEMA
+;                   This area will posibilly be used
+;                   for the 68k version of GEMA for
+;                   the Pico.
 ; --------------------------------------------------------
 
-MAX_SysCode	equ $2000	; Task routines ** CD/32X/CD32X ONLY **
-MAX_UserCode	equ $8000	; USER code ** CD/32X/CD32X ONLY **
-MAX_ScrnBuff	equ $1800	; Current screen buffer
-MAX_MdVideo	equ $2000	; Video cache'd visuals, registers, etc.
-MAX_MdSystem	equ $0600	; Internal lib stuff and a copy of save data for reading/writing
+MAX_SysCode	equ $2000	; ** CD/32X/CD32X ONLY ** Common routines
+MAX_UserCode	equ $8000	; ** CD/32X/CD32X ONLY ** Current screen code and few data
+MAX_ScrnBuff	equ $1800	; Current screen's RAM buffer
+MAX_MdVideo	equ $2000	; Video cache'd RAM for visuals, registers, etc.
+MAX_MdSystem	equ $0600	; Internal lib stuff and a safe copy of save data for reading/writing
 MAX_MdOther	equ $0C00	; Add-on stuff
 
 ; ====================================================================
@@ -133,12 +135,12 @@ MAX_MdOther	equ $0C00	; Add-on stuff
 		include	"system/head_mcd.asm"			; Sega CD header
 mcdin_top:
 		lea	Md_SysCode(pc),a0			; Transfer SYSTEM subs
-		lea	(RAM_SystemCode),a1			; At TOP of RAM
+		lea	(RAM_SystemCode),a1
 		move.w	#((Md_SysCode_e-Md_SysCode))-1,d0
 .copy_1:
 		move.b	(a0)+,(a1)+
 		dbf	d0,.copy_1
-	if MARSCD					; CD32X boot
+	if MARSCD					; CD32X boot code
 		include "system/mcd/marscd.asm"
 	endif
 		lea	(RAM_MdVideo),a0		; Clean our "work" RAM starting from here
@@ -189,7 +191,9 @@ Z80_CODE_END:
 ; SYSTEM routines and MODE switching code
 ;
 ; MD and PICO: Normal ROM locations
-; CD/32X/CD32X: Loaded into RAM
+; CD/32X/CD32X: Loaded into RAM, This includes cartridge
+;               to prevent bus-conflict with the SH2's
+;               ROM area
 ; --------------------------------------------------------
 
 	if MCD|MARS|MARSCD
@@ -206,14 +210,15 @@ Md_SysCode:
 ; Read screen modes
 ;
 ;   MD/Pico: Direct ROM jump
-; SCD/CD32X: Reads file from disc and
+; SCD/CD32X: Reads file from DISC and
 ;            transfers code to RAM
 ;       32X: Read from ROM and copies code to
 ;            RAM so it's problematic with DMA
 ;            and the SH2
 ;
-; - Returning in your current screen code will
-; loop here.
+; - Returning in your current screen code
+; will loop here and reload the entire
+; screen code.
 ; - DO NOT JUMP TO SCREEN MODES DIRECTLY
 ; ---------------------------------------------
 
@@ -241,8 +246,8 @@ Md_ReadModes:
 ; ---------------------------------------------
 
 .pick_mode:
-		dc.l Md_Screen00	; Cartridge label (unused on CD)
-		dc.b "SCREEN00.BIN"	; ISO Filename (unused on Cartridge)
+		dc.l Md_Screen00	; Cartridge label *unused on CD
+		dc.b "SCREEN00.BIN"	; ISO Filename *unused on Cartridge
 		dc.l Md_Screen00
 		dc.b "SCREEN00.BIN"
 		dc.l Md_Screen00
@@ -268,7 +273,6 @@ Md_SysCode_e:
 ; --------------------------------------------------------
 
 	if MCD|MARSCD=0
-
 	if MARS
 		phase $880000+*		; 32X cartridge: $880000+ area
 	endif
@@ -320,8 +324,8 @@ IsoFileList_e:
 	if MCD|MARSCD
 		align $800
 MCD_SUBDATA:
-		phase $20000				; <-- MANUAL location on Sub-CPU
-		include "sound/smpl_pcm.asm"		; PCM samples
+		phase $20000			; <-- OUTPUT location on Sub-CPU area
+		include "sound/smpl_pcm.asm"	; PCM samples
 .here:
 		erreport "SUB-CPU DATA",.here,$80000
 		dephase
@@ -330,8 +334,9 @@ MCD_SUBDATA:
 MCD_SUBDATA_E:
 	endif
 
+; ====================================================================
 ; ----------------------------------------------------------------
-; SH2 code and shared data stored in SDRAM
+; SH2 code sent to SDRAM area
 ; ----------------------------------------------------------------
 
 	if MCD|MARSCD
@@ -353,18 +358,22 @@ MARS_RAMCODE_eof:
 ; --------------------------------------------------------
 ; Screen modes
 ;
-; These are stored as separate files on DISC
+; For SegaCD/CD32X these are stored as separate files
+; on disc
 ;
 ; Usage:
 ; screen_code START_LABEL,END_LABEL,CODE_PATH
+;
+; Set your data banks manually on your screen code.
 ; --------------------------------------------------------
 
 	screen_code Md_Screen00,Md_Screen00_e,"game/screen_0/code.asm"
 ; 	screen_code Md_Screen01,Md_Screen01_e,"game/screen_1/code.asm"
 
 ; ====================================================================
+; ----------------------------------------------------------------
 ; DATA SECTION
-; ====================================================================
+; ----------------------------------------------------------------
 
 ; ====================================================================
 ; ----------------------------------------------------------------
@@ -372,15 +381,15 @@ MARS_RAMCODE_eof:
 ;
 ; SEGA CD / CD32X:
 ; Stored in WORD-RAM pieces
-; limited to 256KB 2M or 128KB 1M/1M
+; limited to 256KB 2M or 128KB 1M/1M (*UNTESTED*)
 ; ** WORD-RAM CANNOT BE USED IF USING ASIC STAMPS **
 ;
 ; SEGA 32X Cartridge:
-; Limited to 1MB bankswitchable.
+; Limited to 1MB, bankswitchable if needed. (TODO bankswitching)
 ; ONLY 4 banks can be used, Bank 0 already uses the
 ; first 512KB for the code.
 ;
-; For multi-porting keep the data size limited to 256KB.
+; To keep multi-porting limit your screen's data to 256KB
 ; ----------------------------------------------------------------
 
 ; --------------------------------------------------------
@@ -394,16 +403,17 @@ MARS_RAMCODE_eof:
 ;
 ; Usage:
 ; data_bkset LABEL_START,OPTION
-; (your includes and bincludes)
+; (add your includes and bincludes)
 ; data_bkend LABEL_START,LABEL_END,used_size
 ;
 ; OPTION (32X Cartridge ONLY):
 ;  0, Normal 32X $900000 bank
-; -1, First 32X $900000 bank
-; * Ignored on other systems.
+; -1, This bank is the first one
+;
+; This is ignored on other systems.
 ; --------------------------------------------------------
 
-	data_bkset MCD_DBANK0,-1
+	data_bkset MCD_DBANK0,-1	; <-- note the -1
 mdbank0:
 		include "game/screen_0/data_bank.asm"
 	if MCD|MARSCD

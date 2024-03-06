@@ -1,9 +1,10 @@
-; ====================================================================
+; ===========================================================================
 ; --------------------------------------------------------
 ; GEMA/Nikona FM instruments "patches"
 ;
-; Use the included FM_EDITOR.bin ROM to make your
-; own instruments/patches
+; Using .gsx save state for easy editing, use
+; FM_EDITOR.bin in Fusion or any gsx compatible emulator
+; to make or modify instrument data
 ; --------------------------------------------------------
 
 ; FM_EDITOR savestate data is located at:
@@ -13,24 +14,32 @@
 ; Normal FM ins: $20
 ; Special FM ins: $28
 ;
-; REGISTER FORMAT:
-; dc.b $30,$34,$38,$3C
-; dc.b $40,$44,$48,$4C
-; dc.b $50,$54,$58,$5C
-; dc.b $60,$64,$68,$6C
-; dc.b $70,$74,$78,$7C
-; dc.b $80,$84,$88,$8C
-; dc.b $90,$94,$98,$9C
-; dc.b $B0,$B4,$22,$28
+; INTRUMENT FORMAT:
+; dc.b $30,$34,$38,$3C	; Register data following this order
+; dc.b $40,$44,$48,$4C	; **
+; dc.b $50,$54,$58,$5C	; **
+; dc.b $60,$64,$68,$6C	; **
+; dc.b $70,$74,$78,$7C	; **
+; dc.b $80,$84,$88,$8C	; **
+; dc.b $90,$94,$98,$9C	; **
+; dc.b $B0,$B4,$22,$28	; **
 ; ** Extra words for FM3 special:
-; dc.w OP1,OP2,OP3,OP4
+; dc.w OP1,OP2,OP3,OP4	; FM3 special ONLY: Manual frequencies
+;
+; $90,$94,$98,$9C: SSG-EG
+; This CAN be used, but can be problematic on clone systems.
+;
+; $B4 PAN, PMS, AMS: %00aa0ppp
+; Keep panning bits 0, set the panning in your track.
 ;
 ; $22 LFO: %0000evvv
 ; e - Enable
 ; v - Value
-;
 ; $28 KEYS: %oooo0000
 ; o - Operators 4-1
+; --------------------------------------------------------
+
+; TODO: a macro for this.
 
 FmIns_Organ2:
 		binclude "sound/instr/fm/organ2.gsx",$2478,$20

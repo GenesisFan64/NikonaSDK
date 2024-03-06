@@ -1,4 +1,4 @@
-; ====================================================================
+; ===========================================================================
 ; ----------------------------------------------------------------
 ; SEGA 32X header
 ; ----------------------------------------------------------------
@@ -194,7 +194,7 @@
 ; 	cs: Test failed**
 ;
 ; ** HARDWARE BUG: This may still trigger if pressing
-; RESET so many times. (Found this on VRDX)
+; RESET so many times, found this on VRDX.
 ; * WORKAROUND: After jumping to .no_mars, test the checksum
 ; bit again and if it passes Initialize as usual.
 ; ----------------------------------------------------------------
@@ -254,16 +254,22 @@ MD_Init:
 		cmp.l	d1,a0
 		bcs.s	.loop_ram
 		movem.l	($FF0000),d0-a6		; Clean registers using zeros from RAM
-		lea	(vdp_ctrl).l,a6
+		lea	(vdp_data),a6		; Clear palette directly
 		lea	(sysmars_reg).l,a5
-.wait_dma:	move.w	(a6),d7			; Check if DMA is active.
+.wait_dma:	move.w	4(a6),d7		; Check if DMA is active.
 		btst	#1,d7
 		bne.s	.wait_dma
-		move.l	#$80048104,(a6)		; Default top VDP regs
+		move.l	#$80048104,4(a6)	; Default top VDP regs
 		moveq	#0,d0			; Clear both Master and Slave comm's
 		move.l	d0,comm12(a5)
 		lea	(RAM_Stack),sp		; HW: Set STACK manually, Pressing RESET moves it to 0
-		move.w	#$FF,d7			; Wait until SH2 gets first.
+		move.l	#$C0000000,4(a6)
+		moveq	#64-1,d7
+		moveq	#0,d6
+.palclear:
+		move.w	d6,(a6)
+		dbf	d7,.palclear
+		move.w	#$7F,d7			; Delay until SH2 starts first.
 .wait_sh2:
 		move.w	#$7F,d6
 		dbf	d6,*

@@ -1,4 +1,4 @@
-; ====================================================================
+; ===========================================================================
 ; ----------------------------------------------------------------
 ; Genesis system routines, and some SegaCD and 32X routines.
 ;
@@ -12,6 +12,7 @@
 ; ----------------------------------------------------------------
 
 MAX_SRAMSIZE	equ $400
+TAG_SRAMDATA	equ "SAVE"	; 4-letter save file signature
 
 ; ====================================================================
 ; ----------------------------------------------------------------
@@ -96,7 +97,7 @@ sizeof_mdsys	ds.l 0
 
 ; ====================================================================
 ; ----------------------------------------------------------------
-; Alias labels
+; Alias tags
 ; ----------------------------------------------------------------
 
 Controller_1	equ RAM_InputData
@@ -167,42 +168,43 @@ System_Init:
 ; --------------------------------------------------------
 
 System_Render:
-		move.b	(RAM_VdpRegs+1).w,d7
-		btst	#bitDispEnbl,d7
-		beq.s	.forgot_disp		; <-- Failsafe
+		move.b	(RAM_VdpRegs+1).w,d7	; ** If the user forgets to enable
+		btst	#bitDispEnbl,d7		; ** DISPLAY skip all this
+		beq.s	.forgot_disp		; **
 .wait_lag:
 		bsr	Sound_Update		; Syncronize/Update sound on lag
 		move.w	(vdp_ctrl).l,d7		; Got here during VBlank?
-		btst	#bitVBlk,d7		; If yes, drop frame
+		btst	#bitVBlk,d7		; If yes, drop frame and wait
 		bne.s	.wait_lag
-		bsr	Sound_Update
+		bsr	Sound_Update		; Update sound
 		bsr	Objects_Show		; Build sprite data from Objects
 .wait_in:
 		bsr	Sound_Update		; Syncronize/Update sound during Display
-		move.w	(vdp_ctrl).l,d7		; Wait until VBlank
-		btst	#bitVBlk,d7
+		move.w	(vdp_ctrl).l,d7
+		btst	#bitVBlk,d7		; VBlank started?
 		beq.s	.wait_in
 		bsr	System_Input		; Read input data FIRST
 		bsr	Video_Render		; Render visuals
-		bsr	Sound_Update
-		addq.l	#1,(RAM_Framecount).w
+		bsr	Sound_Update		; Update sound
+		addq.l	#1,(RAM_Framecount).w	; Count the frame.
 	if MARS|MARSCD
 		bsr	System_MarsUpdate	; 32X/CD32X: Send DREQ changes
 	endif
-		bsr	Sound_Update
+		bsr	Sound_Update		; Update sound again
 .forgot_disp:
 		rts
 
+; ====================================================================
 ; --------------------------------------------------------
 ; System_DmaEnter_(from) and System_DmaEnter_(from)
-; ROM or RAM
+; from: ROM or RAM
 ;
-; Call to these labels BEFORE and AFTER doing
+; Call to these labels BEFORE and AFTER
 ; DMA-to-VDP transers, these calls are NOT
 ; required for FILL or COPY
 ;
 ; This is where you put your Sound driver's Z80 stop
-; or pause calls go here.
+; or pause calls here.
 ; --------------------------------------------------------
 
 System_DmaEnter_RAM:
@@ -232,24 +234,26 @@ System_DmaExit_ROM:
 ; d5-d7,a5-a6
 ; --------------------------------------------------------
 
+; ----------------------------------------
+; PICO input is hard-coded to
+; Controller_1
+;
+; on_hold/on_press:
+; %P00BRLDU
+; UDLR - Arrows
+;    B - BIG button red
+;    P - Pen press/click
+;
+; mouse_x/mouse_y:
+; Pen X/Y position
+; depen
+; ----------------------------------------
+
 System_Input:
 
-	; ----------------------------------------
-	; PICO input is hard-coded to Controller_1
-	;
-	; on_hold/on_press:
-	; %P00BRLDU
-	; UDLR - Arrows
-	;    B - BIG button red
-	;    P - Pen press/click
-	;
-	; mouse_x/mouse_y:
-	; Pen X/Y position
-	; depen
-	; ----------------------------------------
 	if PICO
 		lea	(RAM_InputData),a6
-		lea	($800003),a5
+		lea	($800003).l,a5
 		moveq	#0,d7
 		move.b	(a5),d7		; $800003: %P00RLDU
 		eori.w	#$FF,d7
@@ -294,19 +298,20 @@ System_Input:
 		move.b	d7,ext_3(a6)
 	else
 	; ----------------------------------------
-	; Normal controls
+	; Normal Genesis controls
+
 		lea	(RAM_InputData).w,a6	; a6 - Output
 		lea	(sys_data_1),a5		; a5 - BASE Genesis Input regs area
 		bsr.s	.this_one
 		adda	#2,a5
 		adda	#sizeof_input,a6
 
-; --------------------------------------------------------
+; ----------------------------------------
 ; Read port
 ;
 ; a5 - Current port
 ; a6 - Output data
-; --------------------------------------------------------
+; ----------------------------------------
 
 .this_one:
 		bsr	.pick_id
@@ -321,9 +326,9 @@ System_Input:
 		clr.b	pad_ver(a6)
 		rts
 
-; --------------------------------------------------------
+; ----------------------------------------
 ; Grab ID
-; --------------------------------------------------------
+; ----------------------------------------
 
 .list:
 		dc.w .exit-.list	; $00
@@ -343,11 +348,11 @@ System_Input:
 		dc.w .exit-.list
 		dc.w .exit-.list	; $0F - No controller OR Master System controller (2 Buttons: 1(B),2(C))
 
-; --------------------------------------------------------
+; ----------------------------------------
 ; ID $03
 ;
 ; Mega Mouse
-; --------------------------------------------------------
+; ----------------------------------------
 
 ; *** NOT TESTED ON HARDWARE ***
 .id_03:
@@ -415,11 +420,11 @@ System_Input:
 		move.b	#$60,(a5)
 		rts
 
-; --------------------------------------------------------
+; ----------------------------------------
 ; ID $0D
 ;
 ; Normal controller: 3 button or 6 button.
-; --------------------------------------------------------
+; ----------------------------------------
 
 .id_0D:
 		move.b	#$40,(a5)	; Show CB|RLDU
@@ -468,9 +473,9 @@ System_Input:
 		move.b	d6,pad_ver(a6)
 		rts
 
-; --------------------------------------------------------
+; ----------------------------------------
 ; Grab ID
-; --------------------------------------------------------
+; ----------------------------------------
 
 .pick_id:
 		moveq	#0,d7
@@ -594,15 +599,11 @@ MdSys_SineData:	dc.w 0,	6, $D, $13, $19, $1F, $26, $2C,	$32, $38, $3E
 ;
 ; Set new interrputs
 ;
-; d0 | LONG - VBlank
-; d1 | LONG - HBlank
+; d0.l - VBlank (if 0: Skip write)
+; d1.l - HBlank (if 0: Skip write)
 ;
 ; Uses:
 ; d4
-;
-; Notes:
-; Writing 0 or a negative number will skip change
-; to the interrupt pointer
 ; --------------------------------------------------------
 
 System_SetInts:
@@ -639,10 +640,8 @@ System_SramInit:
 	elseif MCD|MARSCD
 		nop			; TODO
 	else
-
-	; Cartridge
 		bsr	System_SramLoad
-		cmpi.l	#"SAVE",(RAM_SaveData).w
+		cmpi.l	#TAG_SRAMDATA,(RAM_SaveData).w
 		beq.s	.dont_clear
 		lea	(RAM_SaveData).w,a6
 		moveq	#0,d6
@@ -650,7 +649,7 @@ System_SramInit:
 .clr_sram:
 		move.b	d6,(a6)+
 		dbf	d7,.clr_sram
-		move.l	#"SAVE",(RAM_SaveData).w
+		move.l	#TAG_SRAMDATA,(RAM_SaveData).w
 		bsr	System_SramSave
 .dont_clear:
 	endif

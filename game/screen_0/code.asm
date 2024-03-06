@@ -121,6 +121,7 @@ sizeof_thisbuff		ds.l 0
 		bsr	gemaSetBeats
 ; 		moveq	#1,d0
 ; 		bsr	gemaPlayTrack
+
 	; ----------------------------------------------
 		bsr	.show_me
 ; 		bsr	.steal_vars
