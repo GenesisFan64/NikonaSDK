@@ -1,19 +1,16 @@
-; ====================================================================
+; ===========================================================================
 ; ----------------------------------------------------------------
-; Put your 32X graphics here, indexed or direct
+; Put your 32X graphics here
 ;
-; These are located on the SH2's ROM area, this will be gone
-; if RV is set to 1
+; This is stored on the Genesis side and then
+; sent to SDRAM using DREQ.
 ;
 ; Labels MUST be aligned by 4
 ; ----------------------------------------------------------------
 
 		align 4
-; ArtMars_Sabrina:
-; 		binclude "game/screen_0/data/objects/mars/sabrina/sabrina_art.bin"
-; 		align 4
-ArtMars_TEST:
-		binclude "game/screen_0/data/maps/mars/test/data_art.bin"
+ArtMars_Scrn0:
+		binclude "game/screen_0/data/mars/maps/test/data_art.bin"
 		align 4
 
 

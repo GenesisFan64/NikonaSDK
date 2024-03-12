@@ -1041,6 +1041,16 @@ SH2_M_Entry:
 		cmp/eq	r2,r0
 		bf	.wait_frm
 	endif
+		mov	#0,r0
+		mov	#CS3+($20000-$38),r2	; Cleanup FIRST
+		mov	#CS3+($40000),r3
+.clean_up:
+		cmp/ge	r3,r2
+		bt	.exit_clean
+		mov	r0,@r2
+		bra	.clean_up
+		add	#4,r2
+.exit_clean:
 		mov	#_framebuffer,r1	; Copy the other half of SDRAM
 		mov	#CS3+($20000-$38),r2
 		mov	#CS3+(SH2_END&$3FFFFF),r3
@@ -1867,6 +1877,7 @@ sin_table	binclude "system/mars/data/sinedata.bin"
 ; Data
 ; ----------------------------------------------------------------
 
+		align $10
 SH2_END:
 		report "SH2 SDRAM CODE/DATA",SH2_END&$FFFFFF,-1
 

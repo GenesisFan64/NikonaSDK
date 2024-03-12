@@ -1,4 +1,4 @@
-; ====================================================================
+; ===========================================================================
 ; ----------------------------------------------------------------
 ; 68K SCREEN MODE DATA
 ; for big stuff like maps, level, etc.
@@ -6,45 +6,82 @@
 ; For Genesis graphics use data_dma.asm
 ; and for 32X graphics use data_mgfx.asm
 ;
-; 32X 256-COLOR PALETTES GO HERE.
-;
-; Maximum size: $0FFFFF bytes per bank
+; For 32X, CD32X:
+; THE 256-COLOR PALETTES GO HERE.
 ; ----------------------------------------------------------------
 
 ; ----------------------------------------------------------------
 ; 32X Screen maps
 ; ----------------------------------------------------------------
 
-MAP_TEST:
-		binclude "game/screen_0/data/maps/md/test/md_map.bin"
-		align 2
-MapMars_TEST:
-		binclude "game/screen_0/data/maps/mars/test/data_map.bin"
+MapMars_Scrn0:
+		binclude "game/screen_0/data/mars/maps/test/data_map.bin"
 		align 2
 
 ; ----------------------------------------------------------------
 ; 32X Palettes
 ; ----------------------------------------------------------------
 
-PalMars_TEST:
-		binclude "game/screen_0/data/maps/mars/test/data_pal.bin"
-		align 2
-PalMars_Sabrina:
-		binclude "game/screen_0/data/objects/mars/sabrina/sabrina_pal.bin"
+PalMars_Scrn0:
+		binclude "game/screen_0/data/mars/maps/test/data_pal.bin"
 		align 2
 
 ; ----------------------------------------------------------------
-; Object palettes
+; Screen maps
 ; ----------------------------------------------------------------
 
-objPal_Sisi:
-		binclude "game/screen_0/data/objects/md/sisi/sisi_pal.bin"
+MAP_Scr0_BG:
+		binclude "game/screen_0/data/md/maps/test/md_map.bin"
 		align 2
 
 ; ----------------------------------------------------------------
-; Object maps
+; Object data
 ; ----------------------------------------------------------------
 
-objMap_Sisi:
-		binclude "game/screen_0/data/objects/md/sisi/sisi_map.bin"
+; Emily
+objPal_Emily:
+		binclude "game/screen_0/data/md/objects/emily/emi_pal.bin"
+		align 2
+objMap_Emily:
+		binclude "game/screen_0/data/md/objects/emily/emi_map.bin"
+		align 2
+objDma_Emily:
+		dc.l Art_Emily
+		binclude "game/screen_0/data/md/objects/emily/emi_plc.bin"
+		align 2
+
+; Doremi
+objPal_Doremi:
+		binclude "game/screen_0/data/md/objects/doremi/doremi_pal.bin"
+		align 2
+objMap_Doremi:
+		binclude "game/screen_0/data/md/objects/doremi/doremi_map.bin"
+		align 2
+objDma_Doremi:
+		dc.l Art_Doremi
+		binclude "game/screen_0/data/md/objects/doremi/doremi_plc.bin"
+		align 2
+
+; Bibi
+; objPal_Doremi:
+; 		binclude "game/screen_0/data/md/objects/doremi/doremi_pal.bin"
+; 		align 2
+objMap_Bibi:
+		binclude "game/screen_0/data/md/objects/bibi/bibi_map.bin"
+		align 2
+objDma_Bibi:
+		dc.l Art_Bibi
+		binclude "game/screen_0/data/md/objects/bibi/bibi_plc.bin"
+		align 2
+
+; Sophie
+objPal_Sophie:
+		binclude "game/screen_0/data/md/objects/sophie/sophie_pal.bin"
+		align 2
+objMap_Sophie:
+		binclude "game/screen_0/data/md/objects/sophie/sophie_map.bin"
+		align 2
+objDma_Sophie:
+		dc.l Art_Sophie
+		binclude "game/screen_0/data/md/objects/sophie/sophie_plc.bin"
 		align 2

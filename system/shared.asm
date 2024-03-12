@@ -1,4 +1,4 @@
-; ====================================================================
+; ===========================================================================
 ; ----------------------------------------------------------------
 ; Shared variables
 ; ----------------------------------------------------------------
@@ -45,9 +45,9 @@ sizeof_marsspr	ds.l 1
 ;
 ; To read these labels:
 ;
-; On the Genesis Side:
-; 	lea	(RAM_MdDreq+DREQ_LABEL),aX ; This or similar.
-; On the 32X Side:
+; On the Genesis:
+; 	lea	(RAM_MdDreq+DREQ_LABEL),aX ; This or use an alias
+; On the 32X:
 ; 	mov	#DREQ_LABEL,rX
 ; 	mov	@(marsGbl_DmaRead,gbr),r0
 ;	add	r0,rX
@@ -72,9 +72,8 @@ sizeof_dreq	ds.l 0
 	endif
 
 ; --------------------------------------------------------
-; Labels
+; Alias labels
 ; --------------------------------------------------------
-
 
 RAM_MdMars_Palette	equ RAM_MdDreq+Dreq_Palette
 RAM_MdMars_SuperSpr	equ RAM_MdDreq+Dreq_SuperSpr

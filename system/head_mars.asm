@@ -253,7 +253,6 @@ MD_Init:
 .loop_ram:	move.w	d0,(a0)+
 		cmp.l	d1,a0
 		bcs.s	.loop_ram
-		movem.l	($FF0000),d0-a6		; Clean registers using zeros from RAM
 		lea	(vdp_data),a6		; Clear palette directly
 		lea	(sysmars_reg).l,a5
 .wait_dma:	move.w	4(a6),d7		; Check if DMA is active.
@@ -274,3 +273,4 @@ MD_Init:
 		move.w	#$7F,d6
 		dbf	d6,*
 		dbf	d7,.wait_sh2
+		movem.l	($FF0000),d0-a6		; Clean registers using zeros from RAM

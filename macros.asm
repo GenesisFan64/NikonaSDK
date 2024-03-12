@@ -11,17 +11,14 @@
 ; ------------------------------------------------------------
 
 locate		function a,b,c,(b&$FF)|(a<<8&$FF00)|(c<<16&$FF0000)	; VDP locate: X pos|Y pos|Layer for some video
-cell_vram	function a,(a<<5)					; Vram position in 8x8 CELLS
-map_size	function l,r,(((l-1)/8)<<16&$FFFF0000|((r-1)/8)&$FFFF)	; Full w/h sizes, for cell sizes use doubleword
-; md_ramloc	function x,-(-x)&$FFFFFFFF
+cell_vram	function a,(a<<5)					; VRAM position in CELLs 8x8
+cell_size	function a,(a>>5)					; Graphics size in CELLs 8x8
+map_size	function l,r,(((l-1)/8)<<16&$FFFF0000|((r-1)/8)&$FFFF)	; Full w/h sizes as CELLs 8x8
 
 ; ====================================================================
 ; ------------------------------------------------------------
 ; Macros
 ; ------------------------------------------------------------
-
-currPadding	set 0
-notZ80		function cpu,(cpu<>128)&&(cpu<>32988)
 
 ; --------------------------------------------
 ; Custom struct function
@@ -106,20 +103,20 @@ diff := diff - 1024
 
 ; Set a ISO file
 ; NOTE: a valid ISO head is required from $8000 to $B7FF
-; DATES are random here
+; Info data is incorrect but it will load just fine.
 
 iso_setfs	macro type,start,end
 .fstrt:
 		dc.b .fend-.fstrt				; Block size
-		dc.b 0						; zero
-		dc.b (start>>11&$FF),(start>>19&$FF)		; Start sector, little
+		dc.b 0						; Zero
+		dc.b (start>>11&$FF),(start>>19&$FF)		; Start sector, little endian
 		dc.b (start>>27&$FF),(start>>35&$FF)
-		dc.l start>>11					; Start sector, big
-		dc.b ((end-start)&$FF),((end-start)>>8&$FF)	; Filesize, little
+		dc.l start>>11					; Start sector, big endian
+		dc.b ((end-start)&$FF),((end-start)>>8&$FF)	; Filesize, little endian
 		dc.b ((end-start)>>16&$FF),((end-start)>>24&$FF)
-		dc.l end-start					; Filesize, big
-		dc.b (2023-1900)+1				; Year
-		dc.b 0,0,0,0,0,0				; TODO
+		dc.l end-start					; Filesize, big endian
+		dc.b (2024-1900)+1				; Year
+		dc.b 0,0,0,0,0,0				; **never done**
 		dc.b 2						; File flags
 		dc.b 0,0
 		dc.b 1,0					; Volume sequence number, little
@@ -137,7 +134,7 @@ iso_file	macro filename,start,end
 		dc.b ((end-start)&$FF),((end-start)>>8&$FF)	; Filesize, little
 		dc.b ((end-start)>>16&$FF),((end-start)>>24&$FF)
 		dc.l end-start					; Filesize, big
-		dc.b (2023-1900)+1				; Year
+		dc.b (2024-1900)+1				; Year
 		dc.b 0,0,0,0,0,0				; TODO
 		dc.b 0						; File flags
 		dc.b 0,0
@@ -184,11 +181,15 @@ mcscrn_e:
 		dephase
 		phase mctopscrn+(mcscrn_e-RAM_UserCode)
 		align $800
+	endif
 ; Md_Screen00_e:
 lblend label *
-	endif
 	if MCD|MARS|MARSCD
 		report "THIS SCREEN's code",mcscrn_e-RAM_UserCode,MAX_UserCode
+	else
+		if lblend-lblstart > MAX_UserCode
+			warning "THIS SCREEN'S CODE IS TOO LARGE FOR SCD, 32X and CD32X"
+		endif
 	endif
 	endm
 
@@ -201,6 +202,11 @@ data_bkset macro startlbl,except
 		align $800
 	elseif MARS
 		align 4
+		if except==-1
+			phase $900000+*	; First 32X data bank
+		else
+			phase $900000
+		endif
 	endif
 ; MCD_DBANK0:
 startlbl label *
@@ -208,27 +214,28 @@ startlbl label *
 		phase sysmcd_wram
 	elseif MARS
 ; 		dephase
-	if except==-1
-		phase $900000+*	; First 32X data bank
-	else
-		phase $900000
-	endif
 	endif
 	endm
 
 data_bkend macro startlbl,endlbl,thissize
-
 	if MARS
 		dephase
-		if thissize > $40000
-			warning "THIS BANK SIZE IS TOO LARGE FOR WORD-RAM (CD/CD32X)"
-		endif
 		report "THIS 68K DATA BANK at $900000",thissize,$100000
 	elseif MCD|MARSCD
 		dephase
 		align $800
 endlbl label *	; <-- CD/CD32X ONLY
 		report "THIS 68K DATA BANK at WORD-RAM",thissize,$40000
+	endif
+
+	if MARS
+		if thissize > $100000
+			warning "THIS BANK SIZE IS TOO LARGE FOR A 32X BANK"
+		endif
+	endif
+
+	if thissize > $40000
+		warning "THIS BANK SIZE IS TOO LARGE FOR SCD and CD32X (WORD-RAM)"
 	endif
 	endm
 
@@ -264,7 +271,6 @@ sdram_bkend macro thislbl,endlbl
 	if MCD|MARSCD
 endlbl label *
 		align $800	; <-- AS failing
-; 		dc.l 0
 	elseif MARS
 		phase $880000+*
 endlbl label *

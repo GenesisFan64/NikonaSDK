@@ -68,6 +68,7 @@ obj_x		ds.l 1		; Object X Position 0000.0000
 obj_y		ds.l 1		; Object Y Position 0000.0000
 obj_map		ds.l 1		; Object Sprite map data location
 obj_dma		ds.l 1		; Object DMA map, 0 == Don't use DMA
+obj_size	ds.l 1		; Object size IN CELLS: UDLR, also for collision detection.
 obj_vram	ds.w 1		; Object VRAM position (If DMA enabled: output location)
 obj_x_spd	ds.w 1		; Object X Speed 00.00
 obj_y_spd	ds.w 1		; Object Y Speed 00.00
@@ -1728,7 +1729,7 @@ vid_PickLayer:
 ; ----------------------------------------------------------------
 
 ; --------------------------------------------------------
-; Init objects system
+; Init/Clear Objects system
 ; --------------------------------------------------------
 
 Objects_Clear:
@@ -1747,7 +1748,7 @@ Objects_Clear:
 		rts
 
 ; --------------------------------------------------------
-; Process objects
+; Process object code
 ; --------------------------------------------------------
 
 Objects_Run:
@@ -1769,14 +1770,16 @@ Objects_Run:
 ; Objects_Set
 ;
 ; Input:
-; d0 - Object code location (0 - delete)
-; d1 - Object slot
+; d0.l - Object code location (0 - delete)
+; d1.w - Object slot
+; d2.b - Object sub-id (obj_subid)
 ;
 ; Uses:
 ; d7,a5-a6
 ; --------------------------------------------------------
 
 Objects_Set:
+		movem.l	d7/a5-a6,-(sp)
 		lea	(RAM_Objects).w,a6
 		move.l	a6,a5
 		move.w	#sizeof_mdobj-1,d7
@@ -1787,20 +1790,30 @@ Objects_Set:
 		mulu.w	#sizeof_mdobj,d7
 		adda	d7,a6
 		move.l	d0,obj_code(a6)
+		move.b	d2,obj_subid(a6)
 		lea	(RAM_ObjDispList).w,a6
 		move.w	d1,d7
 		add.w	d7,d7
 		move.w	#0,(a6,d7.w)
+		movem.l	(sp)+,d7/a5-a6
 		rts
 
 ; --------------------------------------------------------
 ; Objects_Add
 ;
+; Input:
+; d0.l - Object code
+; d1.b - Object sub-type (obj_subid)
+;
 ; Returns:
-; d0 - -1 if ran out of Objects
+; d0.l - Sets -1 if no free slot found.
+;
+; Uses:
+; d7,a5-a6
 ; --------------------------------------------------------
 
 Objects_Add:
+		movem.l	d7/a5-a6,-(sp)
 		lea	(RAM_Objects).w,a6
 		move.w	#MAX_MDOBJ-1,d7
 .search:
@@ -1817,10 +1830,13 @@ Objects_Add:
 		clr.b	(a5)+
 		dbf	d7,.clr
 		move.l	d0,obj_code(a6)
-		lea	(RAM_ObjDispList).w,a6
-		move.w	d1,d7
-		add.w	d7,d7
-		move.w	#0,(a6,d7.w)
+		move.b	d1,obj_subid(a6)
+
+; 		lea	(RAM_ObjDispList).w,a6	; TODO
+; 		move.w	d1,d7
+; 		add.w	d7,d7
+; 		move.w	#0,(a6,d7.w)
+		movem.l	(sp)+,d7/a5-a6
 		rts
 
 ; --------------------------------------------------------
@@ -1830,6 +1846,8 @@ Objects_Add:
 ; --------------------------------------------------------
 
 Objects_Show:
+		movem.l	d7/a5-a6,-(sp)
+
 		move.w	(RAM_SprLinkNum).w,d6		; d6 - Starting sprite link
 		lea	(RAM_Sprites),a6		; a6 - Genesis sprites
 		move.w	d6,d7
@@ -1946,10 +1964,11 @@ Objects_Show:
 		clr.l	(a6)+
 .ran_out:
 		move.w	d6,(RAM_SprLinkNum).w
+		movem.l	(sp)+,d7/a5-a6
 		rts
 
 ; --------------------------------------------------------
-; Objects system subroutines
+; Current object subroutines
 ; --------------------------------------------------------
 
 ; --------------------------------------------------------
@@ -1958,6 +1977,13 @@ Objects_Show:
 ; Builds a sprite using map data specified in
 ; obj_map(a6)
 ;
+; Input:
+; a6 - Current object
+;
+; Uses:
+; a5,d4-d7
+; --------------------------------------------------------
+
 ; *** GENESIS map ***
 ; mapdata:
 ;       dc.w .frame0-mapdata
@@ -1973,20 +1999,7 @@ Objects_Show:
 ;       align 2
 ;
 ; *** 32X map ***
-; mapdata:
-; 	dc.l SH2_ADDR|TH ; Spritesheet location (TH opt.)
-; 	dc.w 512	 ; Spritesheet WIDTH
-; 	dc.b 64,72	 ; Frame width and height
-; 	dc.w $80	 ; Palette index
-;
-; obj_frame(a6) is in YYXX direction
-;
-; Input:
-; a6 - Object
-;
-; Uses:
-; a5,d4-d7
-; --------------------------------------------------------
+; TODO
 
 object_Display:
 		lea	(RAM_ObjDispList).w,a5
@@ -2032,40 +2045,6 @@ object_Display:
 		dbf	d4,.next_pz
 		move.l	(sp)+,a6
 .no_dma:
-		rts
-
-; --------------------------------------------------------
-; object_MkSprPz
-;
-; Makes separate sprite pieces using
-;
-; Input:
-; d0 - X pos
-; d1 - Y pos
-; d2 - VRAM
-; d3 - Size
-:
-; Uses:
-; a5,d7
-; --------------------------------------------------------
-
-object_MkSprPz:
-		move.w	(RAM_SprDrwCntr).w,d7
-		cmp.w	#80,d7
-		bge.s	.nope
-		lsl.w	#3,d7
-		lea	(RAM_SprDrwPz).w,a5
-		adda	d7,a5
-		add.w	#$80,d0
-		add.w	#$80,d1
-		and.w	#$FF,d3
-; 		lsl.w	#8,d3
-		move.w	d1,(a5)+
-		move.w	d3,(a5)+
-		move.w	d2,(a5)+
-		move.w	d0,(a5)+
-		add.w	#1,(RAM_SprDrwCntr).w
-.nope:
 		rts
 
 ; --------------------------------------------------------
@@ -2173,6 +2152,101 @@ object_Speed:
 		add.l	d7,obj_y(a6)
 		rts
 
+; --------------------------------------------------------
+; object_Collision
+;
+; Detect collision with another object from
+; the list, Read ALL except the one that called
+; this.
+;
+; Input:
+; a6 - Object
+;
+; Returns:
+; d0 - If Nothing: zero
+;      If Found: Object's RAM location
+;
+; Uses:
+; d5-d7,a5
+; --------------------------------------------------------
+
+object_Collision:
+		movem.l	d1-d7/a5,-(sp)
+		lea	(RAM_Objects).w,a5
+		moveq	#MAX_MDOBJ-1,d7
+.next:
+		cmp.l	a6,a5
+		beq.s	.myself
+		tst.l	obj_code(a5)
+		beq.s	.myself
+		bsr.s	.check_this
+		tst.w	d0
+		bne.s	.exit_this	; Found already.
+.myself:	adda	#sizeof_mdobj,a5
+		dbf	d7,.next
+		moveq	#0,d0
+.exit_this:
+		movem.l	(sp)+,d1-d7/a5
+		rts
+.check_this:
+		moveq	#0,d0		; Reset return
+	; d6 - Y current top
+	; d5 - Y current bottom
+	; d4 - Y target top
+	; d3 - Y target bottom
+		move.w	obj_y(a6),d6		; d6 - Up point
+		move.w	d6,d5			; d5 - Down point
+		move.w	obj_size(a6),d1		; $UDxx
+		move.w	d1,d2
+		lsr.w	#8,d1			; d1 - Up size
+		andi.w	#$FF,d2			; d2 - Down size
+		lsl.w	#3,d1
+		lsl.w	#3,d2
+		sub.w	d1,d6
+		add.w	d2,d5
+		move.w	obj_y(a5),d4		; d4 - Up point
+		move.w	d4,d3			; d3 - Down point
+		move.w	obj_size(a5),d1		; $UDxx
+		move.w	d1,d2
+		lsr.w	#8,d1			; d1 - Up size
+		andi.w	#$FF,d2			; d2 - Down size
+		lsl.w	#3,d1
+		lsl.w	#3,d2
+		sub.w	d1,d4
+		add.w	d2,d3
+		cmp.w	d6,d3			; Target's YB > Our YT?
+		blt.s	.not_ytop
+		cmp.w	d5,d4			; Target's YT > Our YB?
+		bge.s	.not_ytop
+	; Now check X
+		move.w	obj_x(a6),d6		; d6 - Left point
+		move.w	d6,d5			; d5 - Right point
+		move.w	obj_size+2(a6),d1	; $xxLR
+		move.w	d1,d2
+		lsr.w	#8,d1			; d1 - Left size
+		andi.w	#$FF,d2			; d2 - Right size
+		lsl.w	#3,d1
+		lsl.w	#3,d2
+		sub.w	d1,d6
+		add.w	d2,d5
+		move.w	obj_x(a5),d4		; d4 - Left point
+		move.w	d4,d3			; d3 - Right point
+		move.w	obj_size+2(a5),d1	; $UDxx
+		move.w	d1,d2
+		lsr.w	#8,d1			; d1 - Left size
+		andi.w	#$FF,d2			; d2 - Right size
+		lsl.w	#3,d1
+		lsl.w	#3,d2
+		sub.w	d1,d4
+		add.w	d2,d3
+		cmp.w	d6,d3
+		blt.s	.not_ytop
+		cmp.w	d5,d4
+		bge.s	.not_ytop
+		move.l	a5,d0		; FOUND OBJECT
+.not_ytop:
+		rts
+
 ; ====================================================================
 ; ----------------------------------------------------------------
 ; 32X ONLY
@@ -2191,9 +2265,6 @@ Video_MarsMap_Set:
 		clr.l	mscrl_Ypos(a6)
 		move.w	d1,mscrl_Xpos(a6)
 		move.w	d2,mscrl_Ypos(a6)
-
-; Video_MarsMap_Redraw:
-; 		move.w	#1,(RAM_MdMars_DrawAll).w
 		rts
 
 ; --------------------------------------------------------
@@ -2254,30 +2325,6 @@ Video_MarsMap_Load:
 		swap	d7
 		dbf	d7,.copy_y
 		rts
-
-; --------------------------------------------------------
-; Video_MarsMap_Render
-;
-; Put this on your screen loop.
-;
-; Uses:
-; d7/a5-a6
-; --------------------------------------------------------
-
-; Video_MarsMap_Render:
-; 		tst.w	(RAM_MdMars_DrawAll).w
-; 		beq.s	.dont_rdraw
-; 		bsr	System_MarsUpdate
-; 		bsr	Video_Mars_SyncFrame
-; 		bset	#3,(sysmars_reg+comm12).l
-; .wait_draw:	btst	#3,(sysmars_reg+comm12).l
-; 		bne.s	.wait_draw
-; 		bset	#3,(sysmars_reg+comm12).l
-; .wait_draw2:	btst	#3,(sysmars_reg+comm12).l
-; 		bne.s	.wait_draw2
-; 		subq.w	#1,(RAM_MdMars_DrawAll).w
-; .dont_rdraw:
-; 		rts
 
 ; --------------------------------------------------------
 

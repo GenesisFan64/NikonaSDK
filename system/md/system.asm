@@ -747,7 +747,7 @@ Mode_Init:
 		bsr	Video_Update
 		bsr	Video_Clear
 		bsr	Objects_Clear
-		lea	(MAX_ScrnBuff),a4
+		lea	(RAM_ScrnBuff),a4
 		move.w	#(MAX_ScrnBuff/2)-1,d5
 		moveq	#0,d4
 .clr:
@@ -1079,6 +1079,7 @@ System_MarsDataPack:
 		bge.s	.large_pack
 		tst.l	d4
 		beq.s	.exit_now
+		bmi.s	.exit_now
 		move.w	d4,d0
 		bra	System_MarsSendDreq
 .exit_now:
@@ -1194,10 +1195,12 @@ sys_MSendDreq:
 
 System_GrabRamCode:
 	if MCD|MARSCD
+		bsr	System_McdSubWait
 		; a0 - filename string,0
 		lea	(RAM_UserCode),a1
 		move.w	#(MAX_UserCode),d0
 		bsr	System_McdTrnsfr_RAM
+		bsr	System_McdSubWait
 		jmp	(RAM_UserCode).l
 	elseif MARS
 		lea	(RAM_UserCode),a1

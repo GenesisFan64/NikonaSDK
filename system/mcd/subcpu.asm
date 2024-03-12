@@ -92,9 +92,9 @@ sizeof_cdpcm	ds.l 0
 ; ----------------------------------------------------------------
 
 SP_Init:
-		bclr	#3,(scpu_reg+$33).w
-		move.b	#$FF,(scpu_reg+$31).w
-		move.l	#SP_Timer,($00005F82+2).l
+; 		bclr	#3,(scpu_reg+$33).w
+; 		move.b	#$FF,(scpu_reg+$31).w
+; 		move.l	#SP_Timer,(_LEVEL3+2).l
 
 		move.b	#0,(scpu_reg+mcd_memory).l
 		bsr	spInitFS
@@ -105,7 +105,7 @@ SP_Init:
 		bsr	CDPCM_Init
 		move.b	#0,(scpu_reg+mcd_comm_s).w	; Reset SUB-status
 
-		bset	#3,(scpu_reg+$33).w
+; 		bset	#3,(scpu_reg+$33).w
 		rts
 
 ; --------------------------------------------------------
@@ -118,20 +118,22 @@ file_subdata:
 ; ----------------------------------------------------------------
 ; Level 2 IRQ
 ;
-; NOTE: The INTRO sequence calls this every frame.
+; WARNING: The INTRO sequence calls this every frame.
 ; ----------------------------------------------------------------
 
 SP_IRQ:
 		move.b	(scpu_reg+mcd_comm_m).w,d0
 		andi.w	#$F0,d0
 		cmpi.w	#$F0,d0				; Z80 is communicating?
-		bne.s	.not_now
-		bclr	#3,(scpu_reg+$33).w		; Disable Timer interrupt
+		bne	.not_now
+		bsr	CDPCM_Stream_IRQ
+; 		bclr	#3,(scpu_reg+$33).w		; Disable Timer interrupt
 		move.b	#-1,(scpu_reg+mcd_comm_s).w	; Respond to Z80
 .wait_start:
 		move.b	(scpu_reg+mcd_comm_m).w,d0	; MAIN is ready?
 		btst	#1,d0
 		beq.s	.wait_start
+		bsr	CDPCM_Stream_IRQ
 		lea	(RAM_CdSub_PcmTable),a1
 		lea	(scpu_reg+mcd_dcomm_m).w,a2
 		move.b	#$00,(scpu_reg+mcd_comm_s).w
@@ -141,6 +143,9 @@ SP_IRQ:
 		move.b	(scpu_reg+mcd_comm_m).l,d0	; Wait PASS
 		btst	#1,d0				; LOCK enabled?
 		beq.s	.exit_now
+		movem.l	d0/a1-a2,-(sp)
+		bsr	CDPCM_Stream_IRQ
+		movem.l	(sp)+,d0/a1-a2
 		btst	#0,d0				; MAIN passed the packet?
 		beq.s	.next_packet
 		move.l	a2,a0
@@ -159,11 +164,11 @@ SP_IRQ:
 		move.b	#$00,(scpu_reg+mcd_comm_s).w	; Sub-CPU is free
 		bra	.next_packet
 .exit_now:
-; 		st.b	(RAM_CdSub_PcmTblUpd).l		; Set table update flag
+		bsr	CDPCM_Update
+		bsr	CDPCM_Stream_IRQ
 		bsr	CDPCM_ReadTable			; Process table we just got.
-		bsr	CDPCM_Stream
 .not_now:
-		bset	#3,(scpu_reg+$33).w		; Enable Timer interrupt
+; 		bset	#3,(scpu_reg+$33).w		; Enable Timer interrupt
 		rts
 
 ; =====================================================================
@@ -172,9 +177,8 @@ SP_IRQ:
 ; ----------------------------------------------------------------
 
 SP_Timer:
-		movem.l	a0-a6/d0-d7,-(sp)
-	; CURRENTLY USELESS.
-		movem.l	(sp)+,a0-a6/d0-d7
+; 		movem.l	d0-a6,-(sp)
+; 		movem.l	(sp)+,d0-a6
 		rte	; <--
 
 ; =====================================================================
@@ -200,18 +204,17 @@ SP_User:
 ; ----------------------------------------------------------------
 
 SP_Main:
-	rept 3
-		bsr	CDPCM_Update			; <-- Timing issues.
+		bsr	CDPCM_Update
 		bsr	CDPCM_Stream
-	endm
+
 		move.b	(scpu_reg+mcd_comm_m).w,d0
 		move.b	d0,d1
 		andi.w	#$F0,d1
-		cmpi.b	#$F0,d1				; Z80 is communicating?
+		cmpi.b	#$F0,d1					; Z80 got first?
 		beq.s	SP_Main
 		andi.w	#%00111111,d0				; <-- current limit
 		beq.s	SP_Main
-		bclr	#3,(scpu_reg+$33).w
+; 		bclr	#3,(scpu_reg+$33).w
 		move.b	(scpu_reg+mcd_comm_s).w,d7
 		bset	#7,d7
 		move.b	d7,(scpu_reg+mcd_comm_s).w		; Tell MAIN we are working.
@@ -221,7 +224,7 @@ SP_Main:
 		move.b	(scpu_reg+mcd_comm_s).w,d7
 		bclr	#7,d7
 		move.b	d7,(scpu_reg+mcd_comm_s).w		; Tell MAIN we finished.
-		bset	#3,(scpu_reg+$33).w
+; 		bset	#3,(scpu_reg+$33).w
 		bra	SP_Main
 
 	; ** DO NOT RETURN WITH RTS **
@@ -241,7 +244,7 @@ SP_Main:
 ; $30-$3F: ???
 
 SP_cmdlist:
-		dc.w SP_cmnd00-SP_cmdlist	; $00 * INVALID *
+		dc.w SP_cmnd00-SP_cmdlist
 		dc.w SP_cmnd01-SP_cmdlist	; $01 - Read file from disc, send data through mcd_dcomm_s
 		dc.w SP_cmnd02-SP_cmdlist	; $02 - Read file from disc, write to WORD-RAM directly.
 		dc.w SP_cmnd00-SP_cmdlist	; $03
@@ -667,10 +670,6 @@ CDPCM_Init:
 ; --------------------------------------------------------
 
 CDPCM_ReadTable:
-; 		tst.b	(RAM_CdSub_PcmTblUpd).l
-; 		beq.s	.dont_upd
-; 		clr.b	(RAM_CdSub_PcmTblUpd).l
-; 		ori.w	#$0700,sr
 		lea	(RAM_CdSub_PcmBuff),a6
 		lea	(RAM_CdSub_PcmTable),a5
 		moveq	#8-1,d7			; 8 channels
@@ -694,7 +693,6 @@ CDPCM_ReadTable:
 		adda	#1,a5			; Next PCM table column
 		addq.w	#1,d6
 		dbf	d7,.get_tbl
-; 		andi.w	#$F8FF,sr
 .dont_upd:
 		rts
 
@@ -777,10 +775,19 @@ CDPCM_ReadTable:
 		rts
 
 ; --------------------------------------------------------
-; CDPCM_Stream
+; PCM Streaming
 ; --------------------------------------------------------
 
 CDPCM_Stream:
+		st.b	(RAM_CdSub_PcmTblMid).w
+		bsr.s	CDPCM_Stream_Go
+		clr.b	(RAM_CdSub_PcmTblMid).w
+		rts
+CDPCM_Stream_IRQ:
+		tst.b	(RAM_CdSub_PcmTblMid).w
+		beq.s	CDPCM_Stream_Go
+		rts
+CDPCM_Stream_Go:
 		lea	(RAM_CdSub_PcmBuff),a6
 		lea	(scpu_pcm),a5
 		lea	$23(a5),a4			; <-- RAM-addr MSBs (ODDs)
@@ -1107,7 +1114,7 @@ RAM_CdSub_PcmBuff	ds.b 8*sizeof_cdpcm
 RAM_CdSub_PcmTable	ds.b 8*8		; Z80 table
 RAM_CdSub_PcmEnbl	ds.b 1			; PCM enable bits
 RAM_CdSub_PcmPlay	ds.b 1
-RAM_CdSub_PcmTblNum	ds.b 1
+RAM_CdSub_PcmTblMid	ds.b 1
 RAM_CdSub_PcmTblUpd	ds.b 1			; PCM update flag
 ; BRAM_Buff		ds.b $640
 ISO_Filelist		ds.b $800*$10

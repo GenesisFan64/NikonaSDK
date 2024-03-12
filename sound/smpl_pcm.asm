@@ -9,25 +9,23 @@
 
 	align $800
 ; 	gSmplData Label,"file",loop_start
- 	gSmplData PcmIns_menu_01,"sound/instr/smpl/menu/01.wav",784
- 	gSmplData PcmIns_menu_02,"sound/instr/smpl/menu/02.wav",700
-  	gSmplData PcmIns_menu_03,"sound/instr/smpl/menu/03.wav",0
- 	gSmplData PcmIns_menu_05,"sound/instr/smpl/menu/05.wav",5348
-  	gSmplData PcmIns_menu_06,"sound/instr/smpl/menu/06.wav",0
- 	gSmplData PcmIns_menu_07,"sound/instr/smpl/menu/07.wav",0
-  	gSmplData PcmIns_menu_08,"sound/instr/smpl/menu/08.wav",0
- 	gSmplData PcmIns_menu_09,"sound/instr/smpl/menu/09.wav",0
-  	gSmplData PcmIns_menu_11,"sound/instr/smpl/menu/11.wav",0
- 	gSmplData PcmIns_menu_12,"sound/instr/smpl/menu/12.wav",0
-  	gSmplData PcmIns_menu_13,"sound/instr/smpl/menu/13.wav",0
- 	gSmplData PcmIns_menu_14,"sound/instr/smpl/menu/14.wav",4080
-  	gSmplData PcmIns_menu_15,"sound/instr/smpl/menu/15.wav",0
- 	gSmplData PcmIns_menu_16,"sound/instr/smpl/menu/16.wav",0
-  	gSmplData PcmIns_PKick,"sound/instr/smpl/wegot_kick.wav",0
- 	gSmplData PcmIns_Piano,"sound/instr/smpl/piano.wav",0
-  	gSmplData PcmIns_PTom,"sound/instr/smpl/sauron_tom.wav",0
- 	gSmplData PcmIns_NadieL,"sound/instr/smpl/nadie_l.wav",0
- 	gSmplData PcmIns_NadieR,"sound/instr/smpl/nadie_r.wav",0
+ 	gSmplData PcmIns_techno_01,"sound/instr/smpl/techno/01.wav",0
+ 	gSmplData PcmIns_techno_02,"sound/instr/smpl/techno/02.wav",0
+  	gSmplData PcmIns_techno_03,"sound/instr/smpl/techno/03.wav",0
+  	gSmplData PcmIns_techno_04,"sound/instr/smpl/techno/04.wav",0
+ 	gSmplData PcmIns_techno_05,"sound/instr/smpl/techno/05.wav",0
+  	gSmplData PcmIns_techno_06,"sound/instr/smpl/techno/06.wav",53501
+ 	gSmplData PcmIns_techno_07,"sound/instr/smpl/techno/07.wav",11812
+  	gSmplData PcmIns_techno_08,"sound/instr/smpl/techno/08.wav",456
+ 	gSmplData PcmIns_techno_09,"sound/instr/smpl/techno/09.wav",728
+  	gSmplData PcmIns_techno_10,"sound/instr/smpl/techno/10.wav",132
+  	gSmplData PcmIns_techno_11,"sound/instr/smpl/techno/11.wav",0
+
+;   	gSmplData PcmIns_PKick,"sound/instr/smpl/wegot_kick.wav",0
+;  	gSmplData PcmIns_Piano,"sound/instr/smpl/piano.wav",0
+;   	gSmplData PcmIns_PTom,"sound/instr/smpl/sauron_tom.wav",0
+;  	gSmplData PcmIns_NadieL,"sound/instr/smpl/nadie_l.wav",0
+;  	gSmplData PcmIns_NadieR,"sound/instr/smpl/nadie_r.wav",0
  	gSmplData PcmIns_MoveMe_Hit,"sound/instr/smpl/moveme_hit.wav",0
   	gSmplData PcmIns_Kick,"sound/instr/smpl/kick_moveme.wav",0
   	gSmplData PcmIns_Snare,"sound/instr/smpl/snare_moveme.wav",0

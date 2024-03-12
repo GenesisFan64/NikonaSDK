@@ -454,8 +454,9 @@ gemaPlayTrack:
 ;
 ; Input:
 ; d0.b - Playback slot number
-;        If -1: stop all slots with the same number
+;        If -1: Read all slots
 ; d1.b - Sequence number to search for
+;        If -1: stop tracks with any sequence
 ; --------------------------------------------------------
 
 gemaStopTrack:
@@ -465,6 +466,22 @@ gemaStopTrack:
 		move.b	d1,d7		; d0.b Seq number
 		bsr	sndReq_sbyte
 		move.b	d0,d7		; d1.b Slot
+		bsr	sndReq_sbyte
+		bra 	sndReq_Exit
+
+; --------------------------------------------------------
+; gemaStopAll
+;
+; Stops ALL tracks
+; --------------------------------------------------------
+
+gemaStopAll:
+		bsr	sndReq_Enter
+		move.w	#$03,d7		; Command $03
+		bsr	sndReq_scmd
+		moveq	#-1,d7		; d0.b Seq number
+		bsr	sndReq_sbyte
+		moveq	#-1,d7		; d1.b Slot
 		bsr	sndReq_sbyte
 		bra 	sndReq_Exit
 

@@ -1,6 +1,6 @@
-; ====================================================================
+; ===========================================================================
 ; ----------------------------------------------------------------
-; SCREEN MODE 0
+; SCREEN CODE
 ; ----------------------------------------------------------------
 
 ; ====================================================================
@@ -8,18 +8,21 @@
 ; Variables
 ; ------------------------------------------------------
 
-setVram_Mikami	equ $0440
-setVram_Sisi	equ $0480
+setVram_Emily		equ $440
+setVram_Doremi		equ $440+(4*6)
+setVram_Sophie		equ $440+((4*6)*2)
+setVram_Nicole		equ $440+((4*6)*3)
+setVram_Bibi		equ $4A0
 
 ; ====================================================================
 ; ------------------------------------------------------
 ; Structs
 ; ------------------------------------------------------
 
-; 		strct 0
-; strc_xpos	ds.w 1
-; strc_ypos	ds.w 1
-; 		endstrct
+; 			strct 0
+; strc_xpos		ds.w 1
+; strc_ypos		ds.w 1
+; 			endstrct
 
 ; ====================================================================
 ; ------------------------------------------------------
@@ -27,18 +30,12 @@ setVram_Sisi	equ $0480
 ; ------------------------------------------------------
 
 			strct RAM_ScrnBuff
-RAM_CurrPick		ds.w 1
-RAM_GemaArg0		ds.w 1
-RAM_GemaArg1		ds.w 1
-RAM_GemaArg2		ds.w 1
-
-RAM_GemaArg3		ds.w 1
-RAM_GemaArg4		ds.w 1
-RAM_GemaArg5		ds.w 1
-RAM_ChnlLinks		ds.w 26
+RAM_SC0_Null		ds.l 1
+RAM_WhoIAm		ds.l 1
 sizeof_thisbuff		ds.l 0
 			endstrct
-			erreport "SCREEN BUFFER",sizeof_thisbuff-RAM_ScrnBuff,MAX_ScrnBuff
+
+	erreport "SCREEN",sizeof_thisbuff-RAM_ScrnBuff,MAX_ScrnBuff
 
 ; ====================================================================
 ; ------------------------------------------------------
@@ -51,81 +48,96 @@ sizeof_thisbuff		ds.l 0
 	; ----------------------------------------------
 	; Load assets
 	if MARS|MARSCD
-; 		lea	(PalMars_Sabrina),a0
-; 		move.w	#0,d0
-; 		move.w	#128,d1
-; 		moveq	#0,d2
-; 		bsr	Video_FadePal_Mars
-		lea	(PalMars_TEST),a0
+		lea	(PalMars_Scrn0),a0
 		move.w	#0,d0
 		move.w	#256,d1
 		moveq	#0,d2
 		bsr	Video_FadePal_Mars
-		move.l	#ArtMars_TEST,d0
-		moveq	#0,d1
-		moveq	#0,d2
-		bsr	Video_MarsMap_Set
-		lea	(MapMars_TEST),a0
+		lea	(MapMars_Scrn0),a0
 		moveq	#0,d0
 		moveq	#0,d1
 		move.w	#320/16,d2
 		move.w	#224/16,d3
 		move.w	#0,d4
 		bsr	Video_MarsMap_Load
+		move.l	#ArtMars_Scrn0,d0
+		moveq	#0,d1
+		moveq	#0,d2
+		bsr	Video_MarsMap_Set
 		moveq	#1,d0
 		bsr	Video_MarsGfxMode
 	endif
-	if MARS|MARSCD=0
-		move.l	#ART_TEST,d0
-		move.w	#cell_vram($0001),d1
-		move.w	#ART_TEST_E-ART_TEST,d2
-		bsr	Video_LoadArt
-		lea	(MAP_TEST),a0			; long lea
-		move.l	#locate(0,0,1),d0
-		move.l	#map_size(320,224),d1
-		move.w	#$0001,d2
-		bsr	Video_LoadMap
-	endif
+; 	if MARS|MARSCD=0
+; 		move.l	#Art_Scn0_BG,d0
+; 		move.w	#cell_vram($0001),d1
+; 		move.w	#Art_Scn0_BG_e-Art_Scn0_BG,d2
+; 		bsr	Video_LoadArt
+; 		lea	(MAP_Scr0_BG),a0
+; 		move.l	#locate(0,0,1),d0
+; 		move.l	#map_size(320,224),d1
+; 		move.w	#$0001,d2
+; 		bsr	Video_LoadMap
+; 	endif
 		lea	(ASCII_FONT).l,a0
 		lea	(ASCII_PAL).l,a1
 		bsr	Video_PrintInit
-		move.l	#Art_Sisi,d0
-		move.w	#cell_vram(setVram_Sisi),d1
-		move.w	#Art_Sisi_e-Art_Sisi,d2
-		bsr	Video_LoadArt
 
-		lea	PAL_TEST(pc),a0
+
+; 		lea	PAL_SCR0_TEST(pc),a0
+; 		moveq	#0,d0
+; 		move.w	#16,d1
+; 		bsr	Video_FadePal
+
+		lea	(objPal_Emily),a0
 		moveq	#0,d0
 		move.w	#16,d1
 		bsr	Video_FadePal
-		lea	(objPal_Sisi),a0
+		lea	(objPal_Doremi),a0
 		moveq	#16,d0
 		move.w	#16,d1
 		bsr	Video_FadePal
-		lea	str_TesterInit(pc),a0
+		lea	(objPal_Sophie),a0
+		moveq	#32,d0
+		move.w	#16,d1
+		bsr	Video_FadePal
+
+		lea	str_Scrn0Intro(pc),a0
 		move.l	#locate(1,1,0),d0
 		bsr	Video_Print
-; 		move.l	#Object_Mikami,d0
-; 		moveq	#0,d1
-; 		bsr	Objects_Set
-		move.l	#Object_Sisi,d0
+
+		move.l	#Obj_Emily,d0		; IN THIS ORDER
+		moveq	#0,d1
 		bsr	Objects_Add
-	; ----------------------------------------------
-		clr.w	(RAM_GemaArg0).w
-		clr.w	(RAM_GemaArg1).w
-		clr.w	(RAM_GemaArg2).w
-		clr.w	(RAM_GemaArg3).w
-		clr.w	(RAM_GemaArg4).w
-		clr.w	(RAM_GemaArg5).w
-		move.w	#200+32,d0
-		bsr	gemaSetBeats
-; 		moveq	#1,d0
-; 		bsr	gemaPlayTrack
+		move.l	#Obj_Bibi,d0
+		moveq	#0,d1
+		bsr	Objects_Add
+		move.l	#Obj_Doremi,d0
+		moveq	#0,d1
+		bsr	Objects_Add
+		move.l	#Obj_Doremi,d0
+		moveq	#1,d1
+		bsr	Objects_Add
+		move.l	#Obj_Doremi,d0
+		moveq	#2,d1
+		bsr	Objects_Add
 
 	; ----------------------------------------------
-		bsr	.show_me
+		move.w	#214,d0
+		bsr	gemaSetBeats
+		moveq	#0,d0
+		moveq	#0,d1
+		moveq	#0,d2
+		bsr	gemaPlayTrack
+; 	if MCD|MARSCD
+; 		move.w	#$0002,(sysmcd_reg+mcd_dcomm_m).l
+; 		move.w	#$0010,d0
+; 		bsr	System_McdSubTask
+; 	endif
+	; ----------------------------------------------
+; 		bsr	.show_me
 ; 		bsr	.steal_vars
 		bsr	Objects_Run
+		bsr	ShowMe_Who
 	; ----------------------------------------------
 		bset	#bitDispEnbl,(RAM_VdpRegs+1).l		; Enable display
 		move.b	#%10000001,(RAM_VdpRegs+$C).w		; H40 + shadow mode
@@ -139,213 +151,19 @@ sizeof_thisbuff		ds.l 0
 
 .loop:
 		bsr	System_Render
-
-; 		bsr	.steal_vars
+; 		vdp_showme $0E0
 		bsr	Objects_Run
-		lea	str_Info(pc),a0
-		move.l	#locate(31,26,0),d0
-		bsr	Video_Print
-
-	; Controls
-	if MCD|MARSCD
-		lea	(Controller_1).w,a6
-		move.w	on_press(a6),d7
-		btst	#bitJoyMode,d7
-		beq.s	.n_aplay
-; 		moveq	#1,d0
-; 		bsr	Video_MarsGfxMode
-		move.w	#$0002,(sysmcd_reg+mcd_dcomm_m).l
-		move.w	#$0010,d0
-		bsr	System_McdSubTask
-.n_aplay:
-	endif
-
-		lea	(Controller_1).w,a6
-		lea	(RAM_CurrPick).w,a5
-	; UP/DOWN
-		move.w	on_hold(a6),d7
-		btst	#bitJoyB,d7
-		bne.s.	.n_up
-		move.w	on_press(a6),d7
-		btst	#bitJoyDown,d7
-		beq.s	.n_down
-		cmp.w	#4,(a5)		; MAX OPTIONS
-		beq.s	.n_down
-		addq.w	#1,(a5)
-		bsr.s	.show_me
-.n_down:
-		move.w	on_press(a6),d7
-		btst	#bitJoyUp,d7
-		beq.s	.n_up
-		tst.w	(a5)
-		beq.s	.n_up
-		subq.w	#1,(a5)
-		bsr.s	.show_me
-.n_up:
-		move.w	(RAM_CurrPick).w,d7
-		lsl.w	#2,d7
-		jsr	.jump_list(pc,d7.w)
-.n_cbtn:
-		bra	.loop
-; ------------------------------------------------------
-
-.show_me:
-		lea	str_ShowMe(pc),a0
-		move.l	#locate(23,5,0),d0
-		bra	Video_Print
-
-; ------------------------------------------------------
-
-.jump_list:
-		bra.w	.nothing
-		bra.w	.option_1
-		bra.w	.option_2
-		bra.w	.option_3
-		bra.w	.option_4
-		bra.w	.nothing
-		bra.w	.nothing
-		bra.w	.nothing
-
-; ------------------------------------------------------
-; OPTION 0
-; ------------------------------------------------------
-
-.nothing:
-		move.w	on_press(a6),d7
+		bsr	ShowMe_Who
+		move.w	(Controller_1+on_press),d7
 		btst	#bitJoyStart,d7
-		beq.s	.no_press
-		bsr.s	.show_me
-		bra	gemaTest
-.no_press:
-		rts
-
-; ------------------------------------------------------
-; OPTION 1
-; ------------------------------------------------------
-
-.option_1:
-		lea	(RAM_GemaArg0).w,a5
-		move.w	on_press(a6),d7
-		btst	#bitJoyStart,d7
-		beq.s	.option1_args
-		move.w	(a5)+,d0
-		move.w	(a5)+,d1
-		move.w	(a5)+,d2
-		bsr	gemaPlayTrack
-		move.w	(RAM_GemaArg1).w,d0
-		move.w	d0,d1
-		add.w	d1,d1
-		lea	.extnal_beats(pc),a0
-		move.w	(a0,d1.w),d0
-		bra	gemaSetBeats
-; 		bra.s	.show_me
-.option1_args:
-		move.w	on_hold(a6),d7
-		move.w	d7,d6
-		andi.w	#JoyA+JoyB+JoyC,d6
-		beq.s	.no_press
-		btst	#bitJoyB,d7
-		beq.s	.d2_opt
-		adda	#2,a5
-.d2_opt:
-		btst	#bitJoyC,d7
-		beq.s	.d3_opt
-		adda	#4,a5
-.d3_opt:
-		move.w	on_press(a6),d7
-		btst	#bitJoyRight,d7
-		beq.s	.op1_right
-		addq.w	#1,(a5)
-		bra	.show_me
-.op1_right:
-		btst	#bitJoyLeft,d7
-		beq.s	.op1_left
-		subq.w	#1,(a5)
-		bra	.show_me
-.op1_left:
-		move.w	on_hold(a6),d7
-		btst	#bitJoyUp,d7
-		beq.s	.op1_down
-		addq.w	#1,(a5)
-		bra	.show_me
-.op1_down:
-		btst	#bitJoyDown,d7
-		beq.s	.op1_up
-		subq.w	#1,(a5)
-		bra	.show_me
-.op1_up:
-
-		rts
-
-; ------------------------------------------------------
-; OPTION 2
-; ------------------------------------------------------
-
-.option_2:
-		lea	(RAM_GemaArg0).w,a5
-		move.w	on_press(a6),d7
-		btst	#bitJoyStart,d7
-		beq.s	.option1_args
-		move.w	(a5)+,d0
-		move.w	(a5)+,d1
-		bra	gemaStopTrack
-		bra	.show_me
-
-; ------------------------------------------------------
-; OPTION 3
-; ------------------------------------------------------
-
-.option_3:
-		lea	(RAM_GemaArg3).w,a5
-		move.w	on_press(a6),d7
-		btst	#bitJoyStart,d7
-		beq	.option1_args
-		move.w	(a5)+,d0
-		move.w	(a5)+,d1
-		bra	gemaFadeTrack
-		bra	.show_me
-
-; ------------------------------------------------------
-; OPTION 4
-; ------------------------------------------------------
-
-.option_4:
-		lea	(RAM_GemaArg3).w,a5
-		move.w	on_press(a6),d7
-		btst	#bitJoyStart,d7
-		beq	.option1_args
-		move.w	(a5)+,d0
-		move.w	(a5)+,d1
-		bra	gemaSetTrackVol
-		bra	.show_me
-
-; ------------------------------------------------------
-; EXTERNAL BEATS FOR EACH TRACK
-; ------------------------------------------------------
-
-.extnal_beats:
-	dc.w 200+32
-	dc.w 200+20
-	dc.w 200+32
-	dc.w 200+32
-	dc.w 200+32
-	dc.w 200+4
-	dc.w 200+32
-	dc.w 200+32
-	dc.w 200+32
-	dc.w 200+32
-	dc.w 200+32
-	dc.w 200+32
-	dc.w 200+32
-	dc.w 200+32
-	dc.w 200+32
-	dc.w 200+32
-	dc.w 200+32
-	dc.w 200+32
-	dc.w 200+32
-	dc.w 200+32
-	dc.w 200+32
-	dc.w 200+32
+		bne.s	.snd_test
+; 		vdp_showme $000
+		bra.s	.loop
+.snd_test:
+		bsr	gemaStopAll
+		bsr	Video_FadeOut
+		move.w	#1,(RAM_ScreenMode).w
+		rts		; EXIT
 
 ; ====================================================================
 ; ------------------------------------------------------
@@ -355,9 +173,8 @@ sizeof_thisbuff		ds.l 0
 file_mddata_def:
 		dc.b "DATABNKD.BIN",0		; CD Filename
 		align 2
-
 pointr_marsdata_def:
-		dc.l MARSDATA_DEFAULT		; 32X Cartridge point
+		dc.l MARSDATA_SCREEN00		; 32X Cartridge point
 		dc.b "MARSD_00.BIN",0		; CD Filename
 		align 2
 
@@ -366,174 +183,11 @@ pointr_marsdata_def:
 ; Objects
 ; ------------------------------------------------------
 
-; ; --------------------------------------------------
-; ; Mikami
-; ; --------------------------------------------------
-;
-; Object_Mikami:
-; 		moveq	#0,d0
-; 		move.b	obj_index(a6),d0
-; 		add.w	d0,d0
-; 		move.w	.list(pc,d0.w),d1
-; 		jmp	.list(pc,d1.w)
-; ; ----------------------------------------------
-; .list:		dc.w .init-.list
-; 		dc.w .main-.list
-; ; ----------------------------------------------
-; .init:
-; 		move.b	#1,obj_index(a6)
-; 		move.l	#objMap_Mikami,obj_map(a6)
-; 		move.l	#objDma_Mikami,obj_dma(a6)
-; 		move.w	#setVram_Mikami|$2000,obj_vram(a6)
-; 		bclr	#bitobj_Mars,obj_set(a6)	; Genesis object
-; 		move.w	#(320/2)+48,obj_x(a6)
-; 		move.w	#(224/2)+64,obj_y(a6)
-; 		clr.w	obj_frame(a6)
-; 		bsr	object_AnimReset
-; 		bset	#0,obj_status(a6)
-; 		bset	#bitobj_flipH,obj_set(a6)
-;
-; ; ----------------------------------------------
-; .main:
-; 		lea	(Controller_2),a3
-; 		btst	#0,obj_status(a6)
-; 		beq.s	.no_fallspd
-; 		add.w	#$40,obj_y_spd(a6)
-; .no_fallspd:
-;
-; ; .fake_col_c:
-; 		move.w	on_press(a3),d7
-; 		btst	#bitJoyC,d7
-; 		beq.s	.fake_jump
-; 		btst	#0,obj_status(a6)
-; 		bne.s	.fake_jump
-; 		move.w	#-$500,obj_y_spd(a6)
-; 		move.b	#2,obj_anim_id(a6)
-; 		bset	#0,obj_status(a6)
-;
-; 		moveq	#$0F,d0
-; 		moveq	#1,d1
-; 		bsr	gemaPlayFromBlk
-;
-; .fake_jump:
-; 		move.w	on_press(a3),d7
-; 		btst	#bitJoyB,d7
-; 		beq.s	.no_slash
-; 		tst.w	obj_y_spd(a6)
-; 		bne.s	.no_slash
-; 		clr.w	obj_anim_indx(a6)
-; 		move.b	#4,obj_anim_id(a6)
-; 		move.w	#$10,obj_ram+2(a6)
-;
-; 		moveq	#$0F,d0
-; 		moveq	#0,d1
-; 		bsr	gemaPlayFromBlk
-;
-; .no_slash:
-; 		clr.w	obj_x_spd(a6)
-;
-; 		moveq	#0,d0
-; 		moveq	#0,d1
-; 		move.w	on_hold(a3),d7
-; 		move.w	d7,d6
-; 		andi.w	#JoyLeft+JoyRight,d6
-; 		beq.s	.move_mika
-; 		clr.w	obj_ram+2(a6)
-; 		move.w	#$180,d6
-; 		btst	#bitJoyRight,d7
-; 		beq.s	.no_l
-; 		move.w	d6,obj_x_spd(a6)
-; .no_l
-; 		neg.w	d6
-; 		btst	#bitJoyLeft,d7
-; 		beq.s	.move_mika
-; 		move.w	d6,obj_x_spd(a6)
-; .move_mika:
-;
-;
-; 		moveq	#0,d6
-; 		tst.w	obj_x_spd(a6)
-; 		beq.s	.r_spd
-; 		moveq	#1,d6
-; 		move.b	obj_set(a6),d7
-; 		bclr	#bitobj_flipH,d7
-; 		tst.w	obj_x_spd(a6)
-; 		bpl.s	.r_flip
-; 		bset	#bitobj_flipH,d7
-; .r_flip:
-; 		move.b	d7,obj_set(a6)
-; .r_spd:
-;
-; 		tst.w	obj_ram+2(a6)
-; 		beq.s	.free_anim
-; 		subi.w	#1,obj_ram+2(a6)
-; 		bne.s	.no_anim
-; .free_anim:
-; 		btst	#0,obj_status(a6)
-; 		bne.s	.no_anim
-; 		tst.w	obj_y_spd(a6)
-; 		bmi.s	.is_jumpin
-; 		move.b	d6,obj_anim_id(a6)
-; .is_jumpin:
-; 		tst.w	obj_y_spd(a6)
-; 		beq.s	.no_anim
-; 		move.b	#3,obj_anim_id(a6)
-; .no_anim:
-; 		bsr	object_Speed
-;
-; 		move.w	#(224-16)-32,d7
-; 		move.w	obj_y(a6),d0
-; 		cmp.w	d7,d0
-; 		blt.s	.fake_col
-; 		clr.w	obj_y_spd(a6)
-; 		andi.w	#-$10,obj_y(a6)
-; 		bclr	#0,obj_status(a6)
-; .fake_col:
-;
-; ; 		move.w	(Controller_2+on_press),d7
-; ; 		btst	#bitClickM,d7
-; ; 		beq.s	.no_reset
-; ; 		move.w	#320/2,obj_x(a6)
-; ; 		move.w	#224/2,obj_y(a6)
-; ; .no_reset:
-; 		lea	.anim_data(pc),a0
-; 		bsr	object_Animate
-; 		bra	object_Display
-;
-; ; ----------------------------------------------
-;
-; .anim_data:
-; 		dc.w .anim_stand-.anim_data
-; 		dc.w .anim_move-.anim_data
-; 		dc.w .anim_jump-.anim_data
-; 		dc.w .anim_fall-.anim_data
-; 		dc.w .anim_slash-.anim_data
-; .anim_stand:
-; 		dc.w 6
-; 		dc.w 0,-1
-; 		align 2
-; .anim_move:
-; 		dc.w 5
-; 		dc.w 2,3,4,5,6,7,8,-3,1
-; 		align 2
-; .anim_jump:
-; 		dc.w 5
-; 		dc.w 10,11,12,-3,2
-; 		align 2
-; .anim_fall:
-; 		dc.w 5
-; 		dc.w 11,12,-3,1
-; 		align 2
-; .anim_slash:
-; 		dc.w 1
-; 		dc.w 14,15,16,17,-2
-; 		align 2
-;
 ; --------------------------------------------------
-; Sisi
+; Emily
 ; --------------------------------------------------
 
-Object_Sisi:
+Obj_Emily:
 		moveq	#0,d0
 		move.b	obj_index(a6),d0
 		add.w	d0,d0
@@ -545,177 +199,281 @@ Object_Sisi:
 ; ----------------------------------------------
 .init:
 		move.b	#1,obj_index(a6)
-		move.l	#objMap_Sisi,obj_map(a6)
-		move.l	#0,obj_dma(a6)
-		move.w	#setVram_Sisi|$2000,obj_vram(a6)
-		bclr	#bitobj_Mars,obj_set(a6)	; Genesis object
-; 		move.w	#320/2,obj_x(a6)
-; 		move.w	#224/2,obj_y(a6)
+		move.l	#objMap_Emily,obj_map(a6)
+		move.l	#objDma_Emily,obj_dma(a6)
+		move.w	#setVram_Emily|$8000,obj_vram(a6)
+		bclr	#bitobj_Mars,obj_set(a6)	; Set as Genesis object
+		move.l	#$03030202,obj_size(a6)		; UDLR sizes
+		move.w	#320/2,obj_x(a6)
+		move.w	#224/2,obj_y(a6)
 		clr.w	obj_frame(a6)
+		clr.w	obj_ram(a6)
+		clr.w	obj_ram+2(a6)
 		bsr	object_AnimReset
 
 ; ----------------------------------------------
 .main:
-; 		move.w	obj_ram(a6),d0
-; 		move.w	obj_ram+2(a6),d1
+		lea	obj_ram(a6),a5
+		lea	(Controller_1),a4
 
+		clr.w	obj_x_spd(a6)
+		clr.w	obj_y_spd(a6)
+		move.w	on_hold(a4),d4
+		btst	#bitJoyDown,d4
+		beq.s	.go_down
+		move.w	#0,(a5)		; <--
+		move.w	#$140,obj_y_spd(a6)
+.go_down:
+		btst	#bitJoyUp,d4
+		beq.s	.go_up
+		move.w	#4,(a5)
+		move.w	#-$140,obj_y_spd(a6)
+.go_up:
+		btst	#bitJoyRight,d4
+		beq.s	.go_r
+		move.w	#8,(a5)
+		move.w	#$140,obj_x_spd(a6)
+.go_r:
+		btst	#bitJoyLeft,d4
+		beq.s	.go_l
+		move.w	#$C,(a5)
+		move.w	#-$140,obj_x_spd(a6)
+.go_l:
+		move.w	(a5),d0
+		move.w	on_hold(a4),d4
+		andi.w	#JoyUp+JoyDown+JoyLeft+JoyRight,d4
+		beq.s	.stay
+		move.b	2(a5),d1
+		andi.w	#%11,d1
+		add.w	d1,d0
+.stay:
+		move.w	d0,obj_frame(a6)
+		addi.w	#$0020,2(a5)		; Speed
+		andi.w	#$03FF,2(a5)		; limit
+		bsr	object_Speed
 
+		tst.l	obj_x(a6)
+		bpl.s	.x_neg
+		clr.l	obj_x(a6)
+.x_neg:
+		cmp.w	#320,obj_x(a6)
+		blt.s	.x_posi
+		move.w	#320,obj_x(a6)
+.x_posi:
+		tst.l	obj_y(a6)
+		bpl.s	.y_neg
+		clr.l	obj_y(a6)
+.y_neg:
+		cmp.w	#224,obj_y(a6)
+		blt.s	.y_posi
+		move.w	#224,obj_y(a6)
+.y_posi:
+		clr.l	(RAM_WhoIAm).w
+		bsr	object_Collision
+		tst.l	d0
+		beq.s	.no_one
+		move.l	d0,(RAM_WhoIAm).w
+.no_one:
+		bra	object_Display
+
+; ----------------------------------------------
+
+.anim_data:
+		dc.w .anim_d-.anim_data
+		dc.w .anim_u-.anim_data
+		dc.w .anim_r-.anim_data
+		dc.w .anim_l-.anim_data
+.anim_d:
+		dc.w 8
+		dc.w 0,1,2,3,-1
+		align 2
+.anim_u:
+		dc.w 8
+		dc.w 4,5,6,7,-1
+		align 2
+.anim_r:
+		dc.w 8
+		dc.w 8,9,10,11,-1
+		align 2
+.anim_l:
+		dc.w 8
+		dc.w 12,13,14,15,-1
+		align 2
+
+; --------------------------------------------------
+; Doremi, Sophie o Nicole
+; --------------------------------------------------
+
+Obj_Doremi:
 		moveq	#0,d0
+		move.b	obj_index(a6),d0
+		add.w	d0,d0
+		move.w	.list(pc,d0.w),d1
+		jmp	.list(pc,d1.w)
+; ----------------------------------------------
+.list:		dc.w .init-.list
+		dc.w .main-.list
+; ----------------------------------------------
+.init:
+		move.b	#1,obj_index(a6)
+		bclr	#bitobj_Mars,obj_set(a6)	; Set as Genesis object
+		move.l	#$03030202,obj_size(a6)		; UDLR sizes
+		move.b	obj_subid(a6),d0
+		lsl.w	#4,d0
+		lea	.sub_list(pc),a0
+		adda	d0,a0
+		move.l	(a0)+,obj_map(a6)
+		move.l	(a0)+,obj_dma(a6)
+		move.w	(a0)+,obj_vram(a6)
+		move.w	(a0)+,obj_x(a6)
+		move.w	(a0)+,obj_y(a6)
+		move.w	(a0)+,obj_ram+2(a6)
 
-		move.w	(RAM_CurrPick).w,d1
-		lsl.w	#3,d1
+		clr.w	obj_frame(a6)
+		clr.w	obj_ram(a6)
+		bsr	object_AnimReset
 
-		addi.w	#$18,d0
-		addi.w	#$20,d1
-		move.w	d0,obj_x(a6)
-		move.w	d1,obj_y(a6)
+; ----------------------------------------------
+.main:
+		moveq	#0,d0
+		move.b	obj_ram(a6),d0
+		add.w	obj_ram+2(a6),d0
+		move.w	d0,obj_frame(a6)
+		addi.w	#$0010,obj_ram(a6)		; Speed
+		andi.w	#$01FF,obj_ram(a6)		; limit
 
-; 		lea	(RAM_Objects),a0
-; 		cmp.l	#Object_Mikami,obj_code(a0)
-; 		bne.s	.dont_link
-; 		move.w	obj_ram+2(a6),d7
-; 		cmp.w	#24<<1,d7
-; 		bge.s	.dont_incr
-; 		add.w	#2,d7
-; .dont_incr:
-; 		move.w	d7,obj_ram+2(a6)
-;
-; 		move.w	obj_x(a0),d7
-; 		move.w	obj_y(a0),d6
-; 		move.w	#24,d5
-; 		sub.w	d5,d6
-; 		move.w	obj_ram(a6),d0
-; 		moveq	#4,d1
-; 		bsr	System_SineWave
-; 		asr.w	#8,d2
-; 		add.w	d2,d6
-; 		moveq	#5,d1
-; 		bsr	System_SineWave_Cos
-; 		asr.w	#8,d2
-; 		add.w	d2,d7
-;
-; 		move.b	obj_set(a6),d0
-; 		move.b	obj_set(a0),d1
-; 		eor.w	d1,d0
-; 		andi.w	#1,d0
-; 		beq.s	.same_h
-; 		clr.w	obj_ram+2(a6)
-; .same_h:
-; 		move.w	obj_ram+2(a6),d4
-; 		bclr	#bitobj_flipH,obj_set(a6)
-; 		btst	#bitobj_flipH,obj_set(a0)
-; 		beq.s	.dont_flipx
-; 		neg.w	d4
-; 		bset	#bitobj_flipH,obj_set(a6)
-; .dont_flipx:
-; 		lsr.w	#1,d4
-; 		add.w	d4,d7
-; 		move.w	d6,obj_y(a6)
-; 		move.w	d7,obj_x(a6)
-; 		add.w	#4,obj_ram(a6)
+		bra	object_Display
 
-.dont_link:
+; ----------------------------------------------
+
+.sub_list:
+		dc.l objMap_Doremi
+		dc.l objDma_Doremi
+		dc.w setVram_Doremi|$2000
+		dc.w 60,90
+		dc.w 0
+
+		dc.l objMap_Sophie
+		dc.l objDma_Sophie
+		dc.w setVram_Sophie|$4000
+		dc.w 256,60
+		dc.w 0
+
+		dc.l objMap_Sophie
+		dc.l objDma_Sophie
+		dc.w setVram_Nicole|$4000
+		dc.w 278,190
+		dc.w 2
+
+; --------------------------------------------------
+; Bibi
+; --------------------------------------------------
+
+Obj_Bibi:
+		moveq	#0,d0
+		move.b	obj_index(a6),d0
+		add.w	d0,d0
+		move.w	.list(pc,d0.w),d1
+		jmp	.list(pc,d1.w)
+; ----------------------------------------------
+.list:		dc.w .init-.list
+		dc.w .main-.list
+; ----------------------------------------------
+.init:
+		move.b	#1,obj_index(a6)
+		bclr	#bitobj_Mars,obj_set(a6)	; Set as Genesis object
+		move.l	#$02030202,obj_size(a6)		; UDLR sizes
+		move.w	#(320/2)-64,obj_x(a6)
+		move.w	#(224/2)-64,obj_y(a6)
+		move.l	#objMap_Bibi,obj_map(a6)
+		move.l	#objDma_Bibi,obj_dma(a6)
+		move.w	#setVram_Bibi|$2000,obj_vram(a6)
+		clr.w	obj_frame(a6)
+		clr.w	obj_ram(a6)
+		clr.w	obj_ram+2(a6)
+		bsr	object_AnimReset
+
+; ----------------------------------------------
+.main:
+		lea	obj_ram(a6),a5
+		sub.w	#1,(a5)
+		bpl.s	.keep_moving
+		move.w	2(a5),d1
+		move.b	d1,obj_anim_id(a6)
+		lsl.w	#2,d1
+		lea	.set_spds(pc,d1.w),a0
+		move.w	(a0),obj_x_spd(a6)
+		move.w	2(a0),obj_y_spd(a6)
+		bclr	#bitobj_flipH,obj_set(a6)
+		tst.w	obj_x_spd(a6)
+		bmi.s	.flip_x
+		bset	#bitobj_flipH,obj_set(a6)
+.flip_x:
+		addq.w	#1,2(a5)
+		andi.w	#%11,2(a5)
+		move.w	#$100,(a5)		; Reset timer
+.keep_moving:
+		bsr	object_Speed
 		lea	.anim_data(pc),a0
 		bsr	object_Animate
 		bra	object_Display
 
 ; ----------------------------------------------
 
+.set_spds:
+		dc.w  $0080, $0000	; Right
+		dc.w  $0000, $0080	; Down
+		dc.w -$0080, $0000	; Left
+		dc.w  $0000,-$0080	; Up
 .anim_data:
-		dc.w .anim_00-.anim_data
-		dc.w .anim_00-.anim_data
-		dc.w .anim_00-.anim_data
-		dc.w .anim_00-.anim_data
-.anim_00:
-		dc.w 8
-		dc.w 0,1,2,1,-1
-		align 2
-;
-; ; --------------------------------------------------
-; ; Ball
-; ; --------------------------------------------------
-;
-; Object_ball:
-; 		moveq	#0,d0
-; 		move.b	obj_index(a6),d0
-; 		add.w	d0,d0
-; 		move.w	.list(pc,d0.w),d1
-; 		jmp	.list(pc,d1.w)
-; ; ----------------------------------------------
-; .list:		dc.w .init-.list
-; 		dc.w .main-.list
-; ; ----------------------------------------------
-; .init:
-; 		move.b	#1,obj_index(a6)
-; 		move.l	#objMap_Sisi,obj_map(a6)
-; 		move.l	#0,obj_dma(a6)
-; 		move.w	#setVram_Sisi|$0000,obj_vram(a6)
-; 		bclr	#bitobj_Mars,obj_set(a6)	; Genesis object
-; 		move.w	#320/2,obj_x(a6)
-; 		move.w	#224/2,obj_y(a6)
-; 		clr.w	obj_frame(a6)
-; 		bsr	object_AnimReset
-;
-; 		move.w	#$180,obj_x_spd(a6)
-; 		move.w	#$180,obj_y_spd(a6)
-;
-; ; ----------------------------------------------
-; .main:
-; 		move.w	obj_x(a6),d0
-; 		move.w	obj_y(a6),d1
-; 		sub.w	#16,d0
-; 		sub.w	#16,d1
-; 		move.w	#320-32,d2
-; 		move.w	#(224-16)-32,d3
-;
-; 		tst.w	d1
-; 		bpl.s	.on_scrn_yu
-; 		neg.w	obj_y_spd(a6)
-; 		bsr	.playit
-; .on_scrn_yu:
-; 		cmp.w	d3,d1
-; 		blt.s	.on_scrn_yd
-; 		neg.w	obj_y_spd(a6)
-; 		bsr	.playit
-; .on_scrn_yd:
-;
-; 		tst.w	d0
-; 		bpl.s	.on_scrn_xu
-; 		neg.w	obj_x_spd(a6)
-; 		bsr.s	.playit
-; .on_scrn_xu:
-; 		cmp.w	d2,d0
-; 		blt.s	.on_scrn_xd
-; 		neg.w	obj_x_spd(a6)
-; 		bsr.s	.playit
-; .on_scrn_xd:
-;
-; 		bsr	object_Speed
-;
-; 		lea	.anim_data(pc),a0
-; 		bsr	object_Animate
-; 		bra	object_Display
-; .playit:
-; 		moveq	#$0F,d0
-; 		moveq	#2,d1
-; 		bra	gemaPlayFromBlk
-;
-; ; ----------------------------------------------
-;
-; .anim_data:
-; 		dc.w .anim_00-.anim_data
-; 		dc.w .anim_00-.anim_data
-; 		dc.w .anim_00-.anim_data
-; 		dc.w .anim_00-.anim_data
-; .anim_00:
-; 		dc.w 8
-; 		dc.w 0,1,2,1,-1
-; 		align 2
+		dc.w .walk_lr-.anim_data
+		dc.w .walk_d-.anim_data
+		dc.w .walk_lr-.anim_data
+		dc.w .walk_u-.anim_data
+.walk_d:
+		dc.w 9
+		dc.w 0,1,0,2
+		dc.w -1
+.walk_u:
+		dc.w 9
+		dc.w 3,4,3,5
+		dc.w -1
+.walk_lr:
+		dc.w 9
+		dc.w 6,7,6,8
+		dc.w -1
 
 ; ====================================================================
 ; ------------------------------------------------------
 ; Subroutines
 ; ------------------------------------------------------
+
+ShowMe_Who:
+		lea	list_WhoIAm(pc),a1
+
+		move.l	(RAM_WhoIAm).w,d3
+		tst.l	d3
+		beq.s	.nadie
+		move.l	d3,a2
+		lea	str_ListWho(pc),a0
+.next_one:
+		move.l	(a1),d0
+		move.w	4(a1),d1
+		cmp.l	#-1,d0
+		beq.s	.nadie
+		cmp.l	obj_code(a2),d0
+		bne.s	.not_this
+		cmp.b	obj_subid(a2),d1
+		beq.s	.found
+.not_this:
+		adda	#6,a1
+		adda	#8,a0
+		bra.s	.next_one
+.nadie:
+		lea	str_Nadie(pc),a0
+.found:
+		move.l	#locate(21,2,0),d0
+		bra	Video_Print
 
 ; ====================================================================
 ; ------------------------------------------------------
@@ -731,66 +489,48 @@ Object_Sisi:
 ; Small DATA section
 ; ------------------------------------------------------
 
-PAL_TEST:
-		binclude "game/screen_0/data/maps/md/test/md_pal.bin"
+PAL_SCR0_TEST:
+		binclude "game/screen_0/data/md/maps/test/md_pal.bin"
+		align 2
+str_Scrn0Intro:
+		dc.b "Probando colision con objectos",$A
+		dc.b "Emiliy toca toca a:",0
+		align 2
+str_Nadie:	dc.b "NADIE  ",0
+str_ListWho:	dc.b "Bibi   ",0
+		dc.b "Doremi ",0
+		dc.b "Sophie ",0
+		dc.b "Nicole ",0
+		dc.b "Nikona ",0
+list_WhoIAm:	dc.l Obj_Bibi
+		dc.w 0
+		dc.l Obj_Doremi
+		dc.w 0
+		dc.l Obj_Doremi
+		dc.w 1
+		dc.l Obj_Doremi
+		dc.w 2
+		dc.l -1
+		dc.w 0
+
+str_ShowMe:	dc.b "\\w | \\w \\w",0
+		dc.l $FF0000,$FF0004,$FF0006
 		align 2
 
-; str_ShowPsg:	dc.b "\\w \\w \\w \\w",0
-; 		dc.l RAM_ChnlLinks,RAM_ChnlLinks+2,RAM_ChnlLinks+4,RAM_ChnlLinks+6
-; 		align 2
-; str_ShowFm:	dc.b "\\w \\w \\w \\w \\w \\w",0
-; 		dc.l RAM_ChnlLinks+8,RAM_ChnlLinks+10,RAM_ChnlLinks+12
-; 		dc.l RAM_ChnlLinks+14,RAM_ChnlLinks+16,RAM_ChnlLinks+18
-; 		align 2
-; str_ShowPcm:	dc.b "\\w \\w \\w \\w",$0A
-; 		dc.b "\\w \\w \\w \\w",0
-; 		dc.l RAM_ChnlLinks+20,RAM_ChnlLinks+22,RAM_ChnlLinks+24,RAM_ChnlLinks+26
-; 		dc.l RAM_ChnlLinks+28,RAM_ChnlLinks+30,RAM_ChnlLinks+32,RAM_ChnlLinks+34
-; 		align 2
-; str_ShowPwm:	dc.b "\\w \\w \\w \\w",$0A
-; 		dc.b "\\w \\w \\w",0
-; 		dc.l RAM_ChnlLinks+36,RAM_ChnlLinks+38,RAM_ChnlLinks+40,RAM_ChnlLinks+42
-; 		dc.l RAM_ChnlLinks+44,RAM_ChnlLinks+46,RAM_ChnlLinks+48,RAM_ChnlLinks+50
-; 		align 2
-
-str_TesterInit:
-		dc.b "GEMA/Nikona tester",$0A
-		dc.b "                \{DATE} \{TIME}",$0A
-		dc.b $0A
-		dc.b "    gemaTest",$0A
-		dc.b "    gemaPlayTrack",$0A
-		dc.b "    gemaStopTrack",$0A
-		dc.b "    gemaFadeTrack",$0A
-		dc.b "    gemaSetTrackVol",0
-		dc.b 0
-		align 2
-str_ShowMe:	dc.b "\\w \\w \\w",$A
-		dc.b $A
-		dc.b "\\w \\w \\w",0
-		dc.l RAM_GemaArg0,RAM_GemaArg1,RAM_GemaArg2
-		dc.l RAM_GemaArg3,RAM_GemaArg4,RAM_GemaArg5
-		align 2
-str_Info:
-		dc.b "\\l",0
-		dc.l RAM_Framecount
-		align 2
-; str_Notes:
-;  dc.b "---",0,"C#0",0,"D-0",0,"D#0",0,"E-0",0,"F-0",0,"F#0",0,"G-0",0,"G#0",0,"A-0",0,"A#0",0,"B-0",0
-;  dc.b "C-1",0,"C#1",0,"D-1",0,"D#1",0,"E-1",0,"F-1",0,"F#1",0,"G-1",0,"G#1",0,"A-1",0,"A#1",0,"B-1",0
-;  dc.b "C-2",0,"C#2",0,"D-2",0,"D#2",0,"E-2",0,"F-2",0,"F#2",0,"G-2",0,"G#2",0,"A-2",0,"A#2",0,"B-2",0
-;  dc.b "C-3",0,"C#3",0,"D-3",0,"D#3",0,"E-3",0,"F-3",0,"F#3",0,"G-3",0,"G#3",0,"A-3",0,"A#3",0,"B-3",0
-;  dc.b "C-4",0,"C#4",0,"D-4",0,"D#4",0,"E-4",0,"F-4",0,"F#4",0,"G-4",0,"G#4",0,"A-4",0,"A#4",0,"B-4",0
-;  dc.b "C-5",0,"C#5",0,"D-5",0,"D#5",0,"E-5",0,"F-5",0,"F#5",0,"G-5",0,"G#5",0,"A-5",0,"A#5",0,"B-5",0
-;  dc.b "C-6",0,"C#6",0,"D-6",0,"D#6",0,"E-6",0,"F-6",0,"F#6",0,"G-6",0,"G#6",0,"A-6",0,"A#6",0,"B-6",0
-;  dc.b "C-7",0,"C#7",0,"D-7",0,"D#7",0,"E-7",0,"F-7",0,"F#7",0,"G-7",0,"G#7",0,"A-7",0,"A#7",0,"B-7",0
-;  dc.b "C-8",0,"C#8",0,"D-8",0,"D#8",0,"E-8",0,"F-8",0,"F#8",0,"G-8",0,"G#8",0,"A-8",0,"A#8",0,"B-8",0
-;  dc.b "C-9",0,"C#9",0,"D-9",0,"D#9",0,"E-9",0,"F-9",0,"F#9",0,"G-9",0,"G#9",0,"A-9",0,"A#9",0,"B-9",0
-;  align 2
-; str_Notes_FM:
-;  dc.b "---",0
-;  dc.b "C-",0,0,"C#",0,0,"D-",0,0,"D#",0,0,"E-",0,0,"F-",0,0
-;  dc.b "F#",0,0,"G-",0,0,"G#",0,0,"A-",0,0,"A#",0,0,"B-",0,0
-;  align 2
-; str_Octv_FM:
-;  dc.b "0",0,"1",0,"2",0,"3",0,"4",0,"5",0,"6",0,"7",0
-;  align 2
+; List_ObjPos:	dc.w 1
+; 		dc.w 215,164
+; 		dc.w $4000|setVram_Generic+(4*6)
+; 		dc.l objMap_Doremi
+; 		dc.l objDma_Doremi
+; 		dc.w $70,$40
+; 		dc.w $4000|setVram_Generic+(4*6)
+; 		dc.l objMap_Doremi
+; 		dc.l objDma_Doremi
+; 		dc.w $50,$80
+; 		dc.w $4000|setVram_Generic+(4*6)
+; 		dc.l objMap_Doremi
+; 		dc.l objDma_Doremi
+; 		dc.w $30,$C0
+; 		dc.w $4000|setVram_Generic+(4*6)
+; 		dc.l objMap_Doremi
+; 		dc.l objDma_Doremi

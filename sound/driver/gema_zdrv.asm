@@ -65,13 +65,13 @@ trk_ChnIndx	equ 26h	; CHANNEL INDEXES START HERE
 ;
 ; chnl_Flags: E0LRevin
 ; E  - Channel is active
-; LR - Global left/Right panning bits (0-ON 1-OFF)
+; LR - Global left/Right panning bits (reverse bits: 0-ON 1-OFF)
 ; e  - Effect*
 ; v  - Volume*
 ; i  - Intrument*
 ; n  - Note*
-chnl_Flags	equ 0	; Playback flags ** DON'T MOVE **
-chnl_Chip	equ 1	; Current Chip ID + priority for this channel
+chnl_Flags	equ 0	; Playback flags ** DON'T MOVE THIS **
+chnl_Chip	equ 1	; %ccccpppp c - Current Chip ID / p - Priority level
 chnl_Note	equ 2
 chnl_Ins	equ 3	; Starting from 1, 0 is invalid
 chnl_Vol	equ 4	; MAX to MIN: 40h-00h
@@ -218,8 +218,8 @@ marsBlock	db 0			; 37h: Flag to BLOCK PWM transfers.
 
 ; --------------------------------------------------------
 ; 03Eh - More user settings
-palMode		db 0			; 3Eh: PAL mode flag
-freeFlag	db 0
+palMode		db 0		; 3Eh: PAL mode flag
+commZRead	db 0		; cmd fifo READ pointer (here)
 
 ; --------------------------------------------------------
 ; 68K Read/Write area at 40h
@@ -414,6 +414,7 @@ drv_loop:
 ; 		jr	z,.srch_mode
 		cp	(nikona_BuffList_e-nikona_BuffList)/MAX_BUFFNTRY	; If maxed out slots
 		jp	nc,.next_cmd
+		rst	8
 		call	.cmnd_rdslot
 		call	.wrtto_slot
 		jp	.next_cmd
@@ -454,6 +455,7 @@ drv_loop:
 ; 		jr	z,.srch_del
 		cp	(nikona_BuffList_e-nikona_BuffList)/MAX_BUFFNTRY	; If maxed out slots
 		jp	nc,.next_cmd
+		rst	8
 		call	.cmnd_rdslot
 		call	.wrtto_del
 		jp	.next_cmd
@@ -467,9 +469,12 @@ drv_loop:
 .wrtto_del:
 		bit	7,(hl)
 		ret	z
+		bit	7,c		; <-- lazy -1 check
+		jr	nz,.del_all
 		ld	a,(ix+trk_SeqId)
 		cp	c
 		ret	nz
+.del_all:
 		ld	(hl),-1		; -1 flag, stop channel and clear slot
 		inc	hl
 		ld	(hl),-1		; Reset seqId
@@ -496,6 +501,7 @@ drv_loop:
 ; 		jr	z,.srch_fvol
 		cp	(nikona_BuffList_e-nikona_BuffList)/MAX_BUFFNTRY	; If maxed out slots
 		jp	nc,.next_cmd
+		rst	8
 		call	.cmnd_rdslot
 		call	.wrtto_fvol
 		jp	.next_cmd
@@ -535,6 +541,7 @@ drv_loop:
 ; 		jr	z,.srch_vol
 		cp	(nikona_BuffList_e-nikona_BuffList)/MAX_BUFFNTRY	; If maxed out slots
 		jp	nc,.next_cmd
+		rst	8
 		call	.cmnd_rdslot
 		call	.wrtto_vol
 		jp	.next_cmd
@@ -606,9 +613,8 @@ drv_loop:
 ; MAIN Playback section
 ; ----------------------------------------------------------------
 
-; ============================================================
 ; --------------------------------------------------------
-; Read INTERNAL mini-impulse-tracker data
+; Read mini-impulse-tracker data
 ; --------------------------------------------------------
 
 upd_track:
@@ -645,7 +651,7 @@ upd_track:
 		ret	z			; Return if mid-flag
 		rst	8
 	; ----------------------------------------
-	; Track effects
+	; Track volume changes
 		ld	l,(iy+trk_VolMaster+1)
 		ld	h,(iy+trk_VolMaster)
 		ld	c,(iy+trk_VolFdTarget)
@@ -682,7 +688,7 @@ upd_track:
 		ret	z			; No TICK.
 		rst	8
 	; ----------------------------------------
-	; *** Start reading notes ***
+	; Start reading notes
 		bit	6,b			; bit6: Restart/First time?
 		call	nz,.first_fill
 		bit	5,b			; bit5: FILL request by effect?
@@ -750,7 +756,7 @@ upd_track:
 ; New note request
 ;
 ; a - %1tcccccc
-;   | t - type setup
+;   | t - next byte has new type
 ;   | c - channel
 ; --------------------------------
 
@@ -1229,15 +1235,6 @@ upd_track:
 ; iy - Track buffer
 ;
 ; Breaks:
-; ix
-; ----------------------------------------
-
-; ----------------------------------------
-; Reset tracker channels
-;
-; iy - Track buffer
-;
-; Breaks:
 ; b ,de,hl,ix
 ; ----------------------------------------
 
@@ -1280,15 +1277,6 @@ track_out:
 		ld	a,1
 		ld	(marsUpd),a
 		ret
-
-; ; ----------------------------------------
-; ; Load tracklist from ROM
-; ;
-; ; a - SeqID
-; ; ----------------------------------------
-;
-; get_RomTrcks:
-; 		ret
 
 ; ============================================================
 ; --------------------------------------------------------
@@ -1411,13 +1399,6 @@ tblbuff_read:
 		dec	a			; inst-1
 		and	01111111b
 		ld	hl,instListOut		; temporal storage for instrument
-; 		ld	d,0
-; 		ld	e,(iy+trk_Priority)
-; 		dec	e			; -1
-; 		rlc	e
-; 		rlc	e
-; 		rlc	e
-; 		add	hl,de
 		ld	c,(iy+trk_BankIns)	; c - current intrument loaded
 		bit	7,c			; First time?
 		jr	nz,.first_ins
@@ -2439,7 +2420,7 @@ dtbl_singl:
 .vpcm_carry:
 		add	a,c
 .vpcm_zero:
-		ld	(1),a
+; 		ld	(1),a
 		ld	(ix),a
 		add	ix,de
 		ld	a,(iy+0Ah)
@@ -3308,11 +3289,12 @@ zmars_send:
 		or	a
 		jr	nz,.wait_in
 		ld	(iy),0F0h	; Set our entrance flag.
-		ld	(hl),1		; Request IRQ
+		ld	(hl),81h	; Request IRQ
 		rst	8
-.test_irq:
-		bit	0,(hl)		; IRQ started?
-		jr	nz,.test_irq
+; .test_irq:
+; 		ld	a,(hl)
+; 		and	1
+; 		jr	nz,.test_irq
 .test_sub:
 		ld	a,(iy+1)	; Sub response?
 		cp	-1
@@ -3395,7 +3377,7 @@ zmars_send:
 		jr	nz,.wait_enter	; If not, retry
 		set	7,(iy+comm14)	; LOCK bit
 		set	1,(iy+standby)	; Request Slave CMD
-		nop	; wave sync AND wait manually.
+		nop	; wave sync AND wait using nops
 		nop
 		nop
 		nop
@@ -3460,7 +3442,7 @@ zmars_send:
 		ret
 
 ; --------------------------------------------------------
-; Set bank to $A10000
+; Set bank to $A10000 area
 	if MCD|MARS|MARSCD
 .set_combank:
 		ld	hl,6000h
@@ -3502,8 +3484,8 @@ gema_init:
 		call	fm_send_1
 		ld	de,2700h	; CH3 special and timers off
 		call	fm_send_1
-; 		ld	de,2800h	; FM KEYS off
-		inc	d
+; 		ld	de,2800h
+		inc	d		; FM KEYS off
 		call	fm_send_1
 		inc	e
 		call	fm_send_1
@@ -4202,18 +4184,6 @@ gema_lastbank:
 		rst	8
 		ret
 
-; ----------------------------------------------------------------
-; FM cache list
-; ----------------------------------------------------------------
-
-fmcach_list:	dw fmcach_1
-		dw fmcach_2
-		dw fmcach_3
-		dw 0		; <-- skipped
-		dw fmcach_4
-		dw fmcach_5
-		dw fmcach_6
-
 ; ====================================================================
 ; ----------------------------------------------------------------
 ; Tables
@@ -4336,6 +4306,7 @@ psgcom:	db 00h,00h,00h,00h	;  0 - command 1 = key on, 2 = key off, 4 = stop snd
 	db 00h,00h,00h,00h	; 52 - Vibrato value
 	db 00h,00h,00h,00h	; 56 - General timer
 
+; --------------------------------------------------------
 ; FM instrument storage
 fmcach_1	ds 28h
 fmcach_2	ds 28h
@@ -4362,7 +4333,6 @@ trkBuff_0	ds trk_ChnIndx+MAX_TRKINDX
 trkBuff_1	ds trk_ChnIndx+MAX_TRKINDX
 trkBuff_2	ds trk_ChnIndx+MAX_TRKINDX
 trkBuff_3	ds trk_ChnIndx+MAX_TRKINDX
-instListOut	ds 8
 
 ; ====================================================================
 ; --------------------------------------------------------
@@ -4479,6 +4449,17 @@ tblPWM:		db 00h,00h,00h,00h,00h,00h,00h,00h	; Channel 1
 		db 00h,00h,00h,00h,00h,00h,00h,00h
 		dw -1	; end-of-list
 
+; ----------------------------------------------------------------
+
+fmcach_list:	dw fmcach_1
+		dw fmcach_2
+		dw fmcach_3
+		dw 0		; <-- skipped
+		dw fmcach_4
+		dw fmcach_5
+		dw fmcach_6
+
+; ----------------------------------------------------------------
 ; Variables to fill this space
 tickSpSet	db 0		; **
 tickFlag	db 0		; Tick flag from VBlank
@@ -4488,7 +4469,6 @@ fmSpecial	db 0		; copy of FM3 enable bit
 dDacFifoMid	db 0		; WAVE play halfway refill flag (00h/80h)
 dDacPntr	db 0,0,0	; WAVE play current ROM position
 dDacCntr	db 0,0,0	; WAVE play length counter
-commZRead	db 0		; cmd fifo READ pointer (here)
 marsUpd		db 0		; Flag to request a PWM transfer
 mcdUpd		db 0		; Flag to request a PCM transfer
 wave_Start	dw 0		; START: 68k 24-bit pointer
@@ -4507,7 +4487,8 @@ sbeatPtck	dw 200+13	; Default global subbeats (this-32 for PAL)
 headerOut	ds 00Eh		; Temporal storage for 68k pointers
 headerOut_e	ds 2		; <-- reverse readpoint
 trkInfoCach	;ds 4
-sampleHead	ds 006h
+sampleHead	;ds 006h
+instListOut	ds 8
 
 ; ====================================================================
 ; ----------------------------------------------------------------

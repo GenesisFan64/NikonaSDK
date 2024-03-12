@@ -10,7 +10,7 @@ Prebuilt binaries are located in the /out folder for testing, ROMs are built sep
 
 NTSC speed only, no PAL optimization done at all.
 
-Code targets a modified version of AS Macro Assembler by Flamewing and a custom version of P2BIN by Clownacy, AS and P2BIN executables go to these directories depending of the system:
+Code targets a modified version of AS Macro Assembler by Flamewing and a custom version of P2BIN by Clownacy, AS and P2BIN executables go to these directories depending of the OS:
 
 - Windows: tools/AS/win32
 - Linux: tools/AS/linux

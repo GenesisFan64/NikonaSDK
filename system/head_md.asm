@@ -130,7 +130,6 @@ MD_Entry:
 .loop_ram:	move.w	d0,(a0)+
 		cmp.l	d1,a0
 		bcs.s	.loop_ram
-		movem.l	($FF0000),d0-a6			; Clean registers using zeros from RAM
 		lea	(vdp_data),a6
 .wait_dma:	move.w	4(a6),d7			; Check if DMA is active.
 		btst	#1,d7
@@ -141,3 +140,4 @@ MD_Entry:
 .palclear:
 		move.w	d6,(a6)
 		dbf	d7,.palclear
+		movem.l	($FF0000),d0-a6			; Clean registers using zeros from RAM
