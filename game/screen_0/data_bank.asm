@@ -46,7 +46,6 @@ objMap_Emily:
 		binclude "game/screen_0/data/md/objects/emily/emi_map.bin"
 		align 2
 objDma_Emily:
-		dc.l Art_Emily
 		binclude "game/screen_0/data/md/objects/emily/emi_plc.bin"
 		align 2
 
@@ -58,7 +57,6 @@ objMap_Doremi:
 		binclude "game/screen_0/data/md/objects/doremi/doremi_map.bin"
 		align 2
 objDma_Doremi:
-		dc.l Art_Doremi
 		binclude "game/screen_0/data/md/objects/doremi/doremi_plc.bin"
 		align 2
 
@@ -70,7 +68,6 @@ objMap_Bibi:
 		binclude "game/screen_0/data/md/objects/bibi/bibi_map.bin"
 		align 2
 objDma_Bibi:
-		dc.l Art_Bibi
 		binclude "game/screen_0/data/md/objects/bibi/bibi_plc.bin"
 		align 2
 
@@ -82,6 +79,5 @@ objMap_Sophie:
 		binclude "game/screen_0/data/md/objects/sophie/sophie_map.bin"
 		align 2
 objDma_Sophie:
-		dc.l Art_Sophie
 		binclude "game/screen_0/data/md/objects/sophie/sophie_plc.bin"
 		align 2

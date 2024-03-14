@@ -200,7 +200,6 @@ Obj_Emily:
 .init:
 		move.b	#1,obj_index(a6)
 		move.l	#objMap_Emily,obj_map(a6)
-		move.l	#objDma_Emily,obj_dma(a6)
 		move.w	#setVram_Emily|$8000,obj_vram(a6)
 		bclr	#bitobj_Mars,obj_set(a6)	; Set as Genesis object
 		move.l	#$03030202,obj_size(a6)		; UDLR sizes
@@ -274,6 +273,9 @@ Obj_Emily:
 		beq.s	.no_one
 		move.l	d0,(RAM_WhoIAm).w
 .no_one:
+		lea	(objDma_Emily),a0
+		lea	(Art_Emily),a1
+		bsr	object_DMA
 		bra	object_Display
 
 ; ----------------------------------------------
@@ -323,7 +325,6 @@ Obj_Doremi:
 		lea	.sub_list(pc),a0
 		adda	d0,a0
 		move.l	(a0)+,obj_map(a6)
-		move.l	(a0)+,obj_dma(a6)
 		move.w	(a0)+,obj_vram(a6)
 		move.w	(a0)+,obj_x(a6)
 		move.w	(a0)+,obj_y(a6)
@@ -342,28 +343,38 @@ Obj_Doremi:
 		addi.w	#$0010,obj_ram(a6)		; Speed
 		andi.w	#$01FF,obj_ram(a6)		; limit
 
+		moveq	#0,d0
+		move.b	obj_subid(a6),d0
+		lsl.w	#3,d0
+		lea	.sub_dma(pc),a2
+		adda	d0,a2
+		move.l	(a2)+,a0
+		move.l	(a2)+,a1
+		bsr	object_DMA
 		bra	object_Display
 
 ; ----------------------------------------------
 
+.sub_dma:
+		dc.l objDma_Doremi,Art_Doremi
+		dc.l objDma_Sophie,Art_Sophie
+		dc.l objDma_Sophie,Art_Sophie
 .sub_list:
 		dc.l objMap_Doremi
-		dc.l objDma_Doremi
 		dc.w setVram_Doremi|$2000
 		dc.w 60,90
 		dc.w 0
-
+		dc.l 0
 		dc.l objMap_Sophie
-		dc.l objDma_Sophie
 		dc.w setVram_Sophie|$4000
 		dc.w 256,60
 		dc.w 0
-
+		dc.l 0
 		dc.l objMap_Sophie
-		dc.l objDma_Sophie
 		dc.w setVram_Nicole|$4000
 		dc.w 278,190
 		dc.w 2
+		dc.l 0
 
 ; --------------------------------------------------
 ; Bibi
@@ -386,7 +397,7 @@ Obj_Bibi:
 		move.w	#(320/2)-64,obj_x(a6)
 		move.w	#(224/2)-64,obj_y(a6)
 		move.l	#objMap_Bibi,obj_map(a6)
-		move.l	#objDma_Bibi,obj_dma(a6)
+; 		move.l	#objDma_Bibi,obj_dma(a6)
 		move.w	#setVram_Bibi|$2000,obj_vram(a6)
 		clr.w	obj_frame(a6)
 		clr.w	obj_ram(a6)
@@ -416,6 +427,10 @@ Obj_Bibi:
 		bsr	object_Speed
 		lea	.anim_data(pc),a0
 		bsr	object_Animate
+
+		lea	(objDma_Bibi),a0
+		lea	(Art_Bibi),a1
+		bsr	object_DMA
 		bra	object_Display
 
 ; ----------------------------------------------

@@ -67,7 +67,7 @@ obj_code	ds.l 1		; Object code, 0 == no object
 obj_x		ds.l 1		; Object X Position 0000.0000
 obj_y		ds.l 1		; Object Y Position 0000.0000
 obj_map		ds.l 1		; Object Sprite map data location
-obj_dma		ds.l 1		; Object DMA map, 0 == Don't use DMA
+; obj_dma		ds.l 1		; Object DMA map, 0 == Don't use DMA
 obj_size	ds.l 1		; Object size IN CELLS: UDLR, also for collision detection.
 obj_vram	ds.w 1		; Object VRAM position (If DMA enabled: output location)
 obj_x_spd	ds.w 1		; Object X Speed 00.00
@@ -628,24 +628,26 @@ Video_DmaMkEntry:
 		move.w	d2,d7
 ; d7 - size
 ; d6 - vram
-; d5 - data
+; d0/d5 - data
 .mk_set:
 		swap	d7
 		move.w	(RAM_VdpDmaIndx).w,d7
 		cmpi.w	#MAX_MDDMATSK,d7
-		bge.s	.ran_out
+		bge	.ran_out
 		lsl.w	#4,d7			; Size $10
 		lea	(RAM_VdpDmaList).w,a6
 		adda	d7,a6
 		swap	d7
 		move.w	#1,(RAM_VdpDmaMod).w
 		addq.w	#1,(RAM_VdpDmaIndx).w
-
-		andi.l	#$0000FFFE,d7
+		andi.l	#$0000FFFE,d7		; d7 - Size
 		lsl.l	#7,d7
 		lsr.w	#8,d7
 		ori.l	#$94009300,d7
 		move.l	d7,(a6)+
+	if MCD|MARSCD
+  		addq.l	#2,d5			; WORD-RAM patch
+	endif
   		lsr.l	#1,d5			; d5 - Source
  		move.l	#$96009500,d7
  		move.b	d5,d7
@@ -672,6 +674,7 @@ Video_DmaMkEntry:
 		move.w	(a6),d6		; Grab the graphs first word
 		move.l	d7,a6		; Restore a6
 		move.w	d6,(a6)+	; Copy to last entry
+.no_wpatch:
 	endif
 		move.w	#0,(RAM_VdpDmaMod).w
 .ran_out:
@@ -1001,43 +1004,29 @@ Video_DmaBlast:
 		move.b	(RAM_VdpRegs+1).w,d7
 		bset	#bitDmaEnbl,d7
 		move.w	d7,(a4)
-		bsr	System_DmaEnter_ROM		; Request Z80 stop and SH2 backup
+		bsr	System_DmaEnter_ROM
 .next:		tst.w	(RAM_VdpDmaIndx).w
 		beq.s	.end
-	if MCD|MARSCD
-		move.l	(a3)+,d6		; Size
-		move.l	(a3)+,d5		; Source
-		move.w	(a3)+,d4
-		move.w	(a3)+,d3
-		move.w	(a3)+,d2
-		move.l	d6,d1
-		andi.l	#$FF0000,d1
-		cmpi.l	#$010000,d1
-		beq.s	.fixme
-		subi.l	#$010000,d6		; -2 Size
-.fixme:
-		addi.l	#$010000,d5		; +2 Source
-		move.l	d6,(a4)
-		move.l	d5,(a4)
-		move.w	d4,(a4)
-		move.w	d3,(a4)			; Destination
-		move.w	d2,(a4)			; *** CPU freezes ***
-		andi.w	#$FF7F,d2		; NOW the TOP-PATCH
-		move.w	d3,(a4)
-		move.w	d2,(a4)
-		move.w	(a3)+,-4(a4)		; <-- manual $C00000
-	else
 		move.l	(a3)+,(a4)		; Size
 		move.l	(a3)+,(a4)		; Source
 		move.w	(a3)+,(a4)
-		move.w	(a3)+,(a4)		; Destination
-		move.w	(a3)+,(a4)		; *** CPU freezes ***
+		move.w	(a3)+,d3		; Destination
+		move.w	(a3)+,d2
+		move.w	d2,-(sp)		; Use stack for this write
+		move.w	d3,(a4)
+		move.w	(sp)+,(a4)		; *** CPU freezes ***
+	if MCD|MARSCD
+		andi.w	#$FF7F,d2		; General 4pixels patch
+		move.w	d3,(a4)
+		move.w	d2,(a4)
+		move.w	(a3)+,-4(a4)		; Manual $C00000
+	else
 		adda	#2,a3
 	endif
-		subi.w	#1,(RAM_VdpDmaIndx).w
+		subq.w	#1,(RAM_VdpDmaIndx).w
 		bra.s	.next
 .end:
-		bsr	System_DmaExit_ROM	; Resume Z80 and SH2 direct
+		bsr	System_DmaExit_ROM
 		move.w	#$8100,d7		; DMA OFF
 		move.b	(RAM_VdpRegs+1).w,d7
 		move.w	d7,(a4)
@@ -2011,10 +2000,28 @@ object_Display:
 		dbf	d7,.srch
 .this_one:
 		move.w	a6,(a5)
-		tst.l	obj_dma(a6)
-		beq.s	.no_dma
-		move.l	obj_dma(a6),a0
-		move.l	(a0)+,d3		; d3 - Art data
+		rts
+
+; --------------------------------------------------------
+; object_DMA
+;
+; Makes DMA graphics entry for this object,
+; for VDP sprites ONLY.
+;
+; Input:
+; a6 - Current object
+; a0 - DMA map data
+; a1 - Graphics data
+;
+; Uses:
+; a5,d4-d7
+; --------------------------------------------------------
+
+; TODO
+; Poner el file struct como en _Display
+
+object_DMA:
+		move.l	a1,d3			; d3 - Art data
 		move.w	obj_frame(a6),d4
  		add.w	d4,d4
 		move.w	(a0,d4.w),d4
@@ -2053,7 +2060,8 @@ object_Display:
 ; Animates the sprite
 ;
 ; Input
-; a0.l - Animation data
+; a6 - Current object
+; a0 - Animation data
 ;
 ; Uses:
 ; d2

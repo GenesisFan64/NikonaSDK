@@ -185,10 +185,10 @@ mcscrn_e:
 ; Md_Screen00_e:
 lblend label *
 	if MCD|MARS|MARSCD
-		report "THIS SCREEN's code",mcscrn_e-RAM_UserCode,MAX_UserCode
+		report "SCREEN MODE: lblstart",mcscrn_e-RAM_UserCode,MAX_UserCode
 	else
 		if lblend-lblstart > MAX_UserCode
-			warning "THIS SCREEN'S CODE IS TOO LARGE FOR SCD, 32X and CD32X"
+			warning "THIS SCREEN CODE IS TOO LARGE FOR SCD, 32X and CD32X"
 		endif
 	endif
 	endm
@@ -220,12 +220,12 @@ startlbl label *
 data_bkend macro startlbl,endlbl,thissize
 	if MARS
 		dephase
-		report "THIS 68K DATA BANK at $900000",thissize,$100000
+		report "68K DATA BANK: startlbl ($900000)",thissize,$100000
 	elseif MCD|MARSCD
 		dephase
 		align $800
 endlbl label *	; <-- CD/CD32X ONLY
-		report "THIS 68K DATA BANK at WORD-RAM",thissize,$40000
+		report "68K DATA BANK: startlbl (WORD-RAM)",thissize,$40000
 	endif
 
 	if MARS
@@ -264,13 +264,13 @@ thislbl label *
 ; --------------------------------------------
 
 sdram_bkend macro thislbl,endlbl
+		align $800	; DREQ data-pack alignment
 	if MARS|MARSCD
 		dephase
-		align 8	; <-- DREQ alignment
 	endif
 	if MCD|MARSCD
 endlbl label *
-		align $800	; <-- AS failing
+		align $800
 	elseif MARS
 		phase $880000+*
 endlbl label *
@@ -297,8 +297,12 @@ endlbl label *
 
 set_dbanks macro mcdpos,marspos
 	if MARS|MARSCD
+		bsr	Video_Mars_SyncFrame
+		bsr	Video_Mars_SyncFrame
 		lea	marspos(pc),a0		; 32X/CD32X: SH2 side data
 		bsr	System_MarsDataPack
+		bsr	Video_Mars_SyncFrame
+		bsr	Video_Mars_SyncFrame
 	endif
 	if MCD|MARSCD
 		bsr	System_McdSubWait

@@ -567,7 +567,6 @@ Object_Sisi:
 .init:
 		move.b	#1,obj_index(a6)
 		move.l	#objMap_Sisi,obj_map(a6)
-		move.l	#0,obj_dma(a6)
 		move.w	#setVram_Sisi|$2000,obj_vram(a6)
 		bclr	#bitobj_Mars,obj_set(a6)	; Genesis object
 ; 		move.w	#320/2,obj_x(a6)

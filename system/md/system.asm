@@ -870,7 +870,7 @@ System_McdSubTask:
 ; a1 - Output location
 ;
 ; Uses:
-; d7/a5-a6
+; d0/d7/a5-a6
 ;
 ; This calls Sub-Task $02
 ; NEEDS WORD-RAM permission in 2M
@@ -886,9 +886,8 @@ System_McdTrnsfr_WRAM:
 		move.w	(a0)+,(a5)+				; 8
 		move.w	#0,(a5)+				; A <-- zero end
 ; 		move.w	d0,d1
-		move.b	(sysmcd_reg+mcd_memory).l,d0		; Set WORDRAM permission to SUB
-		bset	#1,d0
-		move.b	d0,(sysmcd_reg+mcd_memory).l
+.set_perm:	bset	#1,(sysmcd_reg+mcd_memory).l		; Set WORD-RAM permission to SUB
+		beq.s	.set_perm
 		move.w	#$02,d0					; COMMAND $02
 		bsr	System_McdSubTask
 		bra	System_McdSubWait
@@ -910,6 +909,10 @@ System_McdTrnsfr_WRAM:
 ; This calls Sub-Task $01
 ; --------------------------------------------------------
 
+; TODO: I think the Sega CD has a mode to
+; transfer disc memory to MAIN (here) directly.
+; But this works without problem.
+;
 System_McdTrnsfr_RAM:
 		lea	(sysmcd_reg+mcd_dcomm_m),a5
 		move.w	(a0)+,(a5)+			; 0 copy filename
@@ -1053,24 +1056,23 @@ System_McdSendBuff:
 
 System_MarsDataPack:
 	if MARSCD
-		adda	#4,a0			; Skip cartridge label
+		adda	#4,a0					; Skip cartridge label
 		bsr	System_McdTrnsfr_WRAM
 		lea	(sysmcd_wram).l,a4
 	else
 		move.l	(a0),a4
 	endif
 		move.l	(a4)+,d0		; Read size
-; 		andi.w	#$F800,d0
-; 		addi.w	#$800,d0
 		move.l	a4,a0
-		lea	(SH2_USER_DATA).l,a1
-		move.l	#$00FFF8,d3		; MAX transfer size
-		moveq	#-8,d4			; Filter bits
+		lea	(SH2_USER_DATA).l,a1	; Output location in SH2's area
+		move.l	#$00FFF8,d3
+		moveq	#-8,d4
 		and.l	d4,d0
 		move.l	d0,d4
 		cmp.l	d3,d4
 		bgt.s	.large_pack
-		bra	System_MarsSendDreq	; Small package
+		bsr	System_MarsSendDreq	; Small package
+		bra.s	.exit_now
 .large_pack:
 		move.w	d3,d0
 		bsr	System_MarsSendDreq
@@ -1081,9 +1083,9 @@ System_MarsDataPack:
 		beq.s	.exit_now
 		bmi.s	.exit_now
 		move.w	d4,d0
-		bra	System_MarsSendDreq
+		bsr	System_MarsSendDreq
 .exit_now:
-		bra	System_Render
+		rts
 
 ; --------------------------------------------------------
 ; System_MarsSendDreq
@@ -1094,6 +1096,7 @@ System_MarsDataPack:
 ; a0.l | Source data to transfer
 ; a1.l | Destination in SDRAM
 ; d0.w | Size (MUST end with 0 or 8)
+; d1.w | Data transfer type
 ;
 ; Uses:
 ; a4-a5,d5-d7
@@ -1106,7 +1109,8 @@ System_MarsDataPack:
 ; --------------------------------------------------------
 
 System_MarsSendDreq:
-		moveq	#1,d6
+		bsr	Video_Mars_SyncFrame
+		moveq	#1,d1
 		bra.s	sys_MSendDreq
 
 ; --------------------------------------------------------
@@ -1116,7 +1120,7 @@ System_MarsSendDreq:
 ; the visuals.
 ;
 ; Uses:
-; d0-d1,a4-a5,d5-d7
+; a4-a5,d5-d7
 ;
 ; Notes:
 ; Call this during DISPLAY ONLY, NOT during VBlank.
@@ -1125,24 +1129,25 @@ System_MarsSendDreq:
 System_MarsUpdate:
 		lea	(RAM_MdDreq),a0
 		move.w	#sizeof_dreq,d0
-		moveq	#0,d6
+		moveq	#0,d1
 
 ; --------------------------------------------------------
 
 sys_MSendDreq:
+		movem.l	a4-a5/d5-d7,-(sp)
 		move.w	sr,d7
 		ori.w	#$0700,sr		; Disable interrupts
 		lea	(sysmars_reg).l,a5
 		lea	dreqfifo(a5),a4
-		tst.l	d6			; CMD zero?
+		tst.w	d1			; CMD zero?
 		beq.s	.no_src
 		move.l	a1,d5
 		move.l	d5,dreqdest(a5)
-		moveq	#0,d5			; Increment a1 for later.
+		moveq	#0,d5			; Increment a1 on exit.
 		move.w	d0,d5
 		add.l	d5,a1
 .no_src:
-		move.b	d6,comm12(a5)		; d6 - Set CMD mode
+		move.b	d1,comm12(a5)		; d6 - Set CMD mode
 		move.w	#%000,dreqctl(a5)	; Reset 68S
 		move.w	d0,d6			; d6 - Size in bytes
 		lsr.w	#1,d6			; (length/2)
@@ -1166,7 +1171,8 @@ sys_MSendDreq:
 		bclr	#6,comm12(a5)		; Clear.
 	endif
 		move.w	#%000,dreqctl(a5)	; Reset 68S
-		move.w	d7,sr			; Reenable interrupts
+		move.w	d7,sr			; Restore interrupts
+		movem.l	(sp)+,a4-a5/d5-d7
 		rts
 	endif
 

@@ -66,8 +66,8 @@ sizeof_dreq	ds.l 0
 	if MOMPASS=5
 	if (sizeof_dreq&7) <> 0
 		error "DREQ IS MISALIGNED: \{sizeof_dreq}"
-	else
-		message "DREQ RAM uses: \{sizeof_dreq}"
+; 	else
+; 		message "DREQ RAM uses: \{sizeof_dreq}"
 	endif
 	endif
 

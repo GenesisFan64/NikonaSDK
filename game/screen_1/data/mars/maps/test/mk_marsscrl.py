@@ -12,9 +12,6 @@ import os.path
 # SETTINGS
 # -------------------------------------------------
 
-# DREQ transfer padding fix
-DREQ_PADDING  = True
-
 TILE_SIZE     = 16
 TILE_START    = 1
 TILE_NULL     = 0
@@ -207,14 +204,6 @@ if has_img == True:
 # ----------------------------
 # End
 # ----------------------------
-
-if DREQ_PADDING == True:
- t_size = (art_file.tell() & -0x400) + 0x400
- f_size = art_file.tell()
- if (f_size & 0x3FF) == 0:
-   a = t_size-f_size
-   art_file.write(bytes(a))
-   print("Added DREQ padding")
 
 print("Art uses:",hex(art_file.tell()))
 input_file.close()

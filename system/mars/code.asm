@@ -1862,6 +1862,8 @@ RAM_Mars_DreqBuff_0	ds.b sizeof_dreq			; DREQ data from Genesis
 RAM_Mars_DreqBuff_1	ds.b sizeof_dreq			; ****
 			dephase
 
+		report "SH2 code uses",*-SH2_Master,-1
+
 ; ====================================================================
 ; ----------------------------------------------------------------
 ; Data
@@ -1879,7 +1881,7 @@ sin_table	binclude "system/mars/data/sinedata.bin"
 
 		align $10
 SH2_END:
-		report "SH2 SDRAM CODE/DATA",SH2_END&$FFFFFF,-1
+		report "All SH2 SDRAM uses",SH2_END&$FFFFFF,-1
 
 ; ====================================================================
 ; ----------------------------------------------------------------

@@ -124,9 +124,8 @@ file_subdata:
 SP_IRQ:
 		move.b	(scpu_reg+mcd_comm_m).w,d0
 		andi.w	#$F0,d0
-		cmpi.w	#$F0,d0				; Z80 is communicating?
+		cmpi.w	#$F0,d0				; Z80 wants to enter ($F0)?
 		bne	.not_now
-		bsr	CDPCM_Stream_IRQ
 ; 		bclr	#3,(scpu_reg+$33).w		; Disable Timer interrupt
 		move.b	#-1,(scpu_reg+mcd_comm_s).w	; Respond to Z80
 .wait_start:
@@ -163,10 +162,8 @@ SP_IRQ:
 		bne.s	.wait_main
 		move.b	#$00,(scpu_reg+mcd_comm_s).w	; Sub-CPU is free
 		bra	.next_packet
-.exit_now:
-		bsr	CDPCM_Update
-		bsr	CDPCM_Stream_IRQ
-		bsr	CDPCM_ReadTable			; Process table we just got.
+.exit_now:	bsr	CDPCM_Stream_IRQ
+		bsr	CDPCM_ReadTable
 .not_now:
 ; 		bset	#3,(scpu_reg+$33).w		; Enable Timer interrupt
 		rts
@@ -204,9 +201,9 @@ SP_User:
 ; ----------------------------------------------------------------
 
 SP_Main:
-		bsr	CDPCM_Update
-		bsr	CDPCM_Stream
-
+	rept 7
+		bsr	CDPCM_Stream				; <-- Calling this 7 times
+	endm
 		move.b	(scpu_reg+mcd_comm_m).w,d0
 		move.b	d0,d1
 		andi.w	#$F0,d1
@@ -228,9 +225,9 @@ SP_Main:
 		bra	SP_Main
 
 	; ** DO NOT RETURN WITH RTS **
-	; The IRQ that triggers after return
-	; is now used by the Z80 to Transfer the PCM table
-	; (Z80->here)
+	; On return it goes on a loop expecting a flag set
+	; by VBlank, the IRQ is now used by the Z80
+	; to Transfer the PCM table (Z80->here)
 
 ; =====================================================================
 ; ----------------------------------------------------------------
@@ -611,6 +608,7 @@ spSearchFile:
 CDPCM_Wait:
 		nop
 		nop
+		nop
 ; 		move.l	d7,-(sp)
 ; 		move.w	#4,d7
 ; .WaitLoop:
@@ -636,7 +634,7 @@ CDPCM_Init:
 		lea	$2001(a6),a5
 .clr_pwm:
 		move.b	d4,CTREG(a6)
-		bsr	CDPCM_Wait
+; 		bsr	CDPCM_Wait
 		move.l	a5,a4
 		move.w	#$0FFC,d6
 .wr_end:	move.b	d0,(a4)
@@ -651,8 +649,8 @@ CDPCM_Init:
 		move.b	#$88,d4		; Make silence block
 		lea	.data_blk(pc),a0
 		move.b	d4,CTREG(a6)	; Slot $8000 for pre-silence
-		bsr	CDPCM_Wait
-		moveq	#16-1,d7
+; 		bsr	CDPCM_Wait
+		moveq	#32-1,d7
 .copy_data:
 		move.b	(a0)+,d0
 		move.b	d0,(a5)
@@ -662,6 +660,8 @@ CDPCM_Init:
 		bra	CDPCM_Wait
 .data_blk:
 		dc.b $00,$00,$00,$00,$00,$00,$00,$00
+		dc.b $00,$00,$00,$00,$00,$00,$00,$00
+		dc.b $FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
 		dc.b $FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
 		align 2
 
@@ -779,12 +779,12 @@ CDPCM_ReadTable:
 ; --------------------------------------------------------
 
 CDPCM_Stream:
-		st.b	(RAM_CdSub_PcmTblMid).w
+		st.b	(RAM_CdSub_PcmMidStrm).w
 		bsr.s	CDPCM_Stream_Go
-		clr.b	(RAM_CdSub_PcmTblMid).w
+		clr.b	(RAM_CdSub_PcmMidStrm).w
 		rts
 CDPCM_Stream_IRQ:
-		tst.b	(RAM_CdSub_PcmTblMid).w
+		tst.b	(RAM_CdSub_PcmMidStrm).w
 		beq.s	CDPCM_Stream_Go
 		rts
 CDPCM_Stream_Go:
@@ -796,18 +796,30 @@ CDPCM_Stream_Go:
 		move.b	(RAM_CdSub_PcmEnbl).l,d5	; Global OFF/ON bits
 		not.w	d5				; reverse the bits
 .get_addr:
-		btst	#7,cdpcm_strmf(a6)	; Channel active?
+		btst	#7,cdpcm_flags(a6)
 		beq.s	.non_strm
-		move.b	(a4),d3			; Get playback MSB
+		bclr	#6,cdpcm_flags(a6)		; Restart bit?
+		beq.s	.no_refill
+		bsr	.first_fill
+		bra	.non_strm
+.no_refill:
+		bclr	#5,cdpcm_flags(a6)
+		bne.s	.force_off
+		move.b	(a4),d3				; Get playback MSB
 		bpl.s	.keep_strm
 		btst	#0,cdpcm_flags(a6)
 		bne.s	.keep_strm
+.force_off:
 		bset	d6,d5
 		move.b	d5,ONREG(a5)
 		clr.b	cdpcm_flags(a6)
 		bra.s	.non_strm
 .keep_strm:
-		move.b	cdpcm_strmhalf(a6),d4	; Check halfway $x0/$x4/$x8/$xC
+		bclr	#4,cdpcm_flags(a6)
+		beq.s	.non_upd
+		bsr	.update_set
+.non_upd:
+		move.b	cdpcm_strmhalf(a6),d4		; Check halfway $x0/$x4/$x8/$xC
 		andi.b	#$0E,d3
 		cmp.b	d4,d3
 		bne.s	.non_strm
@@ -817,21 +829,21 @@ CDPCM_Stream_Go:
 		move.b	d4,cdpcm_strmhalf(a6)
 		move.l	cdpcm_cread(a6),a0
 		move.l	cdpcm_clen(a6),d1
-		lsl.w	#8,d4			; << 8
-		move.l	#$0200,d3		; d3 - Block size
-		cmp.w	#$0E00,d4		; Looping block?
+		lsl.w	#8,d4				; << 8
+		move.l	#$0200,d3			; d3 - Block size
+		cmp.w	#$0E00,d4			; Looping block?
 		bne.s	.lowhalf
-		sub.l	#4,d3			; last one is -4
+		sub.l	#4,d3				; loop block is -4
 .lowhalf:
 		bsr	.make_blk_strm
 		move.l	d1,cdpcm_clen(a6)
 		move.l	a0,cdpcm_cread(a6)
 .non_strm:
-		adda	#sizeof_cdpcm,a6	; Next PCM buffer
-		adda	#4,a4			; Next MSB
-		addq.w	#1,d6			; Next channel
+		adda	#sizeof_cdpcm,a6		; Next PCM buffer
+		adda	#4,a4				; Next MSB
+		addq.w	#1,d6				; Next channel
 		dbf	d7,.get_addr
-		not.w	d5			; reverse return bits
+		not.w	d5				; reverse return bits
 		move.b	d5,(RAM_CdSub_PcmEnbl).l
 		rts
 
@@ -858,6 +870,8 @@ CDPCM_Stream_Go:
 
 ; ----------------------------------------
 ; Wave has loop
+; ----------------------------------------
+
 .loop_point:
 		movea.l	cdpcm_start(a6),a2
 		move.l	cdpcm_loop(a6),d0
@@ -881,10 +895,13 @@ CDPCM_Stream_Go:
 
 ; ----------------------------------------
 ; Wave doesn't loop
+; ----------------------------------------
+
 .end_point:
 		moveq	#-1,d0
 		subq.l	#1,d1
 		beq.s	.stlen_it
+		bmi.s	.stlen_it
 		move.b	(a0)+,d0
 		bsr	CDPCM_WavToPcm
 .stlen_it:
@@ -898,8 +915,7 @@ CDPCM_Stream_Go:
 		or.b	#$C0,d0
 		move.b	d0,CTREG(a5)
 		bsr	CDPCM_Wait
-; 		bsr	.set_endloop
-		move.w	#$8000,d0		; BLANK WAVE pointer
+		move.w	#$8000,d0	; Relocate PCM to SILENCE block on LOOP -1
 		move.b	d0,LSL(a5)
 		bsr	CDPCM_Wait
 		lsr.w	#8,d0
@@ -907,46 +923,6 @@ CDPCM_Stream_Go:
 		bsr	CDPCM_Wait
 		bclr	d6,d5
 .not_end:
-		rts
-
-; --------------------------------------------------------
-; CDPCM_Update
-;
-; Only checks for playback changes
-; --------------------------------------------------------
-
-CDPCM_Update:
-		lea	(RAM_CdSub_PcmBuff),a6
-		lea	(scpu_pcm),a5
-		lea	$23(a5),a4			; <-- RAM-addr MSBs (ODDs)
-		moveq	#8-1,d7				; 8 channels, 8 pseudo-buffers
-		moveq	#0,d6				; Current channel (also for BTST/BSET/BCLR)
-		move.b	(RAM_CdSub_PcmEnbl).l,d5	; Global OFF/ON bits
-		not.w	d5				; reverse the bits
-.get_addr:
-		btst	#7,cdpcm_flags(a6)	; Channel active?
-		beq	.non_upd
-		bclr	#6,cdpcm_flags(a6)	; Restart bit?
-		beq.s	.stop_bit
-		bsr	.first_fill
-.stop_bit:	bclr	#5,cdpcm_flags(a6)	; Stop bit?
-		beq.s	.not_stop
-		bset	d6,d5
-		move.b	d5,ONREG(a5)		; Stop channel first
-		bsr	CDPCM_Wait
-		clr.b	cdpcm_flags(a6)
-.not_stop:
-		bclr	#4,cdpcm_flags(a6)
-		beq.s	.non_upd
-		bsr	.update_set
-.non_upd:
-		adda	#sizeof_cdpcm,a6	; Next PCM buffer
-		adda	#4,a4			; Next MSB
-		addq.w	#1,d6			; Next channel
-		dbf	d7,.get_addr
-.non_chng:
-		not.w	d5			; reverse return bits
-		move.b	d5,(RAM_CdSub_PcmEnbl).l
 		rts
 
 ; --------------------------------------------------------
@@ -975,7 +951,6 @@ CDPCM_Update:
 ; --------------------------------------------------------
 
 .first_fill:
-		move.b	#0,cdpcm_strmf(a6)
 		bset	d6,d5
 		move.b	d5,ONREG(a5)		; Stop channel first
 		bsr	CDPCM_Wait
@@ -999,11 +974,9 @@ CDPCM_Update:
 		move.b	d0,ST(a5)		; Start MSB
 		bsr	CDPCM_Wait
 		lsl.w	#8,d0
-		move.b	#0,cdpcm_strmf(a6)
 		tst.l	d1
 		bmi.s	.small_sampl
 		beq.s	.small_sampl
-		move.b	#$80,cdpcm_strmf(a6)
 		move.b	#0,cdpcm_strmhalf(a6)
 		bra.s	.set_nonstop
 
@@ -1095,6 +1068,48 @@ CDPCM_WavToPcm:
 	dc.b $70,$71,$72,$73,$74,$75,$76,$77,$78,$79,$7A,$7B,$7C,$7D,$7E,$7F
 	align 2
 
+; --------------------------------------------------------
+; CDPCM_Update
+;
+; Only checks for playback changes
+; --------------------------------------------------------
+
+; CDPCM_Update:
+; 		lea	(RAM_CdSub_PcmBuff),a6
+; 		lea	(scpu_pcm),a5
+; 		lea	$23(a5),a4			; <-- RAM-addr MSBs (ODDs)
+; 		moveq	#8-1,d7				; 8 channels, 8 pseudo-buffers
+; 		moveq	#0,d6				; Current channel (also for BTST/BSET/BCLR)
+; 		move.b	(RAM_CdSub_PcmEnbl).l,d5	; Global OFF/ON bits
+; 		not.w	d5				; reverse the bits
+; .get_addr:
+; 		btst	#7,cdpcm_flags(a6)	; Channel active?
+; 		beq	.non_upd
+; 		bclr	#6,cdpcm_flags(a6)	; Restart bit?
+; 		beq.s	.no_refill
+; 		bsr	.first_fill
+; .no_refill:
+;
+; ; .stop_bit:	bclr	#5,cdpcm_flags(a6)	; Stop bit?
+; ; 		beq.s	.not_stop
+; ; 		bset	d6,d5
+; ; 		move.b	d5,ONREG(a5)		; Stop channel first
+; ; ; 		bsr	CDPCM_Wait
+; ; 		clr.b	cdpcm_flags(a6)
+; ; .not_stop:
+; ; 		bclr	#4,cdpcm_flags(a6)
+; ; 		beq.s	.non_upd
+; ; 		bsr	.update_set
+; ; .non_upd:
+; 		adda	#sizeof_cdpcm,a6	; Next PCM buffer
+; 		adda	#4,a4			; Next MSB
+; 		addq.w	#1,d6			; Next channel
+; 		dbf	d7,.get_addr
+; .non_chng:
+; 		not.w	d5			; reverse return bits
+; 		move.b	d5,(RAM_CdSub_PcmEnbl).l
+; 		rts
+
 ; ====================================================================
 ; ----------------------------------------------------------------
 ; Internal buffers
@@ -1114,12 +1129,11 @@ RAM_CdSub_PcmBuff	ds.b 8*sizeof_cdpcm
 RAM_CdSub_PcmTable	ds.b 8*8		; Z80 table
 RAM_CdSub_PcmEnbl	ds.b 1			; PCM enable bits
 RAM_CdSub_PcmPlay	ds.b 1
-RAM_CdSub_PcmTblMid	ds.b 1
-RAM_CdSub_PcmTblUpd	ds.b 1			; PCM update flag
+RAM_CdSub_PcmMidStrm	ds.b 1
+RAM_CdSub_PcmTblUpd	ds.b 1
 ; BRAM_Buff		ds.b $640
 ISO_Filelist		ds.b $800*$10
 ISO_Output		ds.b $800*$10
-
 RAM_CdSub_FsBuff	ds.l $20
 sizeof_subcpu		ds.l 0
 			endstrct
