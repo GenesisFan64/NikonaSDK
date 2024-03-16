@@ -3286,9 +3286,12 @@ zmars_send:
 		ld	hl,8000h|2000h
 .wait_in:
 		ld	a,(iy)		; MAIN got first?
-		or	a
+		or	a		; != 0
 		jr	nz,.wait_in
-		ld	(iy),0F0h	; Set our entrance flag.
+		ld	a,(iy+1)	; SUB is busy?
+		or	a		; 80h
+		jp	m,.wait_in
+		ld	(iy),0F0h	; Set our entrance ticket.
 		ld	(hl),81h	; Request IRQ
 		rst	8
 ; .test_irq:

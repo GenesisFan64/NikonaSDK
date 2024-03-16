@@ -124,6 +124,7 @@ gemaHead macro blk,pat,ins,num
 
 	align 2
 Gema_MasterList:
+	gemaTrk 4|$80,GemaTrk_Astral
 	gemaTrk 3|$80,GemaTrk_Arena1
 ; 	gemaTrk 6|$80,GemaTrk_MOVEME
 ; 	gemaTrk 6|$80,GemaTrk_NadieMD
@@ -164,25 +165,6 @@ GemaTrk_TEST_0:
 	binclude "sound/tracks/test_blk.bin"
 .pat:
 	binclude "sound/tracks/test_patt.bin"
-
-GemaTrk_Arena1:
-	gemaHead shrd_blk,shrd_pat,.ins,4
-.ins:
-	gInsPcm -17-7,PcmIns_techno_01,0
-	gInsPcm -17-7,PcmIns_techno_02,0
-	gInsPcm -17-7,PcmIns_techno_03,0
-	gInsPcm -17-7,PcmIns_techno_04,0
-	gInsPcm -17-7,PcmIns_techno_05,0
-	gInsPcm -17-7,PcmIns_techno_06,1
-	gInsPcm -17-7,PcmIns_techno_07,1
-	gInsPcm -17-7,PcmIns_techno_08,1
-	gInsPcm -17-7,PcmIns_techno_09,1
-	gInsPcm -17-7,PcmIns_techno_10,1
-	gInsPcm -17-7,PcmIns_techno_11,0
-shrd_blk:
-	binclude "sound/tracks/techno_blk.bin"
-shrd_pat:
-	binclude "sound/tracks/techno_patt.bin"
 
 ; ------------------------------------------------------------
 
@@ -256,8 +238,63 @@ GemaTrk_Crystal:
 	gInsNull
 	gInsFm 0,FmIns_Bass_low_1
 
-; ; ------------------------------------------------------------
-;
+; ------------------------------------------------------------
+
+GemaTrk_Arena1:
+	gemaHead shrd_blk,shrd_pat,.ins,4
+.ins:
+	gInsPcm -17-7,PcmIns_techno_01,0
+	gInsPcm -17-7,PcmIns_techno_02,0
+	gInsPcm -17-7,PcmIns_techno_03,0
+	gInsPcm -17-7,PcmIns_techno_04,0
+	gInsPcm -17-7,PcmIns_techno_05,0
+	gInsPcm -17-7,PcmIns_techno_06,1
+	gInsPcm -17-7,PcmIns_techno_07,1
+	gInsPcm -17-7,PcmIns_techno_08,1
+	gInsPcm -17-7,PcmIns_techno_09,1
+	gInsPcm -17-7,PcmIns_techno_10,1
+	gInsPcm -17-7,PcmIns_techno_11,0
+shrd_blk:
+	binclude "sound/tracks/techno_blk.bin"
+shrd_pat:
+	binclude "sound/tracks/techno_patt.bin"
+
+GemaTrk_Astral:
+	gemaHead .blk,.patt,.ins,4
+.ins:
+	gInsPcm -17-7,PcmIns_astral_01,1
+	gInsPcm -17-7,PcmIns_astral_02,1
+	gInsPcm -17-7,PcmIns_astral_03,0
+	gInsPcm -17-7,PcmIns_astral_04,0
+	gInsPcm -17-7,PcmIns_astral_05,0
+	gInsPcm -17-7,PcmIns_astral_06,0
+	gInsPcm -17-7,PcmIns_astral_07,0
+	gInsPcm -17-7,PcmIns_astral_08,0
+	gInsPcm -17-7,PcmIns_astral_09,0
+	gInsPcm -17-7,PcmIns_astral_10,0
+	gInsPcm -17-7,PcmIns_astral_11,0
+	gInsPcm -17-7,PcmIns_astral_12,0
+	gInsPcm -17-7,PcmIns_astral_13,0
+	gInsPcm -17-7,PcmIns_astral_14,0
+	gInsPcm -17-7,PcmIns_astral_15,0
+	gInsPcm -17-7,PcmIns_astral_16,0
+	gInsPcm -17-7,PcmIns_astral_17,0
+	gInsPcm -17-7,PcmIns_astral_18,0
+	gInsPcm -17-7,PcmIns_astral_19,1
+	gInsPcm -17-7,PcmIns_astral_20,1
+	gInsPcm -17-7,PcmIns_astral_21,1
+	gInsPcm -17-7,PcmIns_astral_22,0
+	gInsPcm -17-7,PcmIns_astral_23,0
+	gInsPcm -17-7,PcmIns_astral_24,0
+	gInsPcm -17-7,PcmIns_astral_25,0
+	gInsPcm -17-7,PcmIns_astral_26,0
+.blk:
+	binclude "sound/tracks/astral_blk.bin"
+.patt:
+	binclude "sound/tracks/astral_patt.bin"
+
+; ------------------------------------------------------------
+
 ; GemaTrk_NadieMD:
 ; 	gemaHead .blk,.patt,.inst,7
 ; .blk:

@@ -27,6 +27,11 @@ TAG_SRAMDATA	equ "SAVE"	; 4-letter save file signature
 ; $0D   | $00 - Original 3 button
 ;       | $01 - 6 button version: XYZM
 
+
+JoyID_Mouse	equ $03
+JoyID_MD	equ $0D
+JoyID_MS	equ $0F		; <-- Disconnected too.
+
 ; Read WORD in +on_hold or +on_press
 JoyUp		equ $0001
 JoyDown		equ $0002
@@ -71,8 +76,8 @@ pad_ver		ds.b 1			; Controller type/revision
 on_hold		ds.w 1			; User HOLD bits
 on_press	ds.w 1			; User PRESSED bits
 on_release	ds.w 1			; (RESERVED)
-mouse_x		ds.w 1			; Mouse/Pen X position or speed
-mouse_y		ds.w 1			; Mouse/pen Y position or speed
+mouse_x		ds.w 1			; Mouse/Pen X speed
+mouse_y		ds.w 1			; Mouse/pen Y speed
 ext_3		ds.w 1
 ext_4		ds.w 1
 sizeof_input	ds.l 0
@@ -246,7 +251,6 @@ System_DmaExit_ROM:
 ;
 ; mouse_x/mouse_y:
 ; Pen X/Y position
-; depen
 ; ----------------------------------------
 
 System_Input:

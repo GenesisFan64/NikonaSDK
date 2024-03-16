@@ -1756,6 +1756,28 @@ Objects_Run:
 		rts
 
 ; --------------------------------------------------------
+; object_ResetVars
+;
+; Call this BEFORE using animation
+;
+; Input:
+; a6 - Object
+;
+; Uses:
+; d7
+; --------------------------------------------------------
+
+object_ResetVars:
+		movem.l	d6-d7/a5,-(sp)
+		lea	obj_ram(a6),a5
+		move.w	#(sizeof_mdobj-obj_ram)-1,d6
+		moveq	#0,d7
+.clr_ram:	move.b	d7,(a5)+
+		dbf	d6,.clr_ram
+		movem.l	(sp)+,d6-d7/a5
+		rts
+
+; --------------------------------------------------------
 ; Objects_Set
 ;
 ; Input:
@@ -2118,9 +2140,10 @@ object_Animate:
 		rts
 
 ; --------------------------------------------------------
-; object_AnimReset
+; object_ResetAnim
 ;
-; Call this BEFORE using animation
+; Call this BEFORE using object_Animate, call this
+; on init.
 ;
 ; Input:
 ; a6 - Object
@@ -2129,7 +2152,7 @@ object_Animate:
 ; d7
 ; --------------------------------------------------------
 
-object_AnimReset:
+object_ResetAnim:
  		clr.w	obj_anim_indx(a6)
  		clr.b	obj_anim_spd(a6)
 		move.b	#0,obj_anim_id+1(a6)

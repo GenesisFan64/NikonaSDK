@@ -182,8 +182,9 @@ sizeof_thisbuff		ds.l 0
 		jsr	.jump_list(pc,d7.w)
 		tst.w	(RAM_ScreenMode).w	; Check -1
 		bpl.s	.n_cbtn
-		bsr	Video_FadeOut
 		bsr	gemaStopAll
+		bsr	System_Render
+		bsr	Video_FadeOut
 		move.w	#0,(RAM_ScreenMode).w	; Return to mode 0
 		rts				; EXIT
 .n_cbtn:
@@ -410,7 +411,7 @@ pointr_marsdata_def:
 ; 		move.w	#(320/2)+48,obj_x(a6)
 ; 		move.w	#(224/2)+64,obj_y(a6)
 ; 		clr.w	obj_frame(a6)
-; 		bsr	object_AnimReset
+; 		bsr	object_ResetAnim
 ; 		bset	#0,obj_status(a6)
 ; 		bset	#bitobj_flipH,obj_set(a6)
 ;
@@ -572,7 +573,7 @@ Object_Sisi:
 ; 		move.w	#320/2,obj_x(a6)
 ; 		move.w	#224/2,obj_y(a6)
 		clr.w	obj_frame(a6)
-		bsr	object_AnimReset
+		bsr	object_ResetAnim
 
 ; ----------------------------------------------
 .main:
@@ -674,7 +675,7 @@ Object_Sisi:
 ; 		move.w	#320/2,obj_x(a6)
 ; 		move.w	#224/2,obj_y(a6)
 ; 		clr.w	obj_frame(a6)
-; 		bsr	object_AnimReset
+; 		bsr	object_ResetAnim
 ;
 ; 		move.w	#$180,obj_x_spd(a6)
 ; 		move.w	#$180,obj_y_spd(a6)

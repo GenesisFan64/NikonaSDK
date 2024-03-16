@@ -17,7 +17,7 @@ scpu_pcm	equ $FFFF0000
 scpu_reg	equ $FFFF8000
 
 PCM		equ $00
-ENV		equ $01		; Envelope
+ENV		equ $01		; Envelope "Volume"
 PAN		equ $03		; Panning (%bbbbaaaa, aaaa = left, bbbb = right)
 FDL		equ $05		; Sample rate $00xx
 FDH		equ $07		; Sample rate $xx00
@@ -92,20 +92,20 @@ sizeof_cdpcm	ds.l 0
 ; ----------------------------------------------------------------
 
 SP_Init:
-; 		bclr	#3,(scpu_reg+$33).w
-; 		move.b	#$FF,(scpu_reg+$31).w
-; 		move.l	#SP_Timer,(_LEVEL3+2).l
+		bclr	#3,(scpu_reg+$33).w
+		move.b	#$2F,(scpu_reg+$31).w
+		move.l	#SP_Timer,(_LEVEL3+2).l
 
 		move.b	#0,(scpu_reg+mcd_memory).l
 		bsr	spInitFS
 		lea	file_subdata(pc),a0
 		bsr	spSearchFile
-		lea	(SUBCPU_DATA),a0
+		lea	(SUBCPU_DATA),a0		; Get PCM samples
 		bsr	spReadSectorsN
 		bsr	CDPCM_Init
 		move.b	#0,(scpu_reg+mcd_comm_s).w	; Reset SUB-status
 
-; 		bset	#3,(scpu_reg+$33).w
+		bset	#3,(scpu_reg+$33).w
 		rts
 
 ; --------------------------------------------------------
@@ -116,9 +116,29 @@ file_subdata:
 
 ; =====================================================================
 ; ----------------------------------------------------------------
+; Level 3 IRQ
+; ----------------------------------------------------------------
+
+SP_Timer:
+		movem.l	d0-a6,-(sp)
+		bsr	CDPCM_Stream
+		movem.l	(sp)+,d0-a6
+		rte	; <--
+
+; =====================================================================
+; ----------------------------------------------------------------
+; User interrupt
+; ----------------------------------------------------------------
+
+SP_User:
+		rts
+
+; =====================================================================
+; ----------------------------------------------------------------
 ; Level 2 IRQ
 ;
-; WARNING: The INTRO sequence calls this every frame.
+; WARNING: The SEGA intro before starting
+; the game calls this every frame.
 ; ----------------------------------------------------------------
 
 SP_IRQ:
@@ -126,7 +146,7 @@ SP_IRQ:
 		andi.w	#$F0,d0
 		cmpi.w	#$F0,d0				; Z80 wants to enter ($F0)?
 		bne	.not_now
-; 		bclr	#3,(scpu_reg+$33).w		; Disable Timer interrupt
+		bclr	#3,(scpu_reg+$33).w		; Disable Timer interrupt
 		move.b	#-1,(scpu_reg+mcd_comm_s).w	; Respond to Z80
 .wait_start:
 		move.b	(scpu_reg+mcd_comm_m).w,d0	; MAIN is ready?
@@ -136,8 +156,11 @@ SP_IRQ:
 		lea	(RAM_CdSub_PcmTable),a1
 		lea	(scpu_reg+mcd_dcomm_m).w,a2
 		move.b	#$00,(scpu_reg+mcd_comm_s).w
-	; a1 - table
-	; a2 - MAIN data
+
+; ----------------------------------------------------------------
+; a1 - table
+; a2 - MAIN data
+
 .next_packet:
 		move.b	(scpu_reg+mcd_comm_m).l,d0	; Wait PASS
 		btst	#1,d0				; LOCK enabled?
@@ -165,25 +188,7 @@ SP_IRQ:
 .exit_now:	bsr	CDPCM_Stream_IRQ
 		bsr	CDPCM_ReadTable
 .not_now:
-; 		bset	#3,(scpu_reg+$33).w		; Enable Timer interrupt
-		rts
-
-; =====================================================================
-; ----------------------------------------------------------------
-; Level 3 IRQ
-; ----------------------------------------------------------------
-
-SP_Timer:
-; 		movem.l	d0-a6,-(sp)
-; 		movem.l	(sp)+,d0-a6
-		rte	; <--
-
-; =====================================================================
-; ----------------------------------------------------------------
-; User interrupt
-; ----------------------------------------------------------------
-
-SP_User:
+		bset	#3,(scpu_reg+$33).w		; Enable Timer interrupt
 		rts
 
 ; ====================================================================
@@ -201,9 +206,6 @@ SP_User:
 ; ----------------------------------------------------------------
 
 SP_Main:
-	rept 7
-		bsr	CDPCM_Stream				; <-- Calling this 7 times
-	endm
 		move.b	(scpu_reg+mcd_comm_m).w,d0
 		move.b	d0,d1
 		andi.w	#$F0,d1
@@ -211,7 +213,10 @@ SP_Main:
 		beq.s	SP_Main
 		andi.w	#%00111111,d0				; <-- current limit
 		beq.s	SP_Main
-; 		bclr	#3,(scpu_reg+$33).w
+		bclr	#3,(scpu_reg+$33).w
+		move.l	d0,-(sp)
+		bsr	CDPCM_Stream
+		move.l	(sp)+,d0
 		move.b	(scpu_reg+mcd_comm_s).w,d7
 		bset	#7,d7
 		move.b	d7,(scpu_reg+mcd_comm_s).w		; Tell MAIN we are working.
@@ -221,7 +226,7 @@ SP_Main:
 		move.b	(scpu_reg+mcd_comm_s).w,d7
 		bclr	#7,d7
 		move.b	d7,(scpu_reg+mcd_comm_s).w		; Tell MAIN we finished.
-; 		bset	#3,(scpu_reg+$33).w
+		bset	#3,(scpu_reg+$33).w
 		bra	SP_Main
 
 	; ** DO NOT RETURN WITH RTS **

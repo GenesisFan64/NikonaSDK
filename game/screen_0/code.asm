@@ -161,6 +161,7 @@ sizeof_thisbuff		ds.l 0
 		bra.s	.loop
 .snd_test:
 		bsr	gemaStopAll
+		bsr	System_Render
 		bsr	Video_FadeOut
 		move.w	#1,(RAM_ScreenMode).w
 		rts		; EXIT
@@ -203,12 +204,12 @@ Obj_Emily:
 		move.w	#setVram_Emily|$8000,obj_vram(a6)
 		bclr	#bitobj_Mars,obj_set(a6)	; Set as Genesis object
 		move.l	#$03030202,obj_size(a6)		; UDLR sizes
-		move.w	#320/2,obj_x(a6)
-		move.w	#224/2,obj_y(a6)
+		move.w	#(320/2)-32,obj_x(a6)
+		move.w	#(224/2)-32,obj_y(a6)
 		clr.w	obj_frame(a6)
 		clr.w	obj_ram(a6)
 		clr.w	obj_ram+2(a6)
-		bsr	object_AnimReset
+		bsr	object_ResetAnim
 
 ; ----------------------------------------------
 .main:
@@ -332,7 +333,7 @@ Obj_Doremi:
 
 		clr.w	obj_frame(a6)
 		clr.w	obj_ram(a6)
-		bsr	object_AnimReset
+		bsr	object_ResetAnim
 
 ; ----------------------------------------------
 .main:
@@ -394,36 +395,94 @@ Obj_Bibi:
 		move.b	#1,obj_index(a6)
 		bclr	#bitobj_Mars,obj_set(a6)	; Set as Genesis object
 		move.l	#$02030202,obj_size(a6)		; UDLR sizes
-		move.w	#(320/2)-64,obj_x(a6)
-		move.w	#(224/2)-64,obj_y(a6)
+		move.w	#(320/2),obj_x(a6)
+		move.w	#(224/2),obj_y(a6)
 		move.l	#objMap_Bibi,obj_map(a6)
-; 		move.l	#objDma_Bibi,obj_dma(a6)
 		move.w	#setVram_Bibi|$2000,obj_vram(a6)
 		clr.w	obj_frame(a6)
-		clr.w	obj_ram(a6)
-		clr.w	obj_ram+2(a6)
-		bsr	object_AnimReset
+		bsr	object_ResetAnim
+		bsr	object_ResetVars
 
 ; ----------------------------------------------
 .main:
-		lea	obj_ram(a6),a5
-		sub.w	#1,(a5)
-		bpl.s	.keep_moving
-		move.w	2(a5),d1
-		move.b	d1,obj_anim_id(a6)
-		lsl.w	#2,d1
-		lea	.set_spds(pc,d1.w),a0
-		move.w	(a0),obj_x_spd(a6)
-		move.w	2(a0),obj_y_spd(a6)
-		bclr	#bitobj_flipH,obj_set(a6)
-		tst.w	obj_x_spd(a6)
-		bmi.s	.flip_x
+		moveq	#0,d0
+		lea	(Controller_2).w,a5
+		cmp.b	#JoyID_Mouse,pad_id(a5)
+		bne.s	.no_mouse
+		move.w	on_hold(a5),d7
+		btst	#bitClickL,d7
+		beq.s	.no_click
+		moveq	#1,d0
+		bra.s	.no_mouse
+.no_click:
+		clr.w	obj_x_spd(a6)
+		clr.w	obj_y_spd(a6)
+		move.w	mouse_x(a5),d7
+		move.w	mouse_y(a5),d6
+		move.w	d7,d5
+		or.w	d6,d5
+		beq.s	.no_mouse
+
+		tst.w	d6
+		beq.s	.no_y_spd
+		moveq	#3,d0
 		bset	#bitobj_flipH,obj_set(a6)
-.flip_x:
-		addq.w	#1,2(a5)
-		andi.w	#%11,2(a5)
-		move.w	#$100,(a5)		; Reset timer
-.keep_moving:
+		move.w	d6,d5
+		asl.w	#6,d5
+		tst.w	d6
+		bpl.s	.plus_y_spd
+		bclr	#bitobj_flipH,obj_set(a6)
+		addq.w	#1,d0
+.plus_y_spd:
+		move.w	d5,obj_y_spd(a6)
+.no_y_spd:
+
+		tst.w	d7
+		beq.s	.no_x_spd
+		moveq	#2,d0
+		bset	#bitobj_flipH,obj_set(a6)
+		move.w	d7,d5
+		asl.w	#6,d5
+		tst.w	d7
+		bpl.s	.plus_x_spd
+		bclr	#bitobj_flipH,obj_set(a6)
+.plus_x_spd:
+		move.w	d5,obj_x_spd(a6)
+.no_x_spd:
+
+;
+; 		moveq	#2,d0
+; 		bset	#bitobj_flipH,obj_set(a6)
+; 		move.w	d7,d5
+; 		lsl.w	#3,d5
+; 		tst.w	d7
+; 		bpl.s	.no_x_spd
+; 		neg.w	d5
+; 		bclr	#bitobj_flipH,obj_set(a6)
+; .no_x_spd:
+; 		move.w	d5,obj_x_spd(a6)
+
+.no_mouse:
+		move.b	d0,obj_anim_id(a6)
+; 		lea	obj_ram(a6),a5
+; 		sub.w	#1,(a5)
+; 		bpl.s	.keep_moving
+; 		move.w	2(a5),d1
+; 		addq.w	#4,d1			; Start at 4
+; 		move.b	d1,obj_anim_id(a6)
+; 		lsl.w	#2,d1
+; 		lea	.set_spds(pc,d1.w),a0
+; 		move.w	(a0),obj_x_spd(a6)
+; 		move.w	2(a0),obj_y_spd(a6)
+; 		bclr	#bitobj_flipH,obj_set(a6)
+; 		tst.w	obj_x_spd(a6)
+; 		bmi.s	.flip_x
+; 		bset	#bitobj_flipH,obj_set(a6)
+; .flip_x:
+; 		addq.w	#1,2(a5)
+; 		andi.w	#%11,2(a5)
+; 		move.w	#$100,(a5)		; Reset timer
+; .keep_moving:
 		bsr	object_Speed
 		lea	.anim_data(pc),a0
 		bsr	object_Animate
@@ -435,27 +494,36 @@ Obj_Bibi:
 
 ; ----------------------------------------------
 
-.set_spds:
-		dc.w  $0080, $0000	; Right
-		dc.w  $0000, $0080	; Down
-		dc.w -$0080, $0000	; Left
-		dc.w  $0000,-$0080	; Up
+; .set_spds:
+; 		dc.w  $0080, $0000	; Right
+; 		dc.w  $0000, $0080	; Down
+; 		dc.w -$0080, $0000	; Left
+; 		dc.w  $0000,-$0080	; Up
 .anim_data:
+		dc.w .stand-.anim_data
+		dc.w .yatta-.anim_data
 		dc.w .walk_lr-.anim_data
 		dc.w .walk_d-.anim_data
-		dc.w .walk_lr-.anim_data
 		dc.w .walk_u-.anim_data
+.stand:
+		dc.w 7
+		dc.w 0
+		dc.w -1
 .walk_d:
-		dc.w 9
+		dc.w 7
 		dc.w 0,1,0,2
 		dc.w -1
 .walk_u:
-		dc.w 9
+		dc.w 7
 		dc.w 3,4,3,5
 		dc.w -1
 .walk_lr:
-		dc.w 9
+		dc.w 7
 		dc.w 6,7,6,8
+		dc.w -1
+.yatta:
+		dc.w 7
+		dc.w 9
 		dc.w -1
 
 ; ====================================================================
