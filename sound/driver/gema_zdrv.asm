@@ -570,8 +570,17 @@ drv_loop:
 		call	.grab_arg	; d0.w: $00xx
 		ld	c,a
 		call	.grab_arg	; d0.w: $xx00
+		ld	h,a
+		ld	l,c
+		ld	a,(palMode)
+		or	a
+		jr	z,.not_pal
+		ld	de,32
+		add	hl,de
+.not_pal:
+		ld	a,h
 		ld	(sbeatPtck+1),a
-		ld	a,c
+		ld	a,l
 		ld	(sbeatPtck),a
 		jp	.next_cmd
 
@@ -2322,8 +2331,8 @@ dtbl_singl:
 		ld	e,a
 		ld	d,0B6h			; Channel 6 panning
 		call	fm_send_2
-		bit	0,b			; Note update?
-		ret	z
+; 		bit	0,b			; Note update?
+; 		ret	z
 		call	dac_off
 		jp	dac_play
 .dac_cut:
@@ -2362,14 +2371,14 @@ dtbl_singl:
 
 .mk_pcm:
 	if MCD|MARSCD
+; 		bit	0,b			; Note update?
+; 		ret	z
 		ld	a,(ix+chnl_Note)
 		ld	d,0
 		ld	e,(iy+04h)		; e - Channel ID
 		ld	c,(ix+chnl_Flags)	; c - Panning bits
 		ld	ix,pcmcom
 		add	ix,de
-		bit	0,b			; Note update?
-		ret	z
 		cp	-2
 		jp	z,.pcm_cut
 		cp	-1
@@ -2407,14 +2416,20 @@ dtbl_singl:
 		ld	(ix),l
 		add	ix,de
 		ld	c,-1
+		ld	a,(iy+03h)
+		cp	40h
+		jr	z,.vpcm_siln
+		jr	nc,.vpcm_siln
+		or	a
+		jp	m,.vpcm_siln
+		add	a,a
+		ld	b,a
 		ld	a,(iy+08h)	; Read current Volume
-		sub	a,(iy+03h)	; + MASTER vol
-		or	a		; If == 0, do nothing
-		jr	z,.vpcm_carry
 		ccf
-		adc	a,a
-		adc	a,a
+		sbc	a,b		; + MASTER vol
+		add	a,a		; *2
 		jr	c,.vpcm_carry
+.vpcm_siln:
 		xor	a
 		jr	.vpcm_zero
 .vpcm_carry:
@@ -2455,6 +2470,8 @@ dtbl_singl:
 ; --------------------------------
 
 .mk_pwm:
+; 		bit	0,b			; Note update?
+; 		ret	z
 	if MARS|MARSCD
 		ld	a,(ix+chnl_Note)
 		ld	d,0
@@ -2485,6 +2502,7 @@ dtbl_singl:
 		cpl			; Reverse and filter bits
 		and	00110000b
 		rst	8
+	; TODO: checar los volumenes de PWM otravez
 		ld	e,a		; Save panning to e
 		ld	a,(iy+08h)	; Read current volume
 		sub	a,(iy+03h)	; + MASTER vol
@@ -4486,7 +4504,7 @@ currTickBits	db 0		; Current Tick/Subbeat flags (000000BTb B-beat, T-tick)
 x68ksrclsb	db 0		; transferRom temporal LSB
 x68ksrcmid	db 0		; transferRom temporal MID
 sbeatAcc	dw 0		; Accumulates on each tick to trigger the sub beats
-sbeatPtck	dw 200+13	; Default global subbeats (this-32 for PAL)
+sbeatPtck	dw 214		; Default global subbeats (this-32 for PAL) 214=125
 headerOut	ds 00Eh		; Temporal storage for 68k pointers
 headerOut_e	ds 2		; <-- reverse readpoint
 trkInfoCach	;ds 4

@@ -1,38 +1,51 @@
 ; ===========================================================================
 ; ----------------------------------------------------------------
-; Genesis system routines, and some SegaCD and 32X routines.
-;
-; * CAN BE RECYCLED FOR SEGA PICO, ONLY IGNORE Z80 ACCESS OR
-; THE CONTROL ROUTINE **
+; Genesis system routines, including SCD and 32X
 ; ----------------------------------------------------------------
 
-; ====================================================================
-; ----------------------------------------------------------------
+; ** CAN BE RECYCLED FOR SEGA PICO, ONLY IGNORE Z80 ACCESS OR
+; THE CONTROL ROUTINE **
+
+; ===================================================================
+; --------------------------------------------------------
 ; Settings
-; ----------------------------------------------------------------
+; --------------------------------------------------------
 
 MAX_SRAMSIZE	equ $400
-TAG_SRAMDATA	equ "SAVE"	; 4-letter save file signature
+TAG_SRAMDATA	equ "SAVE"	; 4-letter savefile signature
 
-; ====================================================================
-; ----------------------------------------------------------------
+; ===================================================================
+; --------------------------------------------------------
 ; Variables
-; ----------------------------------------------------------------
+; --------------------------------------------------------
 
-; Controller buffer data, MUST call System_Input on VBlank.
+; ------------------------------------------------
+; Controller buffer data
 ;
-; Type/Revision byte:
-;
-; ID    |
-; $0D   | $00 - Original 3 button
-;       | $01 - 6 button version: XYZM
+; MUST call System_Input on VBlank.
+; ------------------------------------------------
 
+; ------------------------------------------------
+; pad_id
+;
+; JoyID_MD:
+; Read pad_ver separately to check if controller
+; is 3button(0) or 6button(1)
+; ------------------------------------------------
 
 JoyID_Mouse	equ $03
 JoyID_MD	equ $0D
 JoyID_MS	equ $0F		; <-- Disconnected too.
 
-; Read WORD in +on_hold or +on_press
+; ------------------------------------------------
+; on_hold or on_press
+;
+; Read these as WORD
+;
+; Don't do btst directly, read as dX
+; and do btst on register.
+; ------------------------------------------------
+
 JoyUp		equ $0001
 JoyDown		equ $0002
 JoyLeft		equ $0004
@@ -45,7 +58,7 @@ JoyZ		equ $0100
 JoyY		equ $0200
 JoyX		equ $0400
 JoyMode		equ $0800
-bitJoyUp	equ 0		; READ THESE AS A WORD
+bitJoyUp	equ 0
 bitJoyDown	equ 1
 bitJoyLeft	equ 2
 bitJoyRight	equ 3
@@ -58,8 +71,10 @@ bitJoyY		equ 9
 bitJoyX		equ 10
 bitJoyMode	equ 11
 
-; Mega Mouse
-; Read WORD as +on_hold or +on_press
+; ------------------------------------------------
+; Mega Mouse ONLY
+; ------------------------------------------------
+
 ClickR		equ $0001
 ClickL		equ $0002
 ClickM		equ $0004	; US MOUSE ONLY
@@ -69,7 +84,10 @@ bitClickR	equ 1
 bitClickM	equ 2
 bitClickS	equ 3
 
+; ------------------------------------------------
 ; Controller_1 / Controller_2
+; ------------------------------------------------
+
 		strct 0
 pad_id		ds.b 1			; Controller ID
 pad_ver		ds.b 1			; Controller type/revision
@@ -84,9 +102,9 @@ sizeof_input	ds.l 0
 		endstrct
 
 ; ====================================================================
-; ----------------------------------------------------------------
+; --------------------------------------------------------
 ; RAM section
-; ----------------------------------------------------------------
+; --------------------------------------------------------
 
 		strct RAM_MdSystem
 RAM_InputData	ds.b sizeof_input*4		; Input data section
@@ -101,9 +119,9 @@ sizeof_mdsys	ds.l 0
 		erreport "MD SYSTEM RAM",sizeof_mdsys-RAM_MdSystem,MAX_MdSystem
 
 ; ====================================================================
-; ----------------------------------------------------------------
-; Alias tags
-; ----------------------------------------------------------------
+; --------------------------------------------------------
+; Aliases labels
+; --------------------------------------------------------
 
 Controller_1	equ RAM_InputData
 Controller_2	equ RAM_InputData+sizeof_input
@@ -121,7 +139,7 @@ System_Init:
 	if PICO=0
 		move.w	#$0100,(z80_bus).l	; Stop Z80
 .wait:
-		btst	#0,(z80_bus).l		; Wait for it
+		btst	#0,(z80_bus).l		; Wait Z80
 		bne.s	.wait
 		moveq	#%01000000,d0		; Init ports, TH=1
 		move.b	d0,(sys_ctrl_1).l	; Controller 1
@@ -132,10 +150,10 @@ System_Init:
 		move.w	#$4EF9,d0		; Set JMP opcode for the Hblank/VBlank jumps
  		move.w	d0,(RAM_MdMarsVInt).w
 		move.w	d0,(RAM_MdMarsHInt).w
-		move.l	#VInt_Default,d0	; Set default ints
+		move.l	#VInt_Default,d0	; Set default interrupt jumps
 		move.l	#Hint_Default,d1
 		bsr	System_SetInts
-		lea	(RAM_InputData),a0	; Clear input data buffer
+		lea	(RAM_InputData).w,a0	; Clear input data buffer
 		move.w	#(sizeof_input/2)-1,d1
 		moveq	#0,d0
 .clrinput:
@@ -145,9 +163,6 @@ System_Init:
 		move.l	#$95116102,d1
 		move.l	d0,(RAM_SysRandVal).l
 		move.l	d1,(RAM_SysRandSeed).l
-	if MCD|MARSCD
-		bsr	System_McdSubWait
-	endif
 		andi.w	#$F8FF,sr
 		bra	System_SramInit
 
@@ -177,32 +192,37 @@ System_Render:
 		btst	#bitDispEnbl,d7		; ** DISPLAY skip all this
 		beq.s	.forgot_disp		; **
 .wait_lag:
-		bsr	Sound_Update		; Syncronize/Update sound on lag
-		move.w	(vdp_ctrl).l,d7		; Got here during VBlank?
-		btst	#bitVBlk,d7		; If yes, drop frame and wait
+		bsr	Sound_Update			; Syncronize/Update sound on lag
+		move.w	(vdp_ctrl).l,d7			; Got here during VBlank?
+		btst	#bitVBlk,d7			; If yes, drop frame and wait
 		bne.s	.wait_lag
-		bsr	Sound_Update		; Update sound
-		bsr	Objects_Show		; Build sprite data from Objects
+		bsr	Sound_Update			; Update sound
+		bsr	Objects_Show			; Build sprite data from Objects
 .wait_in:
-		bsr	Sound_Update		; Syncronize/Update sound during Display
+		bsr	Sound_Update			; Syncronize/Update sound during Display
 		move.w	(vdp_ctrl).l,d7
-		btst	#bitVBlk,d7		; VBlank started?
+		btst	#bitVBlk,d7			; VBlank started?
 		beq.s	.wait_in
-		bsr	System_Input		; Read input data FIRST
-		bsr	Video_Render		; Render visuals
-		bsr	Sound_Update		; Update sound
-		addq.l	#1,(RAM_Framecount).w	; Count the frame.
+		bsr	System_Input			; Read input data FIRST
 	if MARS|MARSCD
-		bsr	System_MarsUpdate	; 32X/CD32X: Send DREQ changes
+		bset	#6,(sysmars_reg+comm12+1).l	; 32X/CD32X: Set frame-wait bit from here
 	endif
-		bsr	Sound_Update		; Update sound again
+		bsr	Video_Render			; Render visuals
+		bsr	Sound_Update			; Update sound
+		addq.l	#1,(RAM_Framecount).w		; Count the frame.
+	if MARS|MARSCD
+.wait_mars:	btst	#6,(sysmars_reg+comm12+1).l	; 32X/CD32X: frame-wait cleared?
+		bne.s	.wait_mars
+		bsr	System_MarsUpdate		; Send DREQ changes
+	endif
+		bsr	Sound_Update			; Update sound again
 .forgot_disp:
 		rts
 
 ; ====================================================================
 ; --------------------------------------------------------
 ; System_DmaEnter_(from) and System_DmaEnter_(from)
-; from: ROM or RAM
+; from ROM or RAM
 ;
 ; Call to these labels BEFORE and AFTER
 ; DMA-to-VDP transers, these calls are NOT
@@ -256,7 +276,7 @@ System_DmaExit_ROM:
 System_Input:
 
 	if PICO
-		lea	(RAM_InputData),a6
+		lea	(RAM_InputData).w,a6
 		lea	($800003).l,a5
 		moveq	#0,d7
 		move.b	(a5),d7		; $800003: %P00RLDU
@@ -512,14 +532,11 @@ System_Input:
 ;
 ; Makes a random number.
 ;
-; Input:
-; d0 | Seed
-;
-; Output:
-; d0 | LONG
+; Returns:
+; d0.l | Result value
 ;
 ; Uses:
-; d4-d5
+; d4
 ; --------------------------------------------------------
 
 System_Random:
@@ -543,16 +560,16 @@ System_Random:
 		rts
 
 ; --------------------------------------------------------
-; System_SineWave_Cos / System_SineWave
+; System_SineWave, System_SineWave_Cos
 ;
-; Get sinewave value
+; Get sine or cosine value
 ;
 ; Input:
-; d0 | WORD - Tan
-; d1 | WORD - Multiply
+; d0.w | Tan value
+; d1.w | Multiply by
 ;
-; Output:
-; d2 | LONG - Result (as 0000.0000)
+; Returns:
+; d2.l | Result as $0000.0000
 ; --------------------------------------------------------
 
 System_SineWave_Cos:
@@ -751,7 +768,7 @@ Mode_Init:
 		bsr	Video_Update
 		bsr	Video_Clear
 		bsr	Objects_Clear
-		lea	(RAM_ScrnBuff),a4
+		lea	(RAM_ScrnBuff).w,a4
 		move.w	#(MAX_ScrnBuff/2)-1,d5
 		moveq	#0,d4
 .clr:
@@ -844,7 +861,7 @@ System_McdSubWait:
 ; System_McdSubWait after this IF required **
 ;
 ; Input:
-; d0.b - Task number
+; d0.b | Task number
 ;
 ; Uses:
 ; d7/a6
@@ -870,8 +887,8 @@ System_McdSubTask:
 ; waits on finish.
 ;
 ; Input:
-; a0 - Filename string: "FILENAME.BIN",0
-; a1 - Output location
+; a0 | Filename string "FILENAME.BIN",0
+; a1 | Output location
 ;
 ; Uses:
 ; d0/d7/a5-a6
@@ -881,6 +898,7 @@ System_McdSubTask:
 ; --------------------------------------------------------
 
 System_McdTrnsfr_WRAM:
+		movem.l	d0/d7/a5-a6,-(sp)
 		lea	(sysmcd_reg+mcd_dcomm_m),a5
 		move.w	(a0)+,(a5)+				; 0 copy filename
 		move.w	(a0)+,(a5)+				; 2
@@ -894,7 +912,9 @@ System_McdTrnsfr_WRAM:
 		beq.s	.set_perm
 		move.w	#$02,d0					; COMMAND $02
 		bsr	System_McdSubTask
-		bra	System_McdSubWait
+		bsr	System_McdSubWait
+		movem.l	(sp)+,d0/d7/a5-a6
+		rts
 
 ; --------------------------------------------------------
 ; System_McdTrnsfr_RAM
@@ -903,9 +923,9 @@ System_McdTrnsfr_WRAM:
 ; uses communication ports.
 ;
 ; Input:
-; a0 - Filename string: "FILENAME.BIN",0
-; a1 - Output location
-; d0 - Size ($10* sizes only)
+; a0   | Filename string: "FILENAME.BIN",0
+; a1   | Output location
+; d0.w | Size, $xxx0 sizes only
 ;
 ; Uses:
 ; d7,a0-a1,a5-a6
@@ -916,8 +936,9 @@ System_McdTrnsfr_WRAM:
 ; TODO: I think the Sega CD has a mode to
 ; transfer disc memory to MAIN (here) directly.
 ; But this works without problem.
-;
+
 System_McdTrnsfr_RAM:
+		movem.l	d0/d7/a5-a6,-(sp)
 		lea	(sysmcd_reg+mcd_dcomm_m),a5
 		move.w	(a0)+,(a5)+			; 0 copy filename
 		move.w	(a0)+,(a5)+			; 2
@@ -963,6 +984,7 @@ System_McdTrnsfr_RAM:
 		move.b	(sysmcd_reg+mcd_comm_m).l,d7	; UNLOCK
 		bclr	#7,d7
 		move.b	d7,(sysmcd_reg+mcd_comm_m).l
+		movem.l	(sp)+,d0/d7/a5-a6
 		rts
 
 ; --------------------------------------------------------
@@ -983,6 +1005,7 @@ System_McdTrnsfr_RAM:
 ; --------------------------------------------------------
 
 System_McdSendBuff:
+		movem.l	d0/d7/a5-a6,-(sp)
 		move.l	a1,d7				; Write a1 to dcomm_m $00-$03
 		move.w	d7,(sysmcd_reg+mcd_dcomm_m+2).l
 		swap	d7
@@ -1020,6 +1043,7 @@ System_McdSendBuff:
 		move.b	d0,(sysmcd_reg+mcd_comm_m).l	; Clear PASS bit
 		dbf	d6,.copy_ram
 		bclr	#7,(sysmcd_reg+mcd_comm_m).l	; UNLOCK
+		movem.l	(sp)+,d0/d7/a5-a6
 		rts
 
 ; ----------------------------------------------------------------
@@ -1046,25 +1070,22 @@ System_McdSendBuff:
 ;        dc.l cart_pointer ; Cartridge only
 ;        dc.b "FILENAME.BIN" ; CD32X only
 ;
-;        The SDRAM data to be send MUST have
-;        the size at the begining:
+;        The SDRAM data MUST have the size at the
+;        begining of the data package:
 ;        dc.l end_point-start_label
 ;        dc.b (data)
 ;
 ; Uses:
 ; a4-a5,d3-d7
-;
-; Notes:
-; On CD32X this uses WORD-RAM for the Source.
 ; --------------------------------------------------------
 
 System_MarsDataPack:
 	if MARSCD
-		adda	#4,a0					; Skip cartridge label
+		adda	#4,a0			; Skip cartridge label
 		bsr	System_McdTrnsfr_WRAM
 		lea	(sysmcd_wram).l,a4
 	else
-		move.l	(a0),a4
+		move.l	(a0),a4			; Read normal label
 	endif
 		move.l	(a4)+,d0		; Read size
 		move.l	a4,a0
@@ -1097,9 +1118,9 @@ System_MarsDataPack:
 ; Transfers data to the 32X using DREQ
 ;
 ; Input:
-; a0.l | Source data to transfer
-; a1.l | Destination in SDRAM
-; d0.w | Size (MUST end with 0 or 8)
+; a0   | Source data
+; a1   | Destination in SH2's SDRAM area
+; d0.w | Size, MUST end with 0 or 8
 ; d1.w | Data transfer type
 ;
 ; Uses:
@@ -1113,7 +1134,6 @@ System_MarsDataPack:
 ; --------------------------------------------------------
 
 System_MarsSendDreq:
-		bsr	Video_Mars_SyncFrame
 		moveq	#1,d1
 		bra.s	sys_MSendDreq
 
@@ -1127,11 +1147,11 @@ System_MarsSendDreq:
 ; a4-a5,d5-d7
 ;
 ; Notes:
-; Call this during DISPLAY ONLY, NOT during VBlank.
+; - Call this during DISPLAY ONLY
 ; --------------------------------------------------------
 
 System_MarsUpdate:
-		lea	(RAM_MdDreq),a0
+		lea	(RAM_MdDreq).w,a0
 		move.w	#sizeof_dreq,d0
 		moveq	#0,d1
 
@@ -1207,13 +1227,13 @@ System_GrabRamCode:
 	if MCD|MARSCD
 		bsr	System_McdSubWait
 		; a0 - filename string,0
-		lea	(RAM_UserCode),a1
+		lea	(RAM_UserCode).l,a1
 		move.w	#(MAX_UserCode),d0
 		bsr	System_McdTrnsfr_RAM
 		bsr	System_McdSubWait
 		jmp	(RAM_UserCode).l
 	elseif MARS
-		lea	(RAM_UserCode),a1
+		lea	(RAM_UserCode).l,a1
 		move.w	#(MAX_UserCode)-1,d7
 .copyme2:
 		move.b	(a0)+,(a1)+

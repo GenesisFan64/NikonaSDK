@@ -59,13 +59,13 @@ sizeof_thisbuff		ds.l 0
 		move.w	#320/16,d2
 		move.w	#224/16,d3
 		move.w	#0,d4
-		bsr	Video_MarsMap_Load
+		bsr	Video_MdMarsMap_Load
 		move.l	#ArtMars_Scrn0,d0
 		moveq	#0,d1
 		moveq	#0,d2
-		bsr	Video_MarsMap_Set
+		bsr	Video_MdMarsMap_Set
 		moveq	#1,d0
-		bsr	Video_MarsGfxMode
+		bsr	Video_MdMarsGfxMode
 	endif
 ; 	if MARS|MARSCD=0
 ; 		move.l	#Art_Scn0_BG,d0

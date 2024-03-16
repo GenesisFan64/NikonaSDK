@@ -86,7 +86,7 @@
 
 ; ====================================================================
 ; ----------------------------------------------------------------
-; NEW 32X jumps
+; 32X-cartidge jumps
 ; ----------------------------------------------------------------
 
 		jmp	($880000|MARS_Entry).l
@@ -169,29 +169,28 @@
 
 ; ====================================================================
 ; ----------------------------------------------------------------
-; Entry point, this must be located at $800
+; Entry point, this MUST be located at $800
 ;
-; At this point, these registers return
-; the following bits:
+; At this point, the registers are set up like this:
 ;
 ; d0: %h0000000 rsc000ti
-; 	h - Cold start / Hot Start
-; 	r - SDRAM self check pass or error
-; 	s - Security check pass or error
-; 	c - Checksum pass or error
-; 	t - TV mode pass or error
-; 	i - MARS ID pass or error
+; 	| h - Cold start / Hot Start
+; 	| r - SDRAM self check pass or error
+; 	| s - Security check pass or error
+; 	| c - Checksum pass or error
+; 	| t - TV mode pass or error
+; 	| i - MARS ID pass or error
 ;
 ; d1: %m0000000 jdk0vvv
-; 	m - MARS TV mode
-; 	j - Country: Japan / Overseas
-; 	d - MD TV mode
-; 	k - DISK connected: Yes / No
-; 	v - Version
+; 	| m - MARS TV mode
+; 	| j - Country: Japan / Overseas
+; 	| d - MD TV mode
+; 	| k - DISK connected: Yes / No
+; 	| v - Version
 ;
 ; Carry flag: "MARS ID" and Self Check result
-; 	cc: Test passed
-; 	cs: Test failed**
+; 	| cc: Test passed
+; 	| cs: Test failed**
 ;
 ; ** HARDWARE BUG: This may still trigger if pressing
 ; RESET so many times, found this on VRDX.
@@ -204,12 +203,12 @@ MARS_Entry:
 
 ; ====================================================================
 ; ----------------------------------------------------------------
-; If 32X is not detected...
+; If 32X is not detected, kinda.
 ; ----------------------------------------------------------------
 
 .no_mars:
-		btst	#5,d0			; Check the checksum AGAIN in case we got here
-		beq.s	MD_Init			; by mistake.
+		btst	#5,d0			; Read the checksum AGAIN in case we
+		beq.s	MD_Init			; got here by mistake.
 		move.w	#$2700,sr		; Disable interrupts
 		move.l	#$C0000000,(vdp_ctrl).l	; VDP: Point to Color 0
 		move.w	#$0E00,(vdp_data).l	; BLUE screen

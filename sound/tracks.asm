@@ -63,6 +63,9 @@ gInsDac	macro pitch,start,flags
 ;
 ; flags: %000L
 ;        L - Loop sample No/Yes
+;
+; pitch:
+; -17-7 = 8000 hz
 gInsPcm	macro pitch,start,flags
  if MCD|MARSCD
 	dc.b $D0|flags,pitch,((start>>16)&$FF),((start>>8)&$FF)
@@ -129,7 +132,7 @@ Gema_MasterList:
 ; 	gemaTrk 6|$80,GemaTrk_MOVEME
 ; 	gemaTrk 6|$80,GemaTrk_NadieMD
 ; 	gemaTrk 6|$80,GemaTrk_NadieMCD
-; 	gemaTrk 6|$80,GemaTrk_NadieMARS
+	gemaTrk 6|$80,GemaTrk_NadieMARS
 	gemaTrk 3|$80,GemaTrk_Crystal
 	gemaTrk 3,GemaTrk_Dream
 
@@ -333,21 +336,21 @@ GemaTrk_Astral:
 ; 	gInsPcm -12-12,PcmIns_PTom,%00
 ; 	gInsPcm -12,PcmIns_NadieR,%10
 ;
-; GemaTrk_NadieMARS:
-; 	gemaHead .blk,.patt,.inst,11
-; .blk:
-; 	binclude "sound/tracks/nadie_blk.bin"
-; 	align 2
-; .patt
-; 	binclude "sound/tracks/nadie_patt.bin"
-; 	align 2
-; .inst:
-; 	gInsPwm 0,PwmIns_Nadie,%10
-; 	gInsFm -36,FmIns_Piano_Aqua
-; 	gInsFm -12,FmIns_HBeat_tom
-; 	gInsPwm -12,PwmIns_PKick,%00
-; 	gInsPsg 0,$50,$70,$00,$06,$08,0
-; 	gInsFm 0,FmIns_Trumpet_1
-; 	gInsPwm 0,PwmIns_Piano,%00
-; 	gInsPwm -12,PwmIns_PTom,%00
-; 	gInsNull
+GemaTrk_NadieMARS:
+	gemaHead .blk,.patt,.inst,11
+.blk:
+	binclude "sound/tracks/nadie_blk.bin"
+	align 2
+.patt
+	binclude "sound/tracks/nadie_patt.bin"
+	align 2
+.inst:
+	gInsPwm 0,PwmIns_Nadie,%10
+	gInsFm -36,FmIns_Piano_Aqua
+	gInsFm -12,FmIns_HBeat_tom
+	gInsPwm -12,PwmIns_PKick,%00
+	gInsPsg 0,$50,$70,$00,$06,$08,0
+	gInsFm 0,FmIns_Trumpet_1
+	gInsPwm 0,PwmIns_Piano,%00
+	gInsPwm -12,PwmIns_PTom,%00
+	gInsNull

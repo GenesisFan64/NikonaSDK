@@ -1,47 +1,38 @@
-; ====================================================================
+; ===========================================================================
 ; ----------------------------------------------------------------
-; 32X Video
+; 32X Video, MASTER side.
 ;
-; Some routines are located on the cache folder for
-; speed reasons.
+; SOME routines are located on the cache for speed reasons.
 ; ----------------------------------------------------------------
 
+; ====================================================================
 ; --------------------------------------------------------
 ; Settings
 ; --------------------------------------------------------
 
-; 16x16 block sizes only.
-SET_MSCRLSIZE	equ 16
+SET_MSCRLSIZE	equ 16		; ** Hard-coded, can't change for now **
 SET_MSCRLWDTH	equ 320
 SET_MSCRLHGHT	equ 240
-
-; FRAMEBUFFER
-FBVRAM_BLANK	equ $1FD80	; Location of the BLANK line
-FBVRAM_PATCH	equ $1E000	; Framebuffer location for the affected XShift lines
+FBVRAM_BLANK	equ $1FD80	; Framebuffer location of the BLANK line
+FBVRAM_PATCH	equ $1E000	; Framebuffer location to store the affected XShift lines.
 
 ; --------------------------------------------------------
 ; Variables
 ; --------------------------------------------------------
 
-; ; Variables for 3D mode.
-; SCREEN_WIDTH	equ 320		; Screen width and height positions used
-; SCREEN_HEIGHT	equ 224		; by 3D object rendering
-; PLGN_TEXURE	equ %10000000	; plypz_type (MSB)
-; PLGN_TRI	equ %01000000
-
 ; --------------------------------------------------------
 ; Structs
 ; --------------------------------------------------------
-;
-; ** moved to shared.asm
+
+; ** see shared.asm
 
 ; ====================================================================
-; ----------------------------------------------------------------
+; --------------------------------------------------------
 ; Init MARS Video
 ;
 ; Breaks:
 ; r1-r4
-; ----------------------------------------------------------------
+; --------------------------------------------------------
 
 		align 4
 MarsVideo_Init:
@@ -51,10 +42,7 @@ MarsVideo_Init:
 		mov	#_vdpreg,r1
 		mov	#0,r0			; Start at BLANK
 		mov.b	r0,@(bitmapmd,r1)
-
-	; --------------------------------------------------------
-	; Init scroll settings
-		mov	#SET_MSCRLWDTH+SET_MSCRLSIZE,r1
+		mov	#SET_MSCRLWDTH+SET_MSCRLSIZE,r1	; Set scroll-area settings
 		mov	#SET_MSCRLHGHT+SET_MSCRLSIZE,r2
 		mulu	r1,r2
 		mov	r1,r0
@@ -152,25 +140,25 @@ MarsVideo_FixTblShift:
 
 ; ====================================================================
 ; ----------------------------------------------------------------
-; 2D Section
-;
-; Routines that write to the framebuffer are
-; located at cache_m_2D.asm
+; 2D scrolling-area section
 ; ----------------------------------------------------------------
 
 ; ----------------------------------------------------------------
 ; MarsVideo_MapDrawAll
 ;
-; r14 - Framebuffer output
-; r13 - Scroll size W*H
-; r12 - Scroll height
-; r11 - Scroll width
-; r10 - Scroll TL-pos read / 16 *
-;  r9 - Scroll Y-pos read / 16 *
-;  r8 - Graphics data
-;  r7 - Map data
-;  r6 - Map Y read index
-;  r5 - Map X read index
+; Draw the scrolling area to the framebuffer
+;
+; Input:
+; r14 | Framebuffer output
+; r13 | Scroll size W*H
+; r12 | Scroll height
+; r11 | Scroll width
+; r10 | Scroll TL-pos read / 16 *
+;  r9 | Scroll Y-pos read / 16 *
+;  r8 | Graphics data
+;  r7 | Map data
+;  r6 | Map Y read index
+;  r5 | Map X read index
 ;
 ; ** CPU HEAVY ROUTINE **
 ; ----------------------------------------------------------------
@@ -209,7 +197,6 @@ MarsVideo_MapDrawAll:
 .y_loop:
 		lds	r3,mach
 		lds	r4,macl
-
 		mov	#(256/16)-1,r3
 		mov	r9,r4		; Y pos
 		shlr2	r4
@@ -263,6 +250,9 @@ MarsVideo_MapDrawAll:
 
 ; ----------------------------------------------------------------
 ; MarsVideo_MapScrlLR
+;
+; Draws Left or Right scroll areas outside of
+; the screen.
 ;
 ; Input:
 ; r14 | Framebuffer output
@@ -372,6 +362,9 @@ MarsVideo_MapScrlLR:
 ; ----------------------------------------------------------------
 ; MarsVideo_MapScrlUD
 ;
+; Draws Up or Down scroll areas outside of
+; the screen.
+;
 ; Input:
 ; r14 | Framebuffer output
 ; r13 | Scroll size W*H
@@ -476,35 +469,7 @@ MarsVideo_MapScrlUD:
 		rts
 		nop
 		align 4
-
-; ====================================================================
-; --------------------------------------------------------
-; Call this after drawing anything to the scrolling area
-; --------------------------------------------------------
-
-		align 4
-marsScrl_CopyTopBot:
-		mov	@(marsGbl_Scrl_FbOut,gbr),r0
-		mov	r0,r1
-		mov	@(marsGbl_Scrl_Size,gbr),r0
-		mov	r0,r3
-		mov	#_framebuffer,r0
-		add	r0,r1
-		mov	r1,r2
-		add	r3,r2
-		mov	#320/4,r3
-		nop
-.copy_top:
-		mov	@r1+,r0
-		nop
-		mov	r0,@r2
-		add	#4,r2
-		dt	r3
-		bf	.copy_top
-		rts
-		nop
-		align 4
-		ltorg
+; 		ltorg
 
 ; --------------------------------------------------------
 ; MarsVideo_ShowScrlBg
@@ -573,6 +538,34 @@ MarsVideo_ShowScrlBg:
 		rts
 		nop
 		align 4
+
+; --------------------------------------------------------
+; Call this AFTER after drawing anything to the
+; scrolling area.
+; --------------------------------------------------------
+
+		align 4
+marsScrl_CopyTopBot:
+		mov	@(marsGbl_Scrl_FbOut,gbr),r0
+		mov	r0,r1
+		mov	@(marsGbl_Scrl_Size,gbr),r0
+		mov	r0,r3
+		mov	#_framebuffer,r0
+		add	r0,r1
+		mov	r1,r2
+		add	r3,r2
+		mov	#320/4,r3
+		nop
+.copy_top:
+		mov	@r1+,r0
+		nop
+		mov	r0,@r2
+		add	#4,r2
+		dt	r3
+		bf	.copy_top
+		rts
+		nop
+		align 4
 		ltorg
 
 ; ====================================================================
@@ -626,7 +619,6 @@ MarsVideo_SuperSpr_Draw:
 		tst	r0,r0
 		bt	.off_sspr
 		lds	r0,mach
-
 		mov.w	@(sspr_Flags,r8),r0
 		extu.w	r0,r6
 		mov.w	@(sspr_Size,r8),r0
@@ -690,14 +682,7 @@ MarsVideo_MkFillBlk:
 		mov	#Dreq_SuperSpr,r14
 		mov	@(marsGbl_DreqRead,gbr),r0
 		add	r0,r14
-; 		mov.w	@(marsGbl_SSprFlip,gbr),r0
 		mov	#RAM_Mars_ScrlRefill_0,r13
-; 		xor	#1,r0
-; 		tst	r0,r0
-; 		bf	.frame_0
-; 		mov	#RAM_Mars_ScrlRefill_1,r13
-; .frame_0:
-; 		mov.w	r0,@(marsGbl_SSprFlip,gbr)
 		mov	#MAX_MARSSPR,r12
 .next_sspr:
 		mov	@(sspr_Art,r14),r0
@@ -799,7 +784,6 @@ MarsVideo_MkFillBlk:
 		shll	r0
 		add	r0,r7
 		add	r13,r7
-
 		mov	#%11,r0		; Write flag
 		mov.w	r0,@r7
 		add	#16,r6
@@ -843,13 +827,8 @@ MarsVideo_DrawFillBlk:
 		mov	r6,@-r15
 		mov	r9,@-r15
 		mov	r10,@-r15
-
 		mov.w	@(marsGbl_SSprFlip,gbr),r0
 		mov	#RAM_Mars_ScrlRefill_0,r3
-; 		tst	r0,r0
-; 		bt	.frame_0
-; 		mov	#RAM_Mars_ScrlRefill_1,r3
-; .frame_0:
 		mov	r9,r0
 		mov	#-16,r4
 		and	r4,r0
@@ -945,10 +924,8 @@ MarsVideo_DrawFillBlk:
 		rts
 		nop
 		align 4
-
 		ltorg
 
-; ====================================================================
 ; --------------------------------------------------------
 ; scrlDrw_SSprDraw
 ;
@@ -1115,7 +1092,6 @@ scrlDrw_SSprDraw:
 		bt	.x_end
 		mov	#4,r5
 		sub	r0,r5
-
 		swap.b	r9,r9	; 1 2 4 3
 		swap.w	r9,r9	; 4 3 1 2
 		swap.b	r9,r9	; 4 3 2 1

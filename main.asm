@@ -54,22 +54,7 @@
 ; MAX_SysCode, MAX_UserCode are only used in
 ; Sega CD, 32X and CD32X.
 ;
-; RESERVED RAM ADDRESSES:
-; $FFFB00-$FFFD00 | Stack area a7
-; $FFFD00-$FFFDFF | RESERVED for the Sega CD Vector
-;                   jumps but free to use if running
-;                   on cartridge. (Genesis,32X,Pico.)
-; $FFFE00-$FFFEFF | RESERVED for Sega CD for the BIOS
-;                   BUT this might free to use after
-;                   booting, free to use on cartridge.
-;                   ** NEEDS testing **
-; $FFFF00-$FFFFFF | RESERVED for the Sound Driver
-;                   This area will posibilly be used
-;                   for the 68k version of GEMA for
-;                   the Pico
-;                   But currently the Z80 set a flag
-;                   for a workaround for reading data
-;                   from the RAM area $FF0000
+; Check system/ram.asm for more details.
 ; --------------------------------------------------------
 
 MAX_SysCode	equ $2000	; ** CD/32X/CD32X ONLY ** Common routines
@@ -77,7 +62,7 @@ MAX_UserCode	equ $8000	; ** CD/32X/CD32X ONLY ** Current screen code and small d
 MAX_ScrnBuff	equ $1800	; Current screen's RAM buffer
 MAX_MdVideo	equ $2000	; Video cache'd RAM for visuals, registers, etc.
 MAX_MdSystem	equ $0600	; Internal lib stuff and a safe copy of save data for reading/writing
-MAX_MdOther	equ $0C00	; Add-on stuff
+MAX_MdOther	equ $0E00	; Add-on stuff
 
 ; ====================================================================
 
@@ -96,11 +81,11 @@ MAX_MdOther	equ $0C00	; Add-on stuff
 
 		include	"macros.asm"		; Assembler macros
 		include "game/globals.asm"	; USER variables
+		include	"system/shared.asm"	; Shared variables and specials
 		include	"system/mcd/map.asm"	; Sega CD hardware map (shared with Sub-CPU)
 		include	"system/mars/map.asm"	; 32X hardware map (shared with SH2)
 		include	"system/md/map.asm"	; Genesis hardware map and other areas
 		include	"system/md/ram.asm"	; Genesis RAM sections
-		include	"system/shared.asm"	; Shared variables and specials
 
 ; ====================================================================
 ; ----------------------------------------------------------------
@@ -119,7 +104,7 @@ MAX_MdOther	equ $0C00	; Add-on stuff
 .copy_1:
 		move.b	(a0)+,(a1)+
 		dbf	d0,.copy_1
-		jsr	(Sound_init).l				; Init Sound driver FIRST
+		jsr	(Sound_init).l				; Init Sound driver (FIRST)
 		jsr	(Video_init).l				;  ''  Video
 		jsr	(System_Init).l				;  ''  System
 		move.w	#0,(RAM_ScreenMode).w			; Start at screen 0
@@ -149,9 +134,10 @@ mcdin_top:
 .loop_ram:	move.w	d0,(a0)+
 		cmp.l	d1,a0
 		bcs.s	.loop_ram
-		jsr	(Sound_init).l				; Init Sound driver FIRST
-		jsr	(Video_init).l				;  ''  Video
-		jsr	(System_Init).l				;  ''  System
+		jsr	(Sound_init).l				; Init Sound driver (FIRST)
+		jsr	(Video_init).l				; Init Video
+		jsr	(System_McdSubWait).l			; Wait Sub-CPU first.
+		jsr	(System_Init).l				; Init System
 		move.w	#0,(RAM_ScreenMode).l			; Start at screen 0
 		jmp	(Md_ReadModes).l			; Go to SCREENJUMP section
 		phase $FFFF0600+*
@@ -166,7 +152,7 @@ Z80_CODE_END:
 ; ---------------------------------------------
 	elseif PICO
 		include	"system/head_pico.asm"		; Pico header
-		bsr	Sound_init			; Init Sound driver FIRST
+		bsr	Sound_init			; Init Sound driver (FIRST)
 		bsr	Video_init			;  ''  Video
 		bsr	System_Init			;  ''  Values
 		move.w	#0,(RAM_ScreenMode).w		; Start at screen 0
@@ -177,7 +163,7 @@ Z80_CODE_END:
 ; ---------------------------------------------
 	else
 		include	"system/head_md.asm"		; Genesis header
-		bsr	Sound_init			; Init Sound driver FIRST
+		bsr	Sound_init			; Init Sound driver (FIRST)
 		bsr	Video_init			;  ''  Video
 		bsr	System_Init			;  ''  Values
 		move.w	#0,(RAM_ScreenMode).w		; Start at screen 0

@@ -1,10 +1,23 @@
-; ====================================================================
+; ===========================================================================
 ; ----------------------------------------------------------------
-; MD RAM
+; Genesis 68000 "MAIN-CPU" RAM section
 ;
-; Reserved RAM sections:
-; $FFFD00-$FFFDFF: Sega CD's vectors
-; $FFFE80-$FFFFFF: Z80 write-only scratchpad
+; RESERVED RAM areas:
+; $FFFB00-$FFFD00 | Stack area a7
+; $FFFD00-$FFFDFF | RESERVED for the Sega CD Vector jumps,
+;                   * FREE to use if running on Cartridge.
+;                   (Genesis,32X,Pico.)
+; $FFFE00-$FFFEFF | USED in Sega CD for the BIOS, BUT this might
+;                   be free to use after booting **NEEDS testing**
+;                   * FREE to use on Cartridge.
+; $FFFF00-$FFFFFF | RESERVED for the Sound Driver
+;                   This area will probably be used for the 68k
+;                   version of GEMA for the Pico, but currently
+;                   the Z80 sets a flag around here for a
+;                   workaround to read data located at the
+;                   RAM area, it will be required if the
+;                   SegaCD does stamp processing and the game
+;                   still needs sound.
 ; ----------------------------------------------------------------
 
 ; --------------------------------------------------------
@@ -39,15 +52,15 @@ sizeof_MdRam		ds.l 0
 ; ------------------------------------------------
 
 			strct RAM_MdOther
-RAM_MdDreq		ds.b $C00		; 32X DREQ area (MANUAL SIZE)
+RAM_MdDreq		ds.b $E00		; 32X DREQ RAM size (MANUALLY SET)
 sizeof_RamOther		ds.l 0
 			endstrct
-			erreport "ADD-ON RAM USES",(sizeof_RamOther-RAM_MdOther),MAX_MdOther
+			erreport "32X DREQ RAM USES",(sizeof_RamOther-RAM_MdOther),MAX_MdOther
 
 ; ------------------------------------------------
-; Other
+; Reserved areas
 ; ------------------------------------------------
 
-RAM_Stack		equ RAM_MegaCd			; <-- goes backwards
+RAM_Stack		equ RAM_MegaCd		; <-- goes backwards
 RAM_MegaCd		equ $FFFFFD00
 RAM_ZSndBuff		equ $FFFFFF00

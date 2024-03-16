@@ -1,24 +1,25 @@
 ; ====================================================================
 ; ----------------------------------------------------------------
 ; MARS SH2 SDRAM section, shared for both SH2 CPUs
-; ----------------------------------------------------------------
-
-; *************************************************
-; comm ports:
 ;
-; comm0-comm7  - ** FREE ***
-; comm8-comm11 - Used by Z80 for getting it's data
-;                packets
-; comm12       - Master CPU control
-; comm14       - Slave CPU control
-; *************************************************
+; comm port usage:
+; comm0-comm7  | FREE to USE, comm2 and comm4 will get
+;              | overwritten on error
+; comm8-comm11 | Used by Z80 for the PWM table transfer
+; comm12       | Master CPU control
+; comm14       | Slave CPU control
+; ----------------------------------------------------------------
 
 		phase CS3	; Now we are at SDRAM
 		cpu SH7600	; Should be SH7095 but this CPU mode works.
 
-; CPU METER MACRO
+; ====================================================================
+; ----------------------------------------------------------------
+; Macros
+; ----------------------------------------------------------------
+
 cpu_me macro color
-	if MARSCD=0	; <-- Fusion gets stuck
+	if MARSCD=0	; <-- Doesn't work on FUSION
 		mov	#color,r1
 		mov	#_vdpreg,r2
 		mov	#_vdpreg+bitmapmd,r3
@@ -35,9 +36,9 @@ cpu_me macro color
 ; Settings
 ; ----------------------------------------------------------------
 
-SH2_DEBUG	equ 1			; Set to 1 too see if CPUs are active using comm counters (0 and 1)
-STACK_MSTR	equ $C0000800;CS3|$40000
-STACK_SLV	equ $C0000800;CS3|$3F800
+SH2_DEBUG	equ 0				; Set to 1 too see if CPUs are active using comm's 0 and 1
+STACK_MSTR	equ $C0000800			; Master's STACK point (OLD: CS3|$40000)
+STACK_SLV	equ $C0000800			; Slave's STACK point (OLD: CS3|$3F800)
 
 ; ====================================================================
 ; ----------------------------------------------------------------
@@ -171,12 +172,12 @@ SH2_Slave:
 
 ; ====================================================================
 ; ----------------------------------------------------------------
-; IRQ
+; IRQ on both SH2's
 ;
 ; r0-r1 are saved
-;
-; sr: %xxxxMQIIIIxxST
 ; ----------------------------------------------------------------
+
+; sr: %xxxxMQIIIIxxST
 
 		align 4
 master_irq:
@@ -233,41 +234,42 @@ slave_irq:
 ; ------------------------------------------------
 
 		align 4
-;				  Level:
+
+;				  		  IRQ Level:
 int_m_list:
-		dc.l m_irq_bad	; 0
-		dc.l m_irq_bad	; 1
-		dc.l m_irq_bad	; 2
-		dc.l m_irq_wdg	; 3 Watchdog
-		dc.l m_irq_bad	; 4
-		dc.l m_irq_dma	; 5 DMA exit
-		dc.l m_irq_pwm	; 6
-		dc.l m_irq_pwm	; 7
-		dc.l m_irq_cmd	; 8
-		dc.l m_irq_cmd	; 9
-		dc.l m_irq_h	; A
-		dc.l m_irq_h	; B
-		dc.l m_irq_v	; C
-		dc.l m_irq_v	; D
-		dc.l m_irq_vres	; E
-		dc.l m_irq_vres	; F
+		dc.l m_irq_bad			; 0
+		dc.l m_irq_bad			; 1
+		dc.l m_irq_bad			; 2
+		dc.l m_irq_wdg			; 3 Watchdog
+		dc.l m_irq_bad			; 4
+		dc.l m_irq_dma			; 5 DMA exit
+		dc.l m_irq_pwm			; 6
+		dc.l m_irq_pwm			; 7
+		dc.l m_irq_cmd			; 8
+		dc.l m_irq_cmd			; 9
+		dc.l m_irq_h			; A
+		dc.l m_irq_h			; B
+		dc.l m_irq_v			; C
+		dc.l m_irq_v			; D
+		dc.l m_irq_vres			; E
+		dc.l m_irq_vres			; F
 int_s_list:
-		dc.l s_irq_bad	; 0
-		dc.l s_irq_bad	; 1
-		dc.l s_irq_bad	; 2
-		dc.l s_irq_wdg	; 3 Watchdog
-		dc.l s_irq_bad	; 4
-		dc.l s_irq_dma	; 5 DMA exit
+		dc.l s_irq_bad			; 0
+		dc.l s_irq_bad			; 1
+		dc.l s_irq_bad			; 2
+		dc.l s_irq_wdg			; 3 Watchdog
+		dc.l s_irq_bad			; 4
+		dc.l s_irq_dma			; 5 DMA exit
 		dc.l s_irq_pwm|$C0000000	; 6
 		dc.l s_irq_pwm|$C0000000	; 7
-		dc.l s_irq_cmd	; 8
-		dc.l s_irq_cmd	; 9
-		dc.l s_irq_h	; A
-		dc.l s_irq_h	; B
-		dc.l s_irq_v	; C
-		dc.l s_irq_v	; D
-		dc.l s_irq_vres	; E
-		dc.l s_irq_vres	; F
+		dc.l s_irq_cmd			; 8
+		dc.l s_irq_cmd			; 9
+		dc.l s_irq_h			; A
+		dc.l s_irq_h			; B
+		dc.l s_irq_v			; C
+		dc.l s_irq_v			; D
+		dc.l s_irq_vres			; E
+		dc.l s_irq_vres			; F
 
 ; ====================================================================
 ; ----------------------------------------------------------------
@@ -541,17 +543,6 @@ m_irq_vres:
 		mov	#_DMAOPERATION,r1	; Quickly cancel DMA's
 		mov	#0,r0
 		mov	r0,@r1
-; 		mov	#_DMASOURCE0,r1		; Quickly cancel both DMA's
-; 		mov	#0,r0
-; 		mov	r0,@($30,r1)
-; 		mov	#%0100010011100000,r0
-; 		mov	r0,@($C,r1)
-; 		mov	#_DMASOURCE1,r1
-; 		mov	#0,r0
-; 		mov	r0,@($30,r1)
-; 		mov	@($C,r1),r0		; Dummy READ
-; 		mov	#%0100010011100000,r0
-; 		mov	r0,@($C,r1)
 		mov	#_sysreg,r1		; If RV was active, freeze.
 		mov.w	@(dreqctl,r1),r0
 		tst	#1,r0
@@ -564,7 +555,7 @@ m_irq_vres:
 		mov	r0,@r15
 		mov.w   #$F0,r0
 		mov	r0,@(4,r15)
-		mov	#_sysreg,r1		; Report Master as OK to everyone
+		mov	#_sysreg,r1		; Report Master as OK
 		mov	#"M_OK",r0
 		mov	r0,@(comm0,r1)
 		nop
@@ -630,22 +621,9 @@ s_irq_dma:
 ; Slave | PWM Interrupt
 ; ------------------------------------------------
 
-; s_irq_pwm:
-; 		mov	#_FRT,r1
-; 		mov.b	@(7,r1),r0
-; 		xor	#2,r0
-; 		mov.b	r0,@(7,r1)
-; 		mov	#_sysreg+pwmintclr,r1	; Clear CMD flag
-; 		mov.w	r0,@r1
-; 		nop
-; 		nop
-; 		nop
-; 		nop
-; 		nop
-; 		rts
-; 		nop
-; 		align 4
+; located on cache/cache_slv.asm
 ;
+; s_irq_pwm:
 		ltorg	; Save literals
 
 ; =================================================================
@@ -703,25 +681,25 @@ s_irq_cmd:
 ; --------------------------------
 
 .scmd_task01:
-		mov	#_sysreg+comm8,r1	; Input
+		mov	#_sysreg+comm8,r1		; Input
 		mov	#$C0000000|RAM_Mars_PwmTable,r2	; Output
-		mov	#_sysreg+comm14,r3	; comm
+		mov	#_sysreg+comm14,r3		; comm
 		nop
 .wait_1:
 		mov.b	@r3,r0
 		and	#%11110000,r0
-		tst	#%10000000,r0		; LOCK exit?
+		tst	#%10000000,r0			; LOCK exit?
 		bt	.exit_c
-		tst	#%01000000,r0		; Wait PASS
+		tst	#%01000000,r0			; Wait PASS
 		bt	.wait_1
 .copy_1:
-		mov	@r1,r0			; Copy entire LONG
+		mov	@r1,r0				; Copy entire LONG
 		mov	r0,@r2
-		add	#4,r2			; Increment table pos
+		add	#4,r2				; Increment table pos
 		mov.b	@r3,r0
 		and	#%10111111,r0
 		bra	.wait_1
-		mov.b	r0,@r3			; Clear PASS bit, Z80 loops
+		mov.b	r0,@r3				; Clear PASS bit, Z80 loops
 .exit_c:
 
 ; --------------------------------
@@ -732,8 +710,8 @@ s_irq_cmd:
 		mov	#$C0000000|RAM_Mars_PwmList,r7	; Output
 		mov	#MAX_PWMCHNL,r6
 .next_chnl:
-		mov	r8,r3			; r3 - current table column
-		mov.b	@r3,r0			; r0: %kfo o-on f-off k-cut
+		mov	r8,r3				; r3 - current table column
+		mov.b	@r3,r0				; r0: %kfo o-on f-off k-cut
 		and	#%00011111,r0
 		tst	r0,r0
 		bt	.no_chng
@@ -928,16 +906,6 @@ s_irq_vres:
 		mov	#_DMAOPERATION,r1	; Quickly cancel DMA's
 		mov	#0,r0
 		mov	r0,@r1
-; 		mov	#_DMASOURCE0,r1
-; 		mov	#0,r0
-; 		mov	r0,@($30,r1)
-; 		mov	#%0100010011100000,r0
-; 		mov	r0,@($C,r1)
-; 		mov	#_DMASOURCE1,r1
-; 		mov	#0,r0
-; 		mov	r0,@($30,r1)
-; 		mov	#%0100010011100000,r0
-; 		mov	r0,@($C,r1)
 		mov	#_sysreg,r1		; If RV was active, freeze.
 		mov.w	@(dreqctl,r1),r0
 		tst	#1,r0
@@ -948,7 +916,7 @@ s_irq_vres:
 		mov.w   #$F0,r0
 		mov	r0,@(4,r15)
 		mov	#_sysreg,r1
-		mov	#"S_OK",r0		; Report Slave as OK to everyone
+		mov	#"S_OK",r0		; Report Slave as OK
 		mov	r0,@(comm4,r1)
 		nop
 		nop
@@ -971,7 +939,7 @@ s_irq_vres:
 
 ; ====================================================================
 ; ----------------------------------------------------------------
-; Master entry
+; Master entry point
 ; ----------------------------------------------------------------
 
 		align 4
@@ -1003,6 +971,8 @@ SH2_M_Entry:
 ; 		mov.b	r0,@(5,r1)
 ; 		mov.b	#$E2,r0
 ; 		mov.b	r0,@(7,r1)
+
+	; --------------------------------------------------------
 	; Extra interrupt settings
 		mov.w   #$FEE2,r0			; Extra interrupt priority levels ($FFFFFEE2)
 		mov     #(3<<4)|(5<<8),r1		; (DMA_LVL<<8)|(WDG_LVL<<4) Current: WDG 3 DMA 5
@@ -1016,11 +986,14 @@ SH2_M_Entry:
 		mov	#RAM_Mars_Global,r0		; Reset gbr
 		ldc	r0,gbr
 
-	; CD32X initialization:
-	if MARSCD
-
+	; --------------------------------------------------------
+	; CD32X initialization
+	;
 	; *** FUSION: Framebuffer flipping fails if
 	; bitmapmd is 0
+	; --------------------------------------------------------
+
+	if MARSCD
 	if EMU
 		mov 	#_vdpreg,r1
 		mov	#1,r0
@@ -1066,7 +1039,6 @@ SH2_M_Entry:
 		mov	#0,r0
 		mov	r0,@r1
 	endif
-
 		mov	#RAM_Mars_DreqBuff_0,r0
 		mov	r0,@(marsGbl_DreqRead,gbr)
 		mov	#RAM_Mars_DreqBuff_1,r0
@@ -1112,15 +1084,14 @@ litr_MarsVideo_Init:
 ; ----------------------------------------------------------------
 ; MASTER CPU loop
 ;
-; comm12:
-; %BS00cccc RF00mmmm
-;
-; B - BUSY signal for CMD (TODO)
-; S - SIGNAL-status bits for CMD, clears only
-; F - Frame-ready flag, clears when frame is ready.
-; c - CMD task number
-; R - Graphics mode INIT flag
-; m - Pseudo-Graphics mode
+; comm12: %BS00ccccRF00mmmm
+
+; B | BUSY signal for CMD (TODO)
+; S | SIGNAL-status bits for CMD, clears only
+; F | Frame-ready flag, clears when frame is ready.
+; c | CMD task number
+; R | Graphics mode INIT flag
+; m | Pseudo-Graphics mode
 ; ----------------------------------------------------------------
 
 		align 4
@@ -1246,7 +1217,7 @@ MstrMode_0:
 
 MstrMode_2D_i:
 		mov	#CACHE_MASTER,r1
-		mov	#(CACHE_MASTER_E-CACHE_MASTER)/4,r2
+		mov	#CACHE_MASTER_E-CACHE_MASTER,r2
 		mov	#Mars_CacheRamCode,r0
 		jsr	@r0
 		nop
@@ -1511,7 +1482,7 @@ MstrMode_2D:
 
 ; ====================================================================
 ; ----------------------------------------------------------------
-; Slave entry
+; Slave entry point
 ; ----------------------------------------------------------------
 
 		align 4
@@ -1543,6 +1514,8 @@ SH2_S_Entry:
 		mov.b	r0,@(5,r1)
 		mov.b	#$E2,r0
 		mov.b	r0,@(7,r1)		; <-- ***
+
+	; --------------------------------------------------------
 	; Extra interrupt settings
 		mov.w   #$FEE2,r0		; Extra interrupt priority levels ($FFFFFEE2)
 		mov     #(3<<4)|(5<<8),r1	; (DMA_LVL<<8)|(WDG_LVL<<4) Current: WDG 3 DMA 5
@@ -1556,7 +1529,9 @@ SH2_S_Entry:
 		mov	#RAM_Mars_Global,r0	; Reset gbr
 		ldc	r0,gbr
 
-	; **** CD32X ****
+	; --------------------------------------------------------
+	; CD32X
+	; --------------------------------------------------------
 	if MARSCD
 		mov	#_sysreg+comm0,r1
 .wait_mstr:	mov	@r1,r0
@@ -1571,7 +1546,7 @@ SH2_S_Entry:
 
 ; ====================================================================
 ; ----------------------------------------------------------------
-; Slave main code
+; Slave MAIN code
 ; ----------------------------------------------------------------
 
 SH2_S_HotStart:
@@ -1584,7 +1559,7 @@ SH2_S_HotStart:
 		bsr	Mars_CachePurge
 		nop
 		mov	#CACHE_SLAVE,r1
-		mov	#(CACHE_SLAVE_E-CACHE_SLAVE)/4,r2
+		mov	#CACHE_SLAVE_E-CACHE_SLAVE,r2
 		mov	#Mars_CacheRamCode,r0
 		jsr	@r0
 		nop
@@ -1621,7 +1596,7 @@ slave_loop:
 	endif
 		mov	#_sysreg+comm14,r1		; Frame-ready bitclear
 		mov.w	@r1,r0
-		mov	#slv_list,r1
+		mov	slv_list,r1
 		and	#$7F,r0
 		shll2	r0
 		add	r0,r1
@@ -1629,6 +1604,9 @@ slave_loop:
 		jmp	@r0
 		nop
 		align 4
+
+; ====================================================================
+
 slv_list:
 		dc.l SlvMode_00
 		dc.l SlvMode_01
@@ -1644,16 +1622,13 @@ SlvMode_00:
 
 ; ====================================================================
 ; ----------------------------------------------------------------
-;
+; Slave mode 01
 ; ----------------------------------------------------------------
 
 		align 4
 SlvMode_01:
 		bsr	Mars_CachePurge
 		nop
-; 		bsr	MarsVideo_SuperSpr_Cache
-; 		nop
-
 		mov	#_sysreg+comm14+1,r1
 		mov	#0,r0
 		mov.b	r0,@r1
@@ -1670,7 +1645,10 @@ SlvMode_01:
 ; --------------------------------------------------------
 ; Mars_CachePurge
 ;
-; Purges the internal cache, call this when needed.
+; Purges the internal cache, call this often.
+;
+; Breaks:
+; r0-r1
 ; --------------------------------------------------------
 
 		align 4
@@ -1689,11 +1667,15 @@ Mars_CachePurge:
 		rts
 		mov.b	r0,@r1
 
-; ----------------------------------------------------------------
+; --------------------------------------------------------
 ; Mars_ClearCacheCode
 ;
-; Clear the entire "fast code" section for the current CPU
-; ----------------------------------------------------------------
+; Clear the entire "fast code" section for the
+; current CPU
+;
+; Breaks:
+; r0-r2
+; --------------------------------------------------------
 
 		align 4
 Mars_ClearCacheCode:
@@ -1714,14 +1696,15 @@ Mars_ClearCacheCode:
 ; ----------------------------------------------------------------
 ; Mars_CacheRamCode
 ;
-; Loads "fast code" into the SH2's cache, $800 bytes maximum.
+; Loads "fast code" into the SH2's cache, maximum size is
+; $700 bytes aprox.
 ;
 ; Input:
-; r1 - CACHE Code to send
-; r2 - Size/4
+; r1 | Code to send
+; r2 | Size
 ;
 ; Breaks:
-; r3
+; r0/r3
 ; ----------------------------------------------------------------
 
 		align 4
@@ -1744,6 +1727,7 @@ Mars_CacheRamCode:
 		mov	#%00001001,r0	; Cache two-way mode + Enable
 		mov.w	r0,@r3
 		mov 	#$C0000000,r3
+		shlr2	r2
 .copy:
 		mov 	@r1+,r0
 		mov 	r0,@r3
@@ -1761,8 +1745,8 @@ Mars_CacheRamCode:
 ; Prepares watchdog interrupt
 ;
 ; Input:
-; r1 - Watchdog CPU clock divider
-; r2 - Watchdog Pre-timer
+; r1 | Watchdog CPU clock divider
+; r2 | Watchdog Pre-timer
 ; --------------------------------------------------------
 
 		align 4
@@ -1845,9 +1829,6 @@ sizeof_MarsGbl		dc.l 0
 SH2_RAM:
 			phase SH2_RAM
 RAM_Mars_ScrlRefill_0	ds.w (512/SET_MSCRLSIZE)*(256/SET_MSCRLSIZE)	; Redraw blk timers (WORDS)
-; RAM_Mars_ScrlRefill_1	ds.w (512/SET_MSCRLSIZE)*(256/SET_MSCRLSIZE)	; Redraw blk timers (WORDS)
-; RAM_SSprFifo		ds.b ((64+4)*64)*8				; SSprite canvas boxes
-; RAM_SSprFifo_e		ds.l 0
 			dephase
 
 ; ====================================================================

@@ -2,8 +2,9 @@
 ; ----------------------------------------------------------------
 ; PICO header
 ;
-; REMINDER: NO Z80 CPU, DO NOT USE THE Z80 AREA IF
-; RECYCLING THE GENESIS CODE.
+; REMINDER:
+; NO Z80 CPU, DO NOT READ THE Z80 AREA IF REUSING THE SAME
+; CODE FOR THE GENESIS.
 ; ----------------------------------------------------------------
 
 		dc.l RAM_Stack		; Stack point
@@ -91,7 +92,7 @@
 ; ----------------------------------------------------------------
 ; Error handlers
 ;
-; all these do nothing currently
+; All of these do nothing for now.
 ; ----------------------------------------------------------------
 
 Pico_ErrBus:				; Bus error
@@ -108,12 +109,13 @@ Pico_ErrorEx:				; Error exception
 Pico_Error:
 		rte			; Return from Exception
 
+; ====================================================================
 ; ----------------------------------------------------------------
-; PICO-exclusive interrupts
+; PICO-specific interrupts
 ; ----------------------------------------------------------------
 
 Pico_UserInt:
-Pico_PcmInt:	; <-- Interrupt when the PCM chips gets full, Ojamajo# uses this.
+Pico_PcmInt:	; Interrupt when the PCM chip gets full, Ojamajo# uses this.
 Pico_UnkInt:
 		rte
 
@@ -123,14 +125,11 @@ Pico_UnkInt:
 ; ----------------------------------------------------------------
 
 Pico_Entry:
-	; --------------------------------
-	; Activate PICO system
 		move	#$2700,sr		; Disable interrputs
 		lea	($800019),a0
-		move.l	#"SEGA",d0
-		movep.l	d0,(a0)			; Unlock PICO system
+		move.l	#"SEGA",d0		; Activate PICO system by
+		movep.l	d0,(a0)			; writing this to $800019 in odds
 		tst.w	(vdp_ctrl).l		; Test VDP to unlock Video
-
 	; --------------------------------
 		moveq	#0,d0
 		movea.l	d0,a6

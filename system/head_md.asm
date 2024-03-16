@@ -88,7 +88,7 @@
 ; ----------------------------------------------------------------
 ; Error handlers
 ;
-; all these do nothing currently
+; All of these do nothing for now.
 ; ----------------------------------------------------------------
 
 MD_ErrBus:				; Bus error
@@ -111,12 +111,10 @@ MD_ErrorTrap:
 ; ----------------------------------------------------------------
 
 MD_Entry:
-	; --------------------------------
-	; Check if the system has TMSS
 		move	#$2700,sr			; Disable interrputs
 		move.b	(sys_io).l,d0			; Read IO port
 		andi.b	#%00001111,d0			; Get version, right 4 bits
-		beq.s	.oldmd				; If 0, Skip this part
+		beq.s	.oldmd				; If 0, No TMSS
 		move.l	($100).l,(sys_tmss).l		; Write "SEGA" to port sys_tmss
 .oldmd:
 		tst.w	(vdp_ctrl).l			; Test VDP to unlock Video

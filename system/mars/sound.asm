@@ -1,6 +1,6 @@
 ; ====================================================================
 ; ----------------------------------------------------------------
-; 32X Sound (For SLAVE CPU ONLY)
+; 32X Sound, SLAVE CPU
 ;
 ; Playback code (the PWM interrupt) is located at cache_slv.asm
 ; ----------------------------------------------------------------
@@ -9,7 +9,7 @@
 ; Settings
 ; --------------------------------------------------------
 
-SAMPLE_RATE	equ 16000;22050;22050	; 22050 best, 32000 doesn't work
+SAMPLE_RATE	equ 16000	; Best for speed reasons, sounds good.
 MAX_PWMCHNL	equ 7
 
 ; --------------------------------------------------------
@@ -47,7 +47,7 @@ MarsSound_Init:
 		ldc	r0,gbr
 		mov	#$0105,r0					; Timing interval $01, output L/R
 		mov.w	r0,@(timerctl,gbr)
-		mov	#((((23011361<<1)/SAMPLE_RATE+1)>>1)+1),r0	; Samplerate
+		mov	#((((23011361<<1)/SAMPLE_RATE+1)>>1)+1),r0	; Sample rate
 		mov.w	r0,@(cycle,gbr)
 		mov	#1,r0
 		mov.w	r0,@(monowidth,gbr)

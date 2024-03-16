@@ -59,16 +59,16 @@ sizeof_thisbuff		ds.l 0
 		move.l	#ArtMars_TEST,d0
 		moveq	#0,d1
 		moveq	#0,d2
-		bsr	Video_MarsMap_Set
+		bsr	Video_MdMarsMap_Set
 		lea	(MapMars_TEST),a0
 		moveq	#0,d0
 		moveq	#0,d1
 		move.w	#320/16,d2
 		move.w	#224/16,d3
 		move.w	#0,d4
-		bsr	Video_MarsMap_Load
+		bsr	Video_MdMarsMap_Load
 		moveq	#1,d0
-		bsr	Video_MarsGfxMode
+		bsr	Video_MdMarsGfxMode
 	endif
 	if MARS|MARSCD=0
 		move.l	#ART_TEST,d0
@@ -112,7 +112,7 @@ sizeof_thisbuff		ds.l 0
 		clr.w	(RAM_GemaArg3).w
 		clr.w	(RAM_GemaArg4).w
 		clr.w	(RAM_GemaArg5).w
-		move.w	#200+32,d0
+		move.w	#214,d0
 		bsr	gemaSetBeats
 ; 		moveq	#1,d0
 ; 		bsr	gemaPlayTrack
@@ -148,7 +148,7 @@ sizeof_thisbuff		ds.l 0
 		btst	#bitJoyMode,d7
 		beq.s	.n_aplay
 ; 		moveq	#1,d0
-; 		bsr	Video_MarsGfxMode
+; 		bsr	Video_MdMarsGfxMode
 		move.w	#$0002,(sysmcd_reg+mcd_dcomm_m).l
 		move.w	#$0010,d0
 		bsr	System_McdSubTask
@@ -347,8 +347,8 @@ sizeof_thisbuff		ds.l 0
 ; ------------------------------------------------------
 
 .extnal_beats:
-	dc.w 200+32
-	dc.w 200+20
+	dc.w 214
+	dc.w 214
 	dc.w 200+32
 	dc.w 200+32
 	dc.w 200+32
@@ -775,17 +775,17 @@ PAL_TEST:
 ; 		align 2
 
 str_TesterInit:
-		dc.b "GEMA/Nikona tester",$0A
+		dc.b "GEMA/Nikona sound driver tester",$0A
 		dc.b "                \{DATE} \{TIME}",$0A
 		dc.b $0A
-		dc.b "    gemaTest",$0A
+		dc.b "    gemaTest          (A)  (B)  (C)",$0A
 		dc.b "    gemaPlayTrack",$0A
 		dc.b "    gemaStopTrack",$0A
 		dc.b "    gemaFadeTrack",$0A
 		dc.b "    gemaSetTrackVol",$0A
 		dc.b "    gemaStopAll",$0A
-		dc.b "    (free slot)",$0A
-		dc.b "    *** EXIT"
+		dc.b "    gemaSetBeats",$0A
+		dc.b "    --> EXIT"
 		dc.b 0
 		align 2
 str_ShowMe:	dc.b "\\w \\w \\w",$A

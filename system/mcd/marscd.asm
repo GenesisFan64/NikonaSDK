@@ -20,7 +20,7 @@
 ID_loop:
 		cmp.l	#"MARS",$30EC(a5)	; check MARS ID
 		bne	ID_loop
-;		bne	MarsError
+		bne	MarsError
 .sh_wait:
 		btst.b	#7,$5101(a5)		; adapter control reg. REN=1 ?
 		beq.b	.sh_wait
@@ -122,23 +122,6 @@ RestartPrg:
 		bsr	FrameClear
 		bclr.b	#0,$8b(a1)		; FS = 0
 		bsr	PaletteClear		; ----	Palette RAM Clear
-
-		move.w	#2,d0			; <-- Taken from SLAM CITY CD32X
-		moveq	#0,d1
-		move.b	1(a5),d1
-		move.b	$80(a1),d2
-		lsl.w	#8,d2
-		or.w	d2,d1
-		btst	#$F,d1
-		bne.s	loc_1DA
-		btst	#6,d1
-		beq.w	loc_21E
-		bra.s	loc_1E2
-loc_1DA:
-		btst	#6,d1
-		bne.w	loc_21E
-loc_1E2:
-	; ***
 		move	#$80,d0			; ----	SH2 Check
 		move.l	$20(a1),d1		; SDRAM Self Check
 		cmp.l	#"SDER",d1
@@ -155,22 +138,30 @@ Hot_Start:
 		move.w	d0,6(a1)		; DREQ Control Reg.
 		move.w	#$8000,d0
 		bra.b	IcdAllEnd
-loc_21E:
+MarsError:
 		move	#1,ccr			; Error
+		bra *
 IcdAllEnd:
 ; 		bcs	_error
 
 ; ----------------------------------------------------------------
-; Send the entire SH2 code in split parts because the
-; framebuffer is not enough.
+; Send the entire SH2 code in split parts
 ; ----------------------------------------------------------------
 
+		move.w	#$FF,d7				; HW: Wait a little
+.wait_enter:
+		nop
+		nop
+		dbf	d7,.wait_enter
 		lea	(sysmars_reg).l,a6
-loc_2EE:
-		bclr	#7,(a6)				; Set FM to us.
-		bne.s	loc_2EE				; Wait until it accepts.
+.wait_fb:
+		bclr	#7,(a6)				; Set FM bit to MD
+		bne.s	.wait_fb			; Wait until it accepts.
 	; --------------------------------
 	; FRAMEBUFFER 1
+.wait_f1fb:
+		btst	#7,$8A(a6)			; Wait SVDP's VBlank
+		bne.s	.wait_f1fb
 .wait_f1:	bset	#0,$8B(a6)			; Set BUFFER 1
 		beq.s	.wait_f1
 		lea	($840000).l,a1
@@ -181,6 +172,9 @@ loc_2EE:
 		dbf	d7,.send_half
 	; --------------------------------
 	; FRAMEBUFFER 0
+.wait_f0fb:
+		btst	#7,$8A(a6)			; Wait SVDP's VBlank again
+		bne.s	.wait_f0fb
 .wait_f0:	bclr	#0,$8B(a6)			; Set BUFFER 0
 		bne.s	.wait_f0
 		lea	($840000).l,a1
@@ -195,7 +189,7 @@ loc_2EE:
 		move.l	(a0)+,(a1)+
 		dbf	d7,.send_code
 .wait_adapter:
-		bset	#7,(a6)
+		bset	#7,(a6)				; Set FM bit to 32X
 		beq.s	.wait_adapter
 		lea	($A15100).l,a6
 		move.l	#"_CD_",$20(a6)			; Tell 32X we are ready.
@@ -216,7 +210,6 @@ loc_2EE:
 		move.w	#$7F,d6
 		dbf	d6,*
 		dbf	d7,.wait_sh2
-MarsError:
 		bra	MarsJumpHere
 
 ; ----------------------------------------------------------------

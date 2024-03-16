@@ -11,20 +11,27 @@
 MAX_MDOBJ	equ 24		; MAX Objects
 MAX_MDDMATSK	equ 24		; MAX DMA BLAST entries
 varNullVram	equ $07FF	; Default Blank cell
-varPrintVram	equ $0580	; Default location of the PRINT text graphics
+varPrintVram	equ $0580	; Default VRAM location of the PRINT text graphics
+varDefAutoDma	equ $04B0	; Default VRAM location for auto-DMA storage
 varPrintPal	equ 3		; Palette to use for the printable text
 
 ; --------------------------------------------------------
 ; Variables
 ; --------------------------------------------------------
 
+; ------------------------------------------------
 ; VDP Register $80
+; ------------------------------------------------
+
 HVStop		equ $02
 HintEnbl	equ $10
 bitHVStop	equ 1
 bitHintEnbl	equ 4
 
+; ------------------------------------------------
 ; VDP Register $81
+; ------------------------------------------------
+
 DispEnbl 	equ $40
 VintEnbl 	equ $20
 DmaEnbl		equ $10
@@ -33,7 +40,10 @@ bitVintEnbl	equ 5
 bitDmaEnbl	equ 4
 bitV30		equ 3
 
+; ------------------------------------------------
 ; vdp_ctrl READ bits (full WORD)
+; ------------------------------------------------
+
 bitFifoE	equ 9		; DMA FIFO empty
 bitFifoF	equ 8		; DMA FIFO full
 bitVInt		equ 7		; Vertical interrupt
@@ -42,66 +52,61 @@ bitSprCol	equ 5		; Sprite collision
 bitOdd		equ 4		; EVEN or ODD frame displayed on interlace mode
 bitVBlk		equ 3		; Inside VBlank
 bitHBlk		equ 2		; Inside HBlank
-bitDma		equ 1		; Only works for FILL and COPY
+bitDma		equ 1		; This bit only works on FILL and COPY
 bitPal		equ 0
-
-; md_bg_flags
-bitDrwR		equ 0
-bitDrwL		equ 1
-bitDrwD		equ 2
-bitDrwU		equ 3
-bitMarsBg	equ 6
-bitBgOn		equ 7
 
 ; ====================================================================
 ; ----------------------------------------------------------------
 ; Structs
 ; ----------------------------------------------------------------
 
-; --------------------------------
-; object strct
-; --------------------------------
+; ------------------------------------------------
+; Genesis object
+;
+; obj_set: %M--- --vh
+; 	| M - Draw this object on
+;             Genesis or 32X
+; 	| h - Flip Y
+; 	| v - Flip X
+;
+; obj_size: $uuddllrr
+; 	| u - Up/8
+; 	| d - Down/8
+; 	| l - Left/8
+; 	| r - Right/8
+; ------------------------------------------------
 
 		strct 0
-obj_code	ds.l 1		; Object code, 0 == no object
-obj_x		ds.l 1		; Object X Position 0000.0000
-obj_y		ds.l 1		; Object Y Position 0000.0000
-obj_map		ds.l 1		; Object Sprite map data location
-; obj_dma		ds.l 1		; Object DMA map, 0 == Don't use DMA
-obj_size	ds.l 1		; Object size IN CELLS: UDLR, also for collision detection.
+obj_code	ds.l 1		; Object code, If 0 slot is unused.
+obj_x		ds.l 1		; Object X Position $xxxx.0000
+obj_y		ds.l 1		; Object Y Position $yyyy.0000
+obj_map		ds.l 1		; Object Sprite-map data location
+obj_size	ds.l 1		; Object Size starting from center point X/Y, also used for obj-to-obj collision detection.
 obj_vram	ds.w 1		; Object VRAM position (If DMA enabled: output location)
-obj_x_spd	ds.w 1		; Object X Speed 00.00
-obj_y_spd	ds.w 1		; Object Y Speed 00.00
-obj_anim_indx	ds.w 1		; * Object animation script index (obj_anim + obj_anim_indx)
-obj_anim_id	ds.w 1		; * Object animation number: $ccss c-current s-saved
-obj_frame	ds.w 1		; * Object current frame
-obj_anim_spd	ds.b 1		; * Object animation delay
-obj_index	ds.b 1		; Object code index
+obj_x_spd	ds.w 1		; Object X Speed $xx.00
+obj_y_spd	ds.w 1		; Object Y Speed $yy.00
+obj_anim_indx	ds.w 1		; *internal* Object animation script index (obj_anim + obj_anim_indx)
+obj_frame	ds.w 1		; Object current frame (overwritten by object_Animate)
+obj_anim_id	ds.b 1		; Object animation number
+obj_anim_icur	ds.b 1		; *internal* Object current animation id (DONT SEPARATE THIS FROM obj_anim_id)
+obj_anim_spd	ds.b 1		; *internal* Object animation delay
+obj_index	ds.b 1		; Object code-index
 obj_set		ds.b 1		; Object settings
-obj_subid	ds.b 1		; Object Sub-ID for Object placement
-obj_status	ds.b 1		; Object custom status
+obj_subid	ds.b 1		; Object Sub-ID (for object placement)
+obj_status	ds.b 1		; Object USER status (falling, collision, etc.)
 obj_FREE	ds.b 1		; (FILLER align byte)
 obj_ram		ds.b $40	; Object's own RAM
 sizeof_mdobj	ds.l 0
 		endstrct
 ; 		message "\{sizeof_mdobj}"
 
-; --------------------------------
+; ------------------------------------------------
 ; ** obj_set
+; ------------------------------------------------
+
 bitobj_Mars	equ	7	; 32X ONLY: This objects draws to the 32X side (256-color sprite)
 bitobj_flipV	equ	1	; Set to flip object Vertically
 bitobj_flipH	equ	0	; Set to flip object Horizontally
-
-; --------------------------------
-; ** obj_set
-; bitobj_air	equ	0	; set if floating/jumping
-
-; --------------------------------
-; ** obj_size
-; at_u		equ	3
-; at_d		equ	2
-; at_l		equ	1
-; at_r		equ	0
 
 ; ====================================================================
 ; ----------------------------------------------------------------
@@ -112,9 +117,9 @@ bitobj_flipH	equ	0	; Set to flip object Horizontally
 RAM_HorScroll		ds.l 240			; DMA Horizontal scroll data
 RAM_VerScroll		ds.l 320/16			; DMA Vertical scroll data
 RAM_Sprites		ds.w 8*80			; DMA Sprites
-RAM_SprDrwPz		ds.w 8*80			; External sprite pieces
 RAM_Palette		ds.w 64				; DMA palette
-RAM_MdMarsPalFd		ds.w 256			; Target 32X palette for FadeIn/Out (NOTE: CPU intensive)
+; RAM_SprDrwPz		ds.w 8*80			; External sprite pieces
+RAM_MdMarsPalFd		ds.w 256			; Target 32X palette for FadeIn/Out
 RAM_PaletteFd		ds.w 64				; Target MD palette for FadeIn/Out
 RAM_VdpDmaList		ds.b $10*MAX_MDDMATSK		; DMA BLAST list for VBlank
 RAM_Objects		ds.b MAX_MDOBJ*sizeof_mdobj	; Objects
@@ -217,7 +222,8 @@ list_vdpregs:
 		dc.b $00
 		dc.b $00
 		align 2
-; Default PRINT palette
+
+; Default ASCII PRINT palette
 ASCII_PAL:	dc.w $0000,$0EEE,$0CCC,$0AAA,$0888,$0444,$000E,$0008
 		dc.w $00EE,$0088,$00E0,$0080,$0E00,$0800,$0000,$0000
 		align 2
@@ -339,7 +345,7 @@ Video_WaitFade:
 		bsr	System_Render
 	if MARS|MARSCD
 		bsr	Video_DoPalFade
-		bsr	Video_MarsPalFade
+		bsr	Video_MdMarsPalFade
 		move.w	(RAM_FadeMdReq).w,d7
 		move.w	(RAM_FadeMarsReq).w,d6
 		or.w	d6,d7
@@ -358,8 +364,8 @@ Video_WaitFade:
 ; status on exit.
 ;
 ; Returns:
-; bne - Still active, jump back.
-; beq - Finished
+; bne | Still active
+; beq | Finished
 ;
 ; Breaks:
 ; All
@@ -371,7 +377,7 @@ Video_WaitFade:
 Video_RunFade:
 	if MARS|MARSCD
 		bsr	Video_DoPalFade
-		bsr	Video_MarsPalFade
+		bsr	Video_MdMarsPalFade
 		move.w	(RAM_FadeMdReq).w,d7
 		move.w	(RAM_FadeMarsReq).w,d6
 		or.w	d6,d7
@@ -382,20 +388,23 @@ Video_RunFade:
 		rts
 
 ; --------------------------------------------------------
-; Video_LoadPal
+; Video_LoadPal, Video_FadePal
+;
+; Loads VDP palette data to either
+; CURRENT palette or FADING palette buffers.
 ;
 ; Input:
-; a0 - Palette data
-; d0 - Start position
-; d1 - Number of colors
+; a0   | Palette data
+; d0.w | Starting color index
+; d1.w | Number of colors
 ;
 ; Breaks:
-; d5-d7,a6
+; d6-d7,a6
 ; --------------------------------------------------------
 
 Video_FadePal:
 		lea	(RAM_PaletteFd).w,a6
-		clr.w	(RAM_FadeMdTmr).w
+		clr.w	(RAM_FadeMdTmr).w	; Clears fading timer.
 		bra.s	vidMd_Pal
 Video_LoadPal:
 		lea	(RAM_Palette).w,a6
@@ -418,7 +427,7 @@ vidMd_Pal:
 ; --------------------------------------------------------
 ; Video_DoPalFade
 ;
-; RAM_ReqFadeMars: (WORD)
+; RAM_ReqFadeMars (WORD):
 ; $00 - No task or finished.
 ; $01 - Fade in
 ; $02 - Fade out to black
@@ -588,231 +597,20 @@ Video_DoPalFade:
 ; --------------------------------------------------------
 
 ; --------------------------------------------------------
-; Video_DmaMkEntry
+; Video_LoadArt
 ;
-; Sets a new DMA transfer entry to the BLAST list
-;
-; *** CALL THIS OUTSIDE OF VBLANK ONLY ***
-;
-; d0.l - Art data Real-ROM location
-; d1.w - VRAM location cell_vram()
-; d2.w - Size
-;
-; Breaks:
-; d5-d7,a6
-; --------------------------------------------------------
-
-Video_DmaMkEntry:
-		move.l	d0,d5
-		add.w	d2,d5
-		bcc.s	.normal
-		move.l	d0,d5		; <-- DOUBLE TRANSFER
-		move.w	d1,d6
-		move.l	d5,d7		; Top
-		addi.l	#$010000,d7
-		andi.l	#$FF0000,d7
-		sub.l	d0,d7
-		bsr.s	.mk_set
-		move.l	d0,d5		; Bottom
-		addi.l	#$010000,d5
-		andi.l	#$FF0000,d5
-		move.l	d5,d6
-		sub.l	d0,d6
-		move.w	d2,d7
-		sub.w	d6,d7
-		add.w	d1,d6
-		bra.s	.mk_set
-.normal:
-		move.l	d0,d5
-		move.w	d1,d6
-		move.w	d2,d7
-; d7 - size
-; d6 - vram
-; d0/d5 - data
-.mk_set:
-		swap	d7
-		move.w	(RAM_VdpDmaIndx).w,d7
-		cmpi.w	#MAX_MDDMATSK,d7
-		bge	.ran_out
-		lsl.w	#4,d7			; Size $10
-		lea	(RAM_VdpDmaList).w,a6
-		adda	d7,a6
-		swap	d7
-		move.w	#1,(RAM_VdpDmaMod).w
-		addq.w	#1,(RAM_VdpDmaIndx).w
-		andi.l	#$0000FFFE,d7		; d7 - Size
-		lsl.l	#7,d7
-		lsr.w	#8,d7
-		ori.l	#$94009300,d7
-		move.l	d7,(a6)+
-	if MCD|MARSCD
-  		addq.l	#2,d5			; WORD-RAM patch
-	endif
-  		lsr.l	#1,d5			; d5 - Source
- 		move.l	#$96009500,d7
- 		move.b	d5,d7
- 		lsr.l	#8,d5
- 		swap	d7
- 		move.b	d5,d7
- 		move.l	d7,(a6)+
- 		move.w	#$9700,d7
- 		lsr.l	#8,d5
- 		move.b	d5,d7
- 		move.w	d7,(a6)+
-		move.w	d6,d7			; Destination
-		andi.l	#$3FFF,d6
-		ori.w	#$4000,d6
-		lsr.w	#8,d7
-		lsr.w	#6,d7
-		andi.w	#%11,d7
-		ori.w	#$80,d7
-		move.w	d6,(a6)+
-		move.w	d7,(a6)+
-	if MCD|MARSCD
-		move.l	a6,d7		; Save a6
-		movea.l	d0,a6
-		move.w	(a6),d6		; Grab the graphs first word
-		move.l	d7,a6		; Restore a6
-		move.w	d6,(a6)+	; Copy to last entry
-.no_wpatch:
-	endif
-		move.w	#0,(RAM_VdpDmaMod).w
-.ran_out:
-		rts
-
-; --------------------------------------------------------
-; Video_Fill
-;
-; Fill data to VRAM
-;
-; d0.w - WORD to fill
-; d1.w - VRAM location cell_vram()
-; d2.w - Size
-;
-; Breaks:
-; d6-d7,a6
-;
-; Notes:
-; Size $0001 is invalid, writes in this order: $56781234
-; --------------------------------------------------------
-
-Video_Fill:
-		lea	(vdp_ctrl).l,a6
-		move.w	#$8100,d7
-		move.b	(RAM_VdpRegs+1).w,d7
-		bset	#bitDmaEnbl,d7
-		move.w	d7,(a6)
-.dmaw:		move.w	(a6),d7
-		btst	#bitDma,d7
-		bne.s	.dmaw
-		move.w	#$8F01,(a6)	; Increment $01
-		move.w	d2,d7		; d2 - Size
-		subi.w	#1,d7
-		move.l	#$94009300,d6
-		move.b	d7,d6
-		swap	d6
-		lsr.w	#8,d7
-		move.b	d7,d6
-		swap	d6
-		move.l	d6,(a6)
-		move.w	#$9780,(a6)	; DMA Fill mode
-		move.w	d1,d7		; d1 - Destination
-		move.w	d7,d6
-		andi.w	#$3FFF,d6
-		ori.w	#$4000,d6
-		swap	d6
-		move.w	d7,d6
-		lsr.w	#8,d6
-		lsr.w	#6,d6
-		andi.w	#%11,d6
-		ori.w	#$80,d6
-		move.l	d6,(a6)
-		move.w	d0,-4(a6)
-.dma_w:		move.w	(a6),d7
-		btst	#bitDma,d7
-		bne.s	.dma_w
-		move.w	#$8F02,(a6)	; Increment $02
-		move.w	#$8100,d7
-		move.b	(RAM_VdpRegs+1).w,d7
-		move.w	d7,(a6)
-		rts
-
-; --------------------------------------------------------
-; Video_Copy
-;
-; Copy VRAM data to another location
-;
-; d0.w - VRAM Source cell_vram()
-; d1.w - VRAM Destination cell_vram()
-; d2.w - Size
-;
-; Breaks:
-; d6-d7,a6
-; --------------------------------------------------------
-
-; TODO: test if this works again...
-
-Video_Copy:
-		lea	(vdp_ctrl),a6
-		move.w	#$8100,d7
-		move.b	(RAM_VdpRegs+1).w,d7
-		bset	#bitDmaEnbl,d7
-		move.w	d7,(a6)
-.dmaw:		move.w	(a6),d7
-		btst	#bitDma,d7
-		bne.s	.dmaw
-		move.w	#$8F01,(a6)		; Increment $01
-		move.w	d2,d7			; SIZE
-		move.l	#$94009300,d6
-; 		lsr.w	#1,d7
-		move.b	d7,d6
-		swap	d6
-		lsr.w	#8,d7
-		move.b	d7,d6
-		swap	d6
-		move.l	d6,(a6)
-		move.l	#$96009500,d6		; SOURCE
-		move.w	d0,d7
-		move.b	d7,d6
-		swap	d6
-		lsr.w	#8,d7
-		move.b	d7,d6
-		move.l	d6,(a6)
-		move.w	#$97C0,(a6)		; DMA Copy mode
-		move.l	d2,d7			; DESTINATION
-		move.w	d7,d6
-		andi.w	#$3FFF,d6
-		ori.w	#$4000,d6
-		swap	d6
-		move.w	d7,d6
-		lsr.w	#8,d6
-		lsr.w	#6,d6
-		andi.w	#%11,d6
-		ori.w	#$C0,d6
-		move.l	d6,(a6)
-		move.w	d1,-4(a6)
-.dma_w:		move.w	(a6),d7
-		btst	#bitDma,d7
-		bne.s	.dma_w
-		move.w	#$8F02,(a6)		; Increment $02
-		move.w	#$8100,d7
-		move.b	(RAM_VdpRegs+1).w,d7
-		move.w	d7,(a6)
-		rts
-
-; --------------------------------------------------------
-; Load graphics using DMA manually
+; Loads VDP Graphics using DMA
 ;
 ; Input:
-; d0.l - Graphics data pointer (NOT a0)
-; d1.w - cell_vram(vram_pos)
-; d2.w - Size
+; d0.l | Graphics data (NOT a0)
+; d1.w | VRAM location, cell_vram(vram_pos)
+; d2.w | Size
 ;
 ; Breaks:
 ; d4-d7,a4
 ;
 ; Notes:
-; - For a faster transfer call this during VBlank
+; - For a fast transfer call this during VBlank
 ; - 32X: MAKE SURE THE SH2 SIDE IS NOT READING ROM
 ;        BEFORE CALLING THIS.
 ; --------------------------------------------------------
@@ -861,7 +659,6 @@ Video_LoadArt:
 		bne.s	.non_wram
 		movem.l	d5-d6,-(sp)		; <-- Save data on stack
 		addi.l	#2,d5
-; 		subi.w	#2,d7	; TODO
 .non_wram:
 		swap	d6
 	endif
@@ -927,10 +724,240 @@ Video_LoadArt:
 		rts
 
 ; --------------------------------------------------------
+; Video_DmaMkEntry
+;
+; Sets a new DMA graphics transfer entry to the
+; BLAST list to be processed on VBlank for the
+; next frame.
+;
+; Input:
+; d0.l | Graphics data location
+; d1.w | VRAM location, cell_vram(vram_pos)
+; d2.w | Size
+;
+; Breaks:
+; d5-d7,a6
+;
+; Notes:
+; - Can only be called during DISPLAY ONLY.
+; - For loading graphics normally use Video_LoadArt
+; --------------------------------------------------------
+
+Video_DmaMkEntry:
+		move.l	d0,d5
+		add.w	d2,d5
+		bcc.s	.normal
+		move.l	d0,d5		; d5 - TOP point
+		move.w	d1,d6		; d6 - VRAM position
+		move.l	d5,d7
+		andi.l	#$FF0000,d7
+		addi.l	#$010000,d7
+		sub.l	d0,d7		; d7 - TOP Size
+		bsr.s	.mk_set
+		move.l	d0,d5		; d5 - BOTTOM point
+		addi.l	#$010000,d5
+		andi.l	#$FF0000,d5
+		move.l	d5,d6
+		sub.l	d0,d6
+		move.w	d2,d7
+		sub.w	d6,d7
+		add.w	d1,d6
+		bra.s	.mk_set
+.normal:
+		move.l	d0,d5
+		move.w	d1,d6
+		move.w	d2,d7
+
+; d7 - size
+; d6 - vram
+; d5 - data
+.mk_set:
+		swap	d7
+		move.w	(RAM_VdpDmaIndx).w,d7
+		cmpi.w	#MAX_MDDMATSK,d7
+		bge	.ran_out
+		lsl.w	#4,d7			; Size $10
+		lea	(RAM_VdpDmaList).w,a6
+		adda	d7,a6
+		swap	d7
+		andi.l	#$0000FFFE,d7		; d7 - Size
+		beq.s	.ran_out		; If == 0, bad
+		tst.w	d7
+		bmi.s	.ran_out		; If negative, bad
+		move.w	#1,(RAM_VdpDmaMod).w
+		addq.w	#1,(RAM_VdpDmaIndx).w
+		lsl.l	#7,d7
+		lsr.w	#8,d7
+		ori.l	#$94009300,d7
+		move.l	d7,(a6)+
+	if MCD|MARSCD
+  		move.l	d5,-(sp)	; Save TOP point
+  		addq.l	#2,d5		; WORD-RAM patch
+	endif
+  		lsr.l	#1,d5			; d5 - Source
+ 		move.l	#$96009500,d7
+ 		move.b	d5,d7
+ 		lsr.l	#8,d5
+ 		swap	d7
+ 		move.b	d5,d7
+ 		move.l	d7,(a6)+
+ 		move.w	#$9700,d7
+ 		lsr.l	#8,d5
+ 		move.b	d5,d7
+ 		move.w	d7,(a6)+
+		move.w	d6,d7		; Destination
+		andi.l	#$3FFF,d6
+		ori.w	#$4000,d6
+		lsr.w	#8,d7
+		lsr.w	#6,d7
+		andi.w	#%11,d7
+		ori.w	#$80,d7
+		move.w	d6,(a6)+
+		move.w	d7,(a6)+
+	if MCD|MARSCD
+		move.l	a6,d7		; Save a6
+		move.l	(sp)+,a6	; Restore TOP point
+		move.w	(a6),d6		; Grab the graphs first word
+		move.l	d7,a6		; Restore a6
+		move.w	d6,(a6)+	; Copy to last entry
+.no_wpatch:
+	endif
+		move.w	#0,(RAM_VdpDmaMod).w
+.ran_out:
+		rts
+
+; --------------------------------------------------------
+; Video_Fill
+;
+; Fill data to VRAM
+;
+; d0.w | WORD to fill
+; d1.w | VRAM destination, cell_vram(dest)
+; d2.w | Size
+;
+; Breaks:
+; d6-d7,a6
+;
+; Notes:
+; FILL writes in this order: $56781234, size $0001 is
+; invalid.
+; --------------------------------------------------------
+
+Video_Fill:
+		movem.l	d6-d7/a6,-(sp)
+		lea	(vdp_ctrl).l,a6
+		move.w	#$8100,d7
+		move.b	(RAM_VdpRegs+1).w,d7
+		bset	#bitDmaEnbl,d7
+		move.w	d7,(a6)
+.dmaw:		move.w	(a6),d7
+		btst	#bitDma,d7
+		bne.s	.dmaw
+		move.w	#$8F01,(a6)	; Set increment to $01
+		move.w	d2,d7		; d2 - Size
+		subi.w	#1,d7
+		move.l	#$94009300,d6
+		move.b	d7,d6
+		swap	d6
+		lsr.w	#8,d7
+		move.b	d7,d6
+		swap	d6
+		move.l	d6,(a6)
+		move.w	#$9780,(a6)	; DMA Fill mode
+		move.w	d1,d7		; d1 - Destination
+		move.w	d7,d6
+		andi.w	#$3FFF,d6
+		ori.w	#$4000,d6
+		swap	d6
+		move.w	d7,d6
+		lsr.w	#8,d6
+		lsr.w	#6,d6
+		andi.w	#%11,d6
+		ori.w	#$80,d6
+		move.l	d6,(a6)
+		move.w	d0,-4(a6)
+.dma_w:		move.w	(a6),d7
+		btst	#bitDma,d7
+		bne.s	.dma_w
+		move.w	#$8F02,(a6)	; Set increment to $02
+		move.w	#$8100,d7
+		move.b	(RAM_VdpRegs+1).w,d7
+		move.w	d7,(a6)
+		movem.l	(sp)+,d6-d7/a6
+		rts
+
+; --------------------------------------------------------
+; Video_Copy
+;
+; Copy VRAM data to another location
+;
+; d0.w | VRAM Source, cell_vram(src)
+; d1.w | VRAM Destination, cell_vram(dest)
+; d2.w | Size
+;
+; Breaks:
+; d6-d7,a6
+; --------------------------------------------------------
+
+; TODO: test if this works again...
+
+Video_Copy:
+		movem.l	d6-d7/a6,-(sp)
+		lea	(vdp_ctrl),a6
+		move.w	#$8100,d7
+		move.b	(RAM_VdpRegs+1).w,d7
+		bset	#bitDmaEnbl,d7
+		move.w	d7,(a6)
+.dmaw:		move.w	(a6),d7
+		btst	#bitDma,d7
+		bne.s	.dmaw
+		move.w	#$8F01,(a6)		; Increment $01
+		move.w	d2,d7			; SIZE
+		move.l	#$94009300,d6
+; 		lsr.w	#1,d7
+		move.b	d7,d6
+		swap	d6
+		lsr.w	#8,d7
+		move.b	d7,d6
+		swap	d6
+		move.l	d6,(a6)
+		move.l	#$96009500,d6		; SOURCE
+		move.w	d0,d7
+		move.b	d7,d6
+		swap	d6
+		lsr.w	#8,d7
+		move.b	d7,d6
+		move.l	d6,(a6)
+		move.w	#$97C0,(a6)		; DMA Copy mode
+		move.l	d2,d7			; DESTINATION
+		move.w	d7,d6
+		andi.w	#$3FFF,d6
+		ori.w	#$4000,d6
+		swap	d6
+		move.w	d7,d6
+		lsr.w	#8,d6
+		lsr.w	#6,d6
+		andi.w	#%11,d6
+		ori.w	#$C0,d6
+		move.l	d6,(a6)
+		move.w	d1,-4(a6)
+.dma_w:		move.w	(a6),d7
+		btst	#bitDma,d7
+		bne.s	.dma_w
+		move.w	#$8F02,(a6)		; Increment $02
+		move.w	#$8100,d7
+		move.b	(RAM_VdpRegs+1).w,d7
+		move.w	d7,(a6)
+		movem.l	(sp)+,d6-d7/a6
+		rts
+
+; --------------------------------------------------------
 ; Video_Render
 ;
-; Call this during VBlank to update
-; visuals.
+; Call this during VBlank to update visuals, watch out
+; for the timing for this to properly hide the CRAM dots.
+;
+; This gets normally called on System_Render
 ; --------------------------------------------------------
 
 Video_Render:
@@ -969,7 +996,6 @@ Video_Render:
 		move.b	(RAM_VdpRegs+1).w,d7
 		move.w	d7,(a6)
 		move.w	#1,(RAM_SprLinkNum).w	; Reset SPRITE LINK number
-
 	; Process DMA BLAST from here
 
 ; --------------------------------------------------------
@@ -990,8 +1016,8 @@ Video_Render:
 ; Format:
 ; dc.w $94xx,$93xx		; Size
 ; dc.w $96xx,$95xx,$97xx	; Source
-; dc.l $4xxx008x 		; VDP output + DMA bit
-; dc.w $xxxx			; SegaCD/CD32X only: graphics word patch
+; dc.l $4xxx008x 		; VDP command + DMA bit
+; dc.w $xxxx			; SegaCD/CD32X only: Graphics TOP-Word patch
 
 Video_DmaBlast:
 		tst.w	(RAM_VdpDmaMod).w		; Got mid-write?
@@ -1010,17 +1036,19 @@ Video_DmaBlast:
 		move.l	(a3)+,(a4)		; Size
 		move.l	(a3)+,(a4)		; Source
 		move.w	(a3)+,(a4)
+	if MCD|MARSCD
 		move.w	(a3)+,d3		; Destination
 		move.w	(a3)+,d2
 		move.w	d2,-(sp)		; Use stack for this write
 		move.w	d3,(a4)
 		move.w	(sp)+,(a4)		; *** CPU freezes ***
-	if MCD|MARSCD
-		andi.w	#$FF7F,d2		; General 4pixels patch
-		move.w	d3,(a4)
+		andi.w	#$FF7F,d2		; Remove DMA bit
+		move.w	d3,(a4)			; Write VDP control as normal
 		move.w	d2,(a4)
-		move.w	(a3)+,-4(a4)		; Manual $C00000
+		move.w	(a3)+,-4(a4)		; Write pixels patch $C00000
 	else
+		move.w	(a3)+,(a4)		; Normal VDP control write
+		move.w	(a3)+,(a4)
 		adda	#2,a3
 	endif
 		subq.w	#1,(RAM_VdpDmaIndx).w
@@ -1039,42 +1067,12 @@ Video_DmaBlast:
 ; ----------------------------------------------------------------
 
 ; --------------------------------------------------------
-; Video_MarsGfxMode
-; Sets graphics mode on the 32X side
+; Video_MdMars_SyncFrame
 ;
-; Input:
-; d0 - Graphics mode number
-;
-; Uses:
-; d7
-;
-; Notes:
-; Changing modes takes 3 FRAMES to process.
+; Syncronize frame with the 32X
 ; --------------------------------------------------------
 
-Video_MarsGfxMode:
-	if MARS|MARSCD
-; 		btst	#7,(sysmars_reg+(comm12+1)).l
-; 		bne.s	Video_MarsGfxMode
-		move.l	d0,-(sp)
-		bsr	Video_Mars_SyncFrame	; Wait frame
-		bsr	System_MarsUpdate	; Send changes
-		bsr	Video_Mars_SyncFrame	; Wait ANOTHER frame
-		bsr	System_MarsUpdate
-		bsr	Video_Mars_SyncFrame
-		bsr	System_MarsUpdate
-		move.l	(sp)+,d0
-		move.w	d0,d7
-		ori.w	#$80,d7
-		move.b	d7,(sysmars_reg+(comm12+1)).l
-	endif
-		rts
-
-; --------------------------------------------------------
-; Video_Mars_SyncFrame
-; --------------------------------------------------------
-
-Video_Mars_SyncFrame:
+Video_MdMars_SyncFrame:
 	if MARS|MARSCD
 		bset	#6,(sysmars_reg+comm12+1).l
 .wait_mars:	btst	#6,(sysmars_reg+comm12+1).l
@@ -1083,19 +1081,53 @@ Video_Mars_SyncFrame:
 		rts
 
 ; --------------------------------------------------------
-; Video_LoadPal_Mars
+; Video_MdMarsGfxMode
 ;
-; Load Indexed palette directly to Buffer
+; Sets Pseudo-Graphics mode on the 32X side.
 ;
-; d0 - Start at
-; d1 - Number of colors
-; d2 - Priority bit OFF/ON
+; Input:
+; d0.w | Mode number
+;
+; Breaks:
+; d7
+;
+; Notes:
+; Changing modes takes 3 FRAMES to process.
+; --------------------------------------------------------
+
+Video_MdMarsGfxMode:
+	if MARS|MARSCD
+		move.l	d0,-(sp)
+	rept 3
+		bsr	Video_MdMars_SyncFrame	; Wait frame and update DREQ RAM
+		bsr	System_MarsUpdate	; 3 times.
+	endm
+		move.l	(sp)+,d0
+		move.w	d0,d7
+		ori.w	#$80,d7
+		move.b	d7,(sysmars_reg+(comm12+1)).l
+	endif
+		rts
+
+; --------------------------------------------------------
+; Video_LoadPal_Mars, Video_FadePal_Mars
+;
+; Loads SVDP 256-color palette data to either
+; CURRENT palette or FADING palette buffers.
+;
+; Input:
+; d0.w | Start from
+; d1.w | Number of colors
+; d2.w | Priority bit 0/1
+;
+; Breaks:
+; d5-d7/a6
 ; --------------------------------------------------------
 
 Video_FadePal_Mars:
 	if MARS|MARSCD
 		lea	(RAM_MdMarsPalFd).w,a6
-		clr.w	(RAM_FadeMarsTmr).w
+		clr.w	(RAM_FadeMarsTmr).w	; Clear fade timer
 		bra.s	vidMars_Pal
 Video_LoadPal_Mars:
 		lea	(RAM_MdDreq+Dreq_Palette).w,a6
@@ -1119,24 +1151,28 @@ vidMars_Pal:
 		rts
 
 ; --------------------------------------------------------
-; Video_MarsPalFade
+; Video_MdMarsPalFade
+;
+; Process the 256-color fading
 ;
 ; Input:
-; a0 - Palette data
-; d0 - Number of colors
-; d1 - Speed
+; a0   | Palette data
+; d0.w | Number of colors
+; d1.w | Speed
 ;
 ; RAM_ReqFadeMars: (WORD)
-; $00 - No task (or finished)
-; $01 - Fade in
-; $02 - Fade out to black
+; $00 | No task (or finished)
+; $01 | Fade in
+; $02 | Fade out to black
 ;
-; CALL THIS OUTSIDE OF VBLANK
+; Notes:
+; - CALL THIS OUTSIDE OF VBLANK
+; * This takes A LOT of CPU.
 ; --------------------------------------------------------
 
 ; TODO: luego ver que hago con el priority bit
 
-Video_MarsPalFade:
+Video_MdMarsPalFade:
 	if MARS|MARSCD
 		subi.w	#1,(RAM_FadeMarsTmr).w
 		bpl.s	.active
@@ -1300,25 +1336,28 @@ Video_MarsPalFade:
 
 ; ====================================================================
 ; ----------------------------------------------------------------
-; Common screen routines
+; Common VDP Screen routines
 ; ----------------------------------------------------------------
 
 ; --------------------------------------------------------
 ; Video_LoadMap
 ;
-; Loads map data, in Horizontal order
-; Can autodetect layer width, height and
-; double interlace mode
+; Loads map data
+; In horizontal order LEFT to RIGHT, TOP to BOTTOM
+; This can auto-detect the current's layer width, height
+; and double interlace mode
 ;
 ; Input:
-; a0   - Map data
-; d0.l - locate(lyr,x,y) / 00|Layer|X|Y
-; d1.l - mapsize(x,y) / Width|Height (in cells)
-; d2.l - VRAM cell increment
+; a0   | Map data
+; d0.l | locate(lyr,x,y)
+; d1.l | mapsize(x,y)
+; d2.l | VRAM-cell increment
 ;
 ; Breaks:
 ; d4-d7/a6
 ; --------------------------------------------------------
+
+; TODO: A vertical version for SegaCD's stamps
 
 Video_LoadMap:
 		lea	(vdp_data),a6
@@ -1357,64 +1396,6 @@ Video_LoadMap:
 		swap	d4
 		dbf	d4,.yloop
 		rts
-
-; ; --------------------------------------------------------
-; ; Video_LoadMap_Vert
-; ;
-; ; Load map data, Vertical order
-; ;
-; ; a0 - Map data
-; ; d0 | LONG - 00|Lyr|X|Y,  locate(lyr,x,y)
-; ; d1 | LONG - Width|Height (cells),  mapsize(x,y)
-; ; d2 | WORD - VRAM
-;
-; ; Breaks:
-; ; a4-a5,d4-d7
-; ; --------------------------------------------------------
-;
-; Video_LoadMap_Vert:
-; 		lea	(vdp_data),a4
-; 		bsr	vid_PickLayer
-; 		move.l	d1,d5		; Start here
-; 		swap	d5
-; .xloop:
-; 		swap	d5
-; 		move.l	d4,-(sp)
-; 		move.w	d1,d7
-; 		btst	#2,(RAM_VdpRegs+$C).w
-; 		beq.s	.yloop
-; 		lsr.w	#1,d7
-; .yloop:
-; 		move.l	d4,4(a4)
-; 		move.w	(a0),d5
-; 		cmpi.w	#-1,d5
-; 		bne.s	.nonull
-; 		move.w	#varNullVram,d5
-; 		bra.s	.cont
-; .nonull:
-; 		add.w	d2,d5
-; .cont:
-; 		swap	d7
-; 		adda	#2,a0
-; 		btst	#2,(RAM_VdpRegs+$C).w
-; 		beq.s	.nodble
-; 		adda	#2,a0
-; 		move.w	d5,d7
-; 		lsr.w	#1,d7
-; 		andi.w	#$7FF,d7
-; 		andi.w	#$F800,d5
-; 		or.w	d7,d5
-; .nodble:
-; 		swap	d7
-; 		move.w	d5,(a4)
-; 		add.l	d6,d4
-; 		dbf	d7,.yloop
-; .outdbl:
-; 		move.l	(sp)+,d4
-; 		add.l	#$20000,d4
-; 		swap	d5
-; 		dbf	d5,.xloop
-; 		rts
 
 ; ====================================================================
 ; ----------------------------------------------------------------
@@ -1464,17 +1445,18 @@ Video_PrintPal:
 ; Prints string to layer
 ;
 ; Input:
-; a0   - String data w/special characters +
-;        list of RAM locations to read
-; d0.l - Print location on-screen: locate(layer,x,y)
-;        ( 00|Lyr|X|Y )
+; a0   | String data, and RAM locations if specified
+; d0.l | Print location on-screen, locate(layer,x,y)
 ;
 ; Breaks:
 ; d4-d7,a4-a6
 ;
 ; Notes:
-; CALL Video_PrintInit FIRST
-;
+; - MUST put an "align 2" at the end of the string to
+;   prevent an ADDRESS ERROR
+; - CALL Video_PrintInit FIRST
+; --------------------------------------------------------
+
 ; Text string special codes:
 ; $00 - End of line
 ; $0A - Next line
@@ -1487,8 +1469,7 @@ Video_PrintPal:
 ; same order you placed your value tags, don't forget to
 ; put "align 2" at the end of the string or it will
 ; trigger and ADDRESS ERROR
-; --------------------------------------------------------
-
+;
 ; TODO: negative values might break
 
 Video_Print:
@@ -1518,13 +1499,13 @@ Video_Print:
 .puttext:
 		add.w	(RAM_VidPrntVram).w,d7	; VRAM pos increment
 		move.w	d7,(a6)
-		addi.l	#$20000,d4
+		addi.l	#$20000,d4		; Next X
 		bra.s	.loop
 .next:
 		add.l	d6,d5			; Next line
 		bra.s	.newjump
 
-	; Set print values
+; Set print values
 .isbyte:
 		move.l	d4,(a5)+
 		move.w	#1,(a5)+
@@ -1545,17 +1526,16 @@ Video_Print:
 		bra	.loop
 .exit:
 
-	; ----------------------------------------
-	; Print values
-	;
-	; vvvv vvvv tttt
-	; v - vdp pos
-	; t - value type
-	; ----------------------------------------
+; ----------------------------------------
+; Print values
+;
+; vvvv vvvv tttt
+; v - vdp pos
+; t - value type
+; ----------------------------------------
 
-	; reading byte by byte because longs doesn't get
-	; aligned after $00...
-
+; reading byte by byte so you don't need
+; to re-align anything...
 		moveq	#0,d4
 		moveq	#0,d5
 		moveq	#0,d6
@@ -1563,9 +1543,7 @@ Video_Print:
 .nextv:
 		tst.l	(a5)
 		beq	.nothing
-
-	; grab value
-		moveq	#0,d4
+		moveq	#0,d4		; grab value
 		move.b	(a0)+,d4
 		rol.l	#8,d4
 		move.b	(a0)+,d4
@@ -1575,7 +1553,6 @@ Video_Print:
 		move.b	(a0)+,d4
 		movea.l	d4,a4
 		moveq	#0,d4
-
 	; get value
 		move.w	4(a5),d6
 		cmpi.w	#1,d6		; byte?
@@ -1620,7 +1597,6 @@ Video_Print:
 		clr.l	(a5)+
 		clr.w	(a5)+
 		bra	.nextv
-
 ; make nibble byte
 .donibl:
 		move.w	d4,d5
@@ -1642,11 +1618,11 @@ Video_Print:
 ; Shared: pick layer / x pos / y pos and set size
 ;
 ; Input:
-; d0.l - locate(layer,x,y)
+; d0.l | locate(layer,x,y)
 ;
 ; Returns:
-; d5 - VRAM position
-; d6 - Width
+; d5 | VRAM position
+; d6 | Width
 ; ------------------------------------------------
 
 vid_PickLayer:
@@ -1756,36 +1732,14 @@ Objects_Run:
 		rts
 
 ; --------------------------------------------------------
-; object_ResetVars
-;
-; Call this BEFORE using animation
-;
-; Input:
-; a6 - Object
-;
-; Uses:
-; d7
-; --------------------------------------------------------
-
-object_ResetVars:
-		movem.l	d6-d7/a5,-(sp)
-		lea	obj_ram(a6),a5
-		move.w	#(sizeof_mdobj-obj_ram)-1,d6
-		moveq	#0,d7
-.clr_ram:	move.b	d7,(a5)+
-		dbf	d6,.clr_ram
-		movem.l	(sp)+,d6-d7/a5
-		rts
-
-; --------------------------------------------------------
 ; Objects_Set
 ;
 ; Input:
-; d0.l - Object code location (0 - delete)
-; d1.w - Object slot
-; d2.b - Object sub-id (obj_subid)
+; d0.l | Object code location (0 - delete)
+; d1.w | Object slot
+; d2.b | Object sub-id (obj_subid)
 ;
-; Uses:
+; Breaks:
 ; d7,a5-a6
 ; --------------------------------------------------------
 
@@ -1813,13 +1767,13 @@ Objects_Set:
 ; Objects_Add
 ;
 ; Input:
-; d0.l - Object code
-; d1.b - Object sub-type (obj_subid)
+; d0.l | Object code
+; d1.b | Object sub-type (obj_subid)
 ;
 ; Returns:
-; d0.l - Sets -1 if no free slot found.
+; d0.l | Sets -1 if no free slot found.
 ;
-; Uses:
+; Breaks:
 ; d7,a5-a6
 ; --------------------------------------------------------
 
@@ -1842,11 +1796,6 @@ Objects_Add:
 		dbf	d7,.clr
 		move.l	d0,obj_code(a6)
 		move.b	d1,obj_subid(a6)
-
-; 		lea	(RAM_ObjDispList).w,a6	; TODO
-; 		move.w	d1,d7
-; 		add.w	d7,d7
-; 		move.w	#0,(a6,d7.w)
 		movem.l	(sp)+,d7/a5-a6
 		rts
 
@@ -1858,48 +1807,45 @@ Objects_Add:
 
 Objects_Show:
 		movem.l	d7/a5-a6,-(sp)
-
-		move.w	(RAM_SprLinkNum).w,d6		; d6 - Starting sprite link
-		lea	(RAM_Sprites),a6		; a6 - Genesis sprites
-		move.w	d6,d7
-		subq.w	#1,d7
-		lsl.w	#3,d7
-		adda	d7,a6
-
-		move.w	(RAM_SprDrwCntr),d7
-		beq.s	.no_sprdrw
-		clr.w	(RAM_SprDrwCntr).w
-		lea	(RAM_SprDrwPz),a5
-		sub.w	#1,d7
-.nexts:
-		cmp.w	#80,d6
-		bge.s	.no_sprdrw
-		move.w	(a5)+,d0
-		move.w	(a5)+,d1	; custom
-		and.w	#$FF,d1
-		lsl.w	#8,d1
-		or.w	d6,d1
-		move.w	(a5)+,d2
-		move.w	(a5)+,d3
-		move.w	d0,(a6)+
-		move.w	d1,(a6)+
-		move.w	d2,(a6)+
-		move.w	d3,(a6)+
-		add.w	#1,d6
-		dbf	d7,.nexts
-.no_sprdrw:
-
-; 		move.w	(RAM_SprLinkNum).w,d6	; d6 - Starting sprite link
-; 		lea	(RAM_Sprites).w,a6	; a6 - Genesis sprites
+; 		move.w	(RAM_SprLinkNum).w,d6		; d6 - Starting sprite link
+; 		lea	(RAM_Sprites),a6		; a6 - Genesis sprites
+; 		move.w	d6,d7
+; 		subq.w	#1,d7
+; 		lsl.w	#3,d7
+; 		adda	d7,a6
+; 		move.w	(RAM_SprDrwCntr),d7
+; 		beq.s	.no_sprdrw
+; 		clr.w	(RAM_SprDrwCntr).w
+; 		lea	(RAM_SprDrwPz),a5
+; 		sub.w	#1,d7
+; .nexts:
+; 		cmp.w	#80,d6
+; 		bge.s	.no_sprdrw
+; 		move.w	(a5)+,d0
+; 		move.w	(a5)+,d1	; custom
+; 		and.w	#$FF,d1
+; 		lsl.w	#8,d1
+; 		or.w	d6,d1
+; 		move.w	(a5)+,d2
+; 		move.w	(a5)+,d3
+; 		move.w	d0,(a6)+
+; 		move.w	d1,(a6)+
+; 		move.w	d2,(a6)+
+; 		move.w	d3,(a6)+
+; 		add.w	#1,d6
+; 		dbf	d7,.nexts
+; .no_sprdrw:
+		move.w	(RAM_SprLinkNum).w,d6	; d6 - Starting sprite link
+		lea	(RAM_Sprites).w,a6	; a6 - Genesis sprites
 		lea	(RAM_ObjDispList).w,a5
 		move.w	#MAX_MDOBJ-1,d7
 .next:
 		move.w	(a5),d0
 		beq	.finish
-		clr.w	(a5)
-		moveq	#-1,d1			; Write the $FFFFxxxx part
-		move.w	d0,d1			; get the half-address
-		move.l	d1,a4			; set to a4
+		clr.w	(a5)+			; Clear original slot
+		moveq	#-1,d1			; Write the $FFFFxxxx part and
+		move.w	d0,d1			; the half-address
+		move.l	d1,a4			; Read object to a4
 		move.l	obj_map(a4),a0		; Read this object's map
 		move.w	obj_frame(a4),d0
 		move.b	obj_set(a4),d4
@@ -1917,10 +1863,9 @@ Objects_Show:
 		move.b	(a0)+,d0		; d0 - Y pos
 		move.b	(a0)+,d1		; d1 - Size
 		move.w	(a0)+,d2		; d2 - VRAM main
-		adda	#2,a0			; TODO: VRAM double later
+		adda	#2,a0			; <-- Reserved for VRAM double-interlace
 		move.w	(a0)+,d3		; d3 - X pos
 		ext.w	d0
-
 	; X/Y flip checks
 		move.w	obj_vram(a4),d5
 		btst	#bitobj_flipV,d4
@@ -1959,10 +1904,9 @@ Objects_Show:
 		swap	d5
 		dbf	d5,.mk_pz
 .mk_spr:
-		clr.w	(a5)+			; Clear request
 		dbf	d7,.next
 .finish:
-		lea	(RAM_Sprites).w,a6
+		lea	(RAM_Sprites).w,a6	; Check last sprite piece
 		cmpi.w	#1,d6
 		beq.s	.ran_out
 		cmpi.w	#80,d6
@@ -1978,20 +1922,49 @@ Objects_Show:
 		movem.l	(sp)+,d7/a5-a6
 		rts
 
+; ====================================================================
 ; --------------------------------------------------------
-; Current object subroutines
+; Object subroutines
+;
+; These can ONLY be called on the current object's code.
 ; --------------------------------------------------------
 
 ; --------------------------------------------------------
-; obj_Display
+; object_ResetVars
 ;
-; Builds a sprite using map data specified in
-; obj_map(a6)
+; Call this BEFORE using animation
 ;
 ; Input:
-; a6 - Current object
+; a6 | This object
 ;
-; Uses:
+; Breaks:
+; d7
+; --------------------------------------------------------
+
+object_ResetVars:
+		movem.l	d6-d7/a5,-(sp)
+		lea	obj_ram(a6),a5
+		move.w	#(sizeof_mdobj-obj_ram)-1,d6
+		moveq	#0,d7
+.clr_ram:	move.b	d7,(a5)+
+		dbf	d6,.clr_ram
+		movem.l	(sp)+,d6-d7/a5
+		rts
+
+; --------------------------------------------------------
+; object_Display
+;
+; Makes this object visible, requires sprite map data
+; (obj_map) and VRAM location (obj_vram) set up
+; before calling this.
+;
+; Input:
+; a6 | This object
+;
+; Returns:
+; d0 | -1 If ran out of display slots
+;
+; Breaks:
 ; a5,d4-d7
 ; --------------------------------------------------------
 
@@ -2013,6 +1986,7 @@ Objects_Show:
 ; TODO
 
 object_Display:
+		movem.l	d7/a5,-(sp)
 		lea	(RAM_ObjDispList).w,a5
 		move.w	#MAX_MDOBJ-1,d7
 .srch:
@@ -2020,29 +1994,37 @@ object_Display:
 		beq.s	.this_one
 		adda	#2,a5
 		dbf	d7,.srch
+		moveq	#-1,d0
+		bra.s	.ran_out
 .this_one:
 		move.w	a6,(a5)
+.ran_out:
+		movem.l	(sp)+,d7/a5
 		rts
 
 ; --------------------------------------------------------
 ; object_DMA
 ;
 ; Makes DMA graphics entry for this object,
-; for VDP sprites ONLY.
+; for Genesis VDP Sprites ONLY.
 ;
 ; Input:
-; a6 - Current object
-; a0 - DMA map data
-; a1 - Graphics data
+; a6 | This object
+; a0 | DMA map data
+; a1 | Graphics data
 ;
-; Uses:
+; Breaks:
 ; a5,d4-d7
 ; --------------------------------------------------------
 
-; TODO
-; Poner el file struct como en _Display
+; object_DMA_Auto:
+; 		bsr	object_DMA
+; 		rts
+
+; ------------------------------------------------
 
 object_DMA:
+		movem.l	d4-d7/a5,-(sp)
 		move.l	a1,d3			; d3 - Art data
 		move.w	obj_frame(a6),d4
  		add.w	d4,d4
@@ -2073,7 +2055,10 @@ object_DMA:
 		swap	d4
 		dbf	d4,.next_pz
 		move.l	(sp)+,a6
+		lsr.w	#5,d1
+		sub.w	obj_vram(a6),d1
 .no_dma:
+		movem.l	(sp)+,d4-d7/a5
 		rts
 
 ; --------------------------------------------------------
@@ -2081,20 +2066,21 @@ object_DMA:
 ;
 ; Animates the sprite
 ;
-; Input
-; a6 - Current object
-; a0 - Animation data
+; Input:
+; a6 | This object
+; a0 | Animation data
 ;
-; Uses:
-; d2
+; Breaks:
+; a0/d5-d7
 ; --------------------------------------------------------
 
 object_Animate:
+		movem.l	d5-d7,-(sp)
 		moveq	#0,d7
- 		move.b	obj_anim_id+1(a6),d7
+ 		move.b	obj_anim_icur(a6),d7
  		cmp.b	obj_anim_id(a6),d7
  		beq.s	.sameThing
- 		move.b	obj_anim_id(a6),obj_anim_id+1(a6)
+ 		move.b	obj_anim_id(a6),obj_anim_icur(a6)
  		clr.w	obj_anim_indx(a6)
  		clr.b	obj_anim_spd(a6)
 .sameThing:
@@ -2126,36 +2112,34 @@ object_Animate:
  		move.w	d5,obj_frame(a6)
  		add.w	#1,obj_anim_indx(a6)
 .return:
- 		rts
+ 		bra.s	.exit_anim
 .noAnim:
  		move.w	#1,obj_anim_indx(a6)
  		move.w	d6,d5
  		move.w	d5,obj_frame(a6)
-		rts
+		bra.s	.exit_anim
 .goToFrame:
 		clr.w	obj_anim_indx(a6)
 		move.w	2(a0),obj_anim_indx(a6)
 .lastFrame:
  		clr.b	obj_anim_spd(a6)
+.exit_anim:
+		movem.l	(sp)+,d5-d7
 		rts
 
 ; --------------------------------------------------------
 ; object_ResetAnim
 ;
-; Call this BEFORE using object_Animate, call this
-; on init.
+; Call this to reset animation
 ;
 ; Input:
-; a6 - Object
-;
-; Uses:
-; d7
+; a6 | This object
 ; --------------------------------------------------------
 
 object_ResetAnim:
  		clr.w	obj_anim_indx(a6)
  		clr.b	obj_anim_spd(a6)
-		move.b	#0,obj_anim_id+1(a6)
+		move.b	#0,obj_anim_icur(a6)
 		rts
 
 ; --------------------------------------------------------
@@ -2164,13 +2148,14 @@ object_ResetAnim:
 ; Moves the object using speed variables
 ;
 ; Input:
-; a6 - Object
+; a6 | This object
 ;
-; Uses:
+; Breaks:
 ; d7
 ; --------------------------------------------------------
 
 object_Speed:
+		move.l	d7,-(sp)
 		moveq	#0,d7
 		move.w	obj_x_spd(a6),d7
 		ext.l	d7
@@ -2181,24 +2166,25 @@ object_Speed:
 		ext.l	d7
 		asl.l	#8,d7
 		add.l	d7,obj_y(a6)
+		move.l	(sp)+,d7
 		rts
 
 ; --------------------------------------------------------
 ; object_Collision
 ;
-; Detect collision with another object from
-; the list, Read ALL except the one that called
-; this.
+; Detects collision with another Object from
+; the list TOP to BOTTOM
+; Reads ALL objects except the one that called this.
 ;
 ; Input:
-; a6 - Object
+; a6 | Object
 ;
 ; Returns:
-; d0 - If Nothing: zero
-;      If Found: Object's RAM location
+; d0 | If Nothing: Zero
+;      If Found: The object's RAM location it got.
 ;
-; Uses:
-; d5-d7,a5
+; Breaks:
+; d1-d7,a5
 ; --------------------------------------------------------
 
 object_Collision:
@@ -2206,21 +2192,21 @@ object_Collision:
 		lea	(RAM_Objects).w,a5
 		moveq	#MAX_MDOBJ-1,d7
 .next:
-		cmp.l	a6,a5
-		beq.s	.myself
-		tst.l	obj_code(a5)
-		beq.s	.myself
+		cmp.l	a6,a5		; If reading THIS object, skip
+		beq.s	.skip
+		tst.l	obj_code(a5)	; This object has code?
+		beq.s	.skip
 		bsr.s	.check_this
 		tst.w	d0
-		bne.s	.exit_this	; Found already.
-.myself:	adda	#sizeof_mdobj,a5
+		bne.s	.exit_this	; Exit if Found already.
+.skip:		adda	#sizeof_mdobj,a5
 		dbf	d7,.next
 		moveq	#0,d0
 .exit_this:
 		movem.l	(sp)+,d1-d7/a5
 		rts
 .check_this:
-		moveq	#0,d0		; Reset return
+		moveq	#0,d0			; Reset Return
 	; d6 - Y current top
 	; d5 - Y current bottom
 	; d4 - Y target top
@@ -2286,10 +2272,10 @@ object_Collision:
 	if MARS|MARSCD
 
 ; --------------------------------------------------------
-; Video_MarsMap_Set
+; Video_MdMarsMap_Set
 ; --------------------------------------------------------
 
-Video_MarsMap_Set:
+Video_MdMarsMap_Set:
 		lea	(RAM_MdDreq+Dreq_ScrlBuff).w,a6
 		move.l	d0,mscrl_Art(a6)
 		clr.l	mscrl_Xpos(a6)
@@ -2299,7 +2285,7 @@ Video_MarsMap_Set:
 		rts
 
 ; --------------------------------------------------------
-; Video_MarsMap_Load
+; Video_MdMarsMap_Load
 ;
 ; Input:
 ; a0   | Map data
@@ -2309,11 +2295,11 @@ Video_MarsMap_Set:
 ; d3.w | Y block size
 ; d4.w | Starting color index
 ;
-; Uses:
+; Breaks:
 ; d5-d7/a2-a5
 ; --------------------------------------------------------
 
-Video_MarsMap_Load:
+Video_MdMarsMap_Load:
 		lea	(RAM_MdDreq+Dreq_ScrlData).w,a5
 		moveq	#0,d6
 		move.w	d1,d6

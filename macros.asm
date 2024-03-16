@@ -297,12 +297,9 @@ endlbl label *
 
 set_dbanks macro mcdpos,marspos
 	if MARS|MARSCD
-		bsr	Video_Mars_SyncFrame
-		bsr	Video_Mars_SyncFrame
 		lea	marspos(pc),a0		; 32X/CD32X: SH2 side data
 		bsr	System_MarsDataPack
-		bsr	Video_Mars_SyncFrame
-		bsr	Video_Mars_SyncFrame
+; 		bsr	Video_MdMars_SyncFrame
 	endif
 	if MCD|MARSCD
 		bsr	System_McdSubWait

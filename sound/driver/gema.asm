@@ -119,7 +119,11 @@ Sound_Init:
 		dbf	d0,.copy
 		move.w	#0,(z80_reset).l		; Reset cancel
 		clr.b	(RAM_ZCdFlag_D).w		; Reset Z80 transferRom flag
-		nop					; Reset Z80 buffer flag
+		move.b	(sys_io).l,d0			;
+		btst	#6,d0
+		beq.s	.not_pal
+		move.b	#1,(z80_cpu+palMode).l
+.not_pal:
 		nop
 		nop
 		move.w	#$100,(z80_reset).l
@@ -546,8 +550,7 @@ gemaSetTrackVol:
 ; d0.w - sub-beats
 ; --------------------------------------------------------
 
-; TODO: find a way to calculate this and
-; explain to the user.
+; TODO: find a way to calculate this to a tempo.
 
 gemaSetBeats:
 		bsr	sndReq_Enter

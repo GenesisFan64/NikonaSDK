@@ -92,9 +92,9 @@ sizeof_cdpcm	ds.l 0
 ; ----------------------------------------------------------------
 
 SP_Init:
-		bclr	#3,(scpu_reg+$33).w
-		move.b	#$2F,(scpu_reg+$31).w
-		move.l	#SP_Timer,(_LEVEL3+2).l
+; 		bclr	#3,(scpu_reg+$33).w
+; 		move.b	#$2F,(scpu_reg+$31).w
+; 		move.l	#SP_Timer,(_LEVEL3+2).l
 
 		move.b	#0,(scpu_reg+mcd_memory).l
 		bsr	spInitFS
@@ -105,7 +105,7 @@ SP_Init:
 		bsr	CDPCM_Init
 		move.b	#0,(scpu_reg+mcd_comm_s).w	; Reset SUB-status
 
-		bset	#3,(scpu_reg+$33).w
+; 		bset	#3,(scpu_reg+$33).w
 		rts
 
 ; --------------------------------------------------------
@@ -120,10 +120,10 @@ file_subdata:
 ; ----------------------------------------------------------------
 
 SP_Timer:
-		movem.l	d0-a6,-(sp)
-		bsr	CDPCM_Stream
-		movem.l	(sp)+,d0-a6
-		rte	; <--
+; 		movem.l	d0-a6,-(sp)
+; 		bsr	CDPCM_Stream_IRQ
+; 		movem.l	(sp)+,d0-a6
+		rte	; rte
 
 ; =====================================================================
 ; ----------------------------------------------------------------
@@ -146,7 +146,7 @@ SP_IRQ:
 		andi.w	#$F0,d0
 		cmpi.w	#$F0,d0				; Z80 wants to enter ($F0)?
 		bne	.not_now
-		bclr	#3,(scpu_reg+$33).w		; Disable Timer interrupt
+; 		bclr	#3,(scpu_reg+$33).w		; Disable Timer interrupt
 		move.b	#-1,(scpu_reg+mcd_comm_s).w	; Respond to Z80
 .wait_start:
 		move.b	(scpu_reg+mcd_comm_m).w,d0	; MAIN is ready?
@@ -188,7 +188,7 @@ SP_IRQ:
 .exit_now:	bsr	CDPCM_Stream_IRQ
 		bsr	CDPCM_ReadTable
 .not_now:
-		bset	#3,(scpu_reg+$33).w		; Enable Timer interrupt
+; 		bset	#3,(scpu_reg+$33).w		; Enable Timer interrupt
 		rts
 
 ; ====================================================================
@@ -206,6 +206,9 @@ SP_IRQ:
 ; ----------------------------------------------------------------
 
 SP_Main:
+	rept 6
+		bsr	CDPCM_Stream
+	endm
 		move.b	(scpu_reg+mcd_comm_m).w,d0
 		move.b	d0,d1
 		andi.w	#$F0,d1
@@ -213,7 +216,7 @@ SP_Main:
 		beq.s	SP_Main
 		andi.w	#%00111111,d0				; <-- current limit
 		beq.s	SP_Main
-		bclr	#3,(scpu_reg+$33).w
+; 		bclr	#3,(scpu_reg+$33).w
 		move.l	d0,-(sp)
 		bsr	CDPCM_Stream
 		move.l	(sp)+,d0
@@ -226,7 +229,7 @@ SP_Main:
 		move.b	(scpu_reg+mcd_comm_s).w,d7
 		bclr	#7,d7
 		move.b	d7,(scpu_reg+mcd_comm_s).w		; Tell MAIN we finished.
-		bset	#3,(scpu_reg+$33).w
+; 		bset	#3,(scpu_reg+$33).w
 		bra	SP_Main
 
 	; ** DO NOT RETURN WITH RTS **
@@ -246,15 +249,15 @@ SP_Main:
 ; $30-$3F: ???
 
 SP_cmdlist:
-		dc.w SP_cmnd00-SP_cmdlist
-		dc.w SP_cmnd01-SP_cmdlist	; $01 - Read file from disc, send data through mcd_dcomm_s
-		dc.w SP_cmnd02-SP_cmdlist	; $02 - Read file from disc, write to WORD-RAM directly.
+		dc.w SP_cmnd00-SP_cmdlist	; $00 | INVALID
+		dc.w SP_cmnd01-SP_cmdlist	; $01 | Read file from disc, copy data through mcd_dcomm_s
+		dc.w SP_cmnd02-SP_cmdlist	; $02 | Read file from disc, sends output to WORD-RAM
 		dc.w SP_cmnd00-SP_cmdlist	; $03
 		dc.w SP_cmnd00-SP_cmdlist	; $04
 		dc.w SP_cmnd00-SP_cmdlist	; $05
 		dc.w SP_cmnd00-SP_cmdlist	; $06
-		dc.w SP_cmnd00-SP_cmdlist	; $07 - Set 2M WORD-RAM permission to MAIN
-		dc.w SP_cmnd08-SP_cmdlist	; $08 - Get data from MAIN through mcd_dcomm_m
+		dc.w SP_cmnd00-SP_cmdlist	; $07 | Set 2M WORD-RAM permission to MAIN
+		dc.w SP_cmnd08-SP_cmdlist	; $08 | Get data from MAIN through mcd_dcomm_m
 		dc.w SP_cmnd00-SP_cmdlist	; $09
 		dc.w SP_cmnd00-SP_cmdlist	; $0A
 		dc.w SP_cmnd00-SP_cmdlist	; $0B
@@ -263,7 +266,7 @@ SP_cmdlist:
 		dc.w SP_cmnd00-SP_cmdlist	; $0E
 		dc.w SP_cmnd00-SP_cmdlist	; $0F
 
-		dc.w SP_cmnd10-SP_cmdlist	; Play CDDA track
+		dc.w SP_cmnd10-SP_cmdlist	; $10 | Play CDDA track
 		dc.w SP_cmnd00-SP_cmdlist
 		dc.w SP_cmnd00-SP_cmdlist
 		dc.w SP_cmnd00-SP_cmdlist
@@ -780,19 +783,21 @@ CDPCM_ReadTable:
 		rts
 
 ; --------------------------------------------------------
-; PCM Streaming
+; PCM streaming
 ; --------------------------------------------------------
 
 CDPCM_Stream:
+; 		movem.l	d0-a6,-(sp)
 		st.b	(RAM_CdSub_PcmMidStrm).w
-		bsr.s	CDPCM_Stream_Go
+		bsr.s	CDPCM_Stream_Run
 		clr.b	(RAM_CdSub_PcmMidStrm).w
+; 		movem.l	(sp)+,d0-a6
 		rts
 CDPCM_Stream_IRQ:
 		tst.b	(RAM_CdSub_PcmMidStrm).w
-		beq.s	CDPCM_Stream_Go
+		beq.s	CDPCM_Stream_Run
 		rts
-CDPCM_Stream_Go:
+CDPCM_Stream_Run:
 		lea	(RAM_CdSub_PcmBuff),a6
 		lea	(scpu_pcm),a5
 		lea	$23(a5),a4			; <-- RAM-addr MSBs (ODDs)
