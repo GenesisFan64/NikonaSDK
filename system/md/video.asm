@@ -345,7 +345,7 @@ Video_WaitFade:
 		bsr	System_Render
 	if MARS|MARSCD
 		bsr	Video_DoPalFade
-		bsr	Video_MdMarsPalFade
+		bsr	Video_MdMars_DoPalFade
 		move.w	(RAM_FadeMdReq).w,d7
 		move.w	(RAM_FadeMarsReq).w,d6
 		or.w	d6,d7
@@ -377,7 +377,7 @@ Video_WaitFade:
 Video_RunFade:
 	if MARS|MARSCD
 		bsr	Video_DoPalFade
-		bsr	Video_MdMarsPalFade
+		bsr	Video_MdMars_DoPalFade
 		move.w	(RAM_FadeMdReq).w,d7
 		move.w	(RAM_FadeMarsReq).w,d6
 		or.w	d6,d7
@@ -426,11 +426,6 @@ vidMd_Pal:
 
 ; --------------------------------------------------------
 ; Video_DoPalFade
-;
-; RAM_ReqFadeMars (WORD):
-; $00 - No task or finished.
-; $01 - Fade in
-; $02 - Fade out to black
 ;
 ; NOTE: ONLY CALL THIS OUTSIDE OF VBLANK
 ; --------------------------------------------------------
@@ -900,7 +895,6 @@ Video_Fill:
 ; --------------------------------------------------------
 
 ; TODO: test if this works again...
-
 Video_Copy:
 		movem.l	d6-d7/a6,-(sp)
 		lea	(vdp_ctrl),a6
@@ -1069,7 +1063,7 @@ Video_DmaBlast:
 ; --------------------------------------------------------
 ; Video_MdMars_SyncFrame
 ;
-; Syncronize frame with the 32X
+; Syncronize VBlank with the 32X
 ; --------------------------------------------------------
 
 Video_MdMars_SyncFrame:
@@ -1081,12 +1075,13 @@ Video_MdMars_SyncFrame:
 		rts
 
 ; --------------------------------------------------------
-; Video_MdMarsGfxMode
+; Video_MdMars_VideoMode
 ;
 ; Sets Pseudo-Graphics mode on the 32X side.
 ;
 ; Input:
 ; d0.w | Mode number
+;        Write $00 to disable all 32X visuals.
 ;
 ; Breaks:
 ; d7
@@ -1095,12 +1090,12 @@ Video_MdMars_SyncFrame:
 ; Changing modes takes 3 FRAMES to process.
 ; --------------------------------------------------------
 
-Video_MdMarsGfxMode:
+Video_MdMars_VideoMode:
 	if MARS|MARSCD
 		move.l	d0,-(sp)
 	rept 3
 		bsr	Video_MdMars_SyncFrame	; Wait frame and update DREQ RAM
-		bsr	System_MarsUpdate	; 3 times.
+		bsr	System_MarsUpdate
 	endm
 		move.l	(sp)+,d0
 		move.w	d0,d7
@@ -1110,7 +1105,7 @@ Video_MdMarsGfxMode:
 		rts
 
 ; --------------------------------------------------------
-; Video_LoadPal_Mars, Video_FadePal_Mars
+; Video_MdMars_LoadPal, Video_MdMars_FadePal
 ;
 ; Loads SVDP 256-color palette data to either
 ; CURRENT palette or FADING palette buffers.
@@ -1124,12 +1119,12 @@ Video_MdMarsGfxMode:
 ; d5-d7/a6
 ; --------------------------------------------------------
 
-Video_FadePal_Mars:
+Video_MdMars_FadePal:
 	if MARS|MARSCD
 		lea	(RAM_MdMarsPalFd).w,a6
 		clr.w	(RAM_FadeMarsTmr).w	; Clear fade timer
 		bra.s	vidMars_Pal
-Video_LoadPal_Mars:
+Video_MdMars_LoadPal:
 		lea	(RAM_MdDreq+Dreq_Palette).w,a6
 vidMars_Pal:
 		move.l	a0,a5
@@ -1151,7 +1146,7 @@ vidMars_Pal:
 		rts
 
 ; --------------------------------------------------------
-; Video_MdMarsPalFade
+; Video_MdMars_DoPalFade
 ;
 ; Process the 256-color fading
 ;
@@ -1160,19 +1155,13 @@ vidMars_Pal:
 ; d0.w | Number of colors
 ; d1.w | Speed
 ;
-; RAM_ReqFadeMars: (WORD)
-; $00 | No task (or finished)
-; $01 | Fade in
-; $02 | Fade out to black
-;
 ; Notes:
 ; - CALL THIS OUTSIDE OF VBLANK
-; * This takes A LOT of CPU.
+; - This keeps the Priority bit intact.
+; ** This takes A LOT of CPU if fading all 256-colors **
 ; --------------------------------------------------------
 
-; TODO: luego ver que hago con el priority bit
-
-Video_MdMarsPalFade:
+Video_MdMars_DoPalFade:
 	if MARS|MARSCD
 		subi.w	#1,(RAM_FadeMarsTmr).w
 		bpl.s	.active
@@ -1333,10 +1322,9 @@ Video_MdMarsPalFade:
 	endif
 		rts
 
-
 ; ====================================================================
 ; ----------------------------------------------------------------
-; Common VDP Screen routines
+; Genesis VDP Screen layer routines
 ; ----------------------------------------------------------------
 
 ; --------------------------------------------------------
@@ -1358,7 +1346,6 @@ Video_MdMarsPalFade:
 ; --------------------------------------------------------
 
 ; TODO: A vertical version for SegaCD's stamps
-
 Video_LoadMap:
 		lea	(vdp_data),a6
 		bsr	vid_PickLayer
@@ -1370,15 +1357,14 @@ Video_LoadMap:
 		swap	d7
 .xloop:
 		move.w	(a0)+,d4
-		cmpi.w	#-1,d4			; -1 ? TODO
+		cmpi.w	#-1,d4			; -1?
 		bne.s	.nonull
 		move.w	#varNullVram,d4		; Replace with custom blank tile
 		bra.s	.cont
 .nonull:
 		add.w	d2,d4
 .cont:
-	; Check for double interlace
-		swap	d7
+		swap	d7			; Check for double interlace
 		move.b	(RAM_VdpRegs+$C).w,d7
 		andi.w	#%110,d7
 		cmpi.w	#%110,d7
@@ -1427,7 +1413,7 @@ Video_PrintInit:
 ; 		lea	(ASCII_PAL).l,a1
 		move.l	a0,d0
 		move.w	#cell_vram(varPrintVram),d1
-		move.w	#($60*$20),d2			; From " " to "[DEL]"
+		move.w	#($60*$20),d2			; Graphics data from " " to "[DEL]"
 		move.w	#(varPrintPal<<13)|varPrintVram,d3
 		subi.w	#$20,d3
 		move.w	d3,(RAM_VidPrntVram).w
@@ -1436,7 +1422,7 @@ Video_PrintPal:
 		movea.l	a1,a0
 		moveq	#(varPrintPal<<4),d0
 		move.w	#$0F,d1
-		bsr	Video_LoadPal	; Write to both palette buffers
+		bsr	Video_LoadPal			; Write to both palette buffers
 		bra	Video_FadePal
 
 ; --------------------------------------------------------
@@ -1621,8 +1607,8 @@ Video_Print:
 ; d0.l | locate(layer,x,y)
 ;
 ; Returns:
-; d5 | VRAM position
-; d6 | Width
+; d5.l | VRAM position
+; d6.l | Width
 ; ------------------------------------------------
 
 vid_PickLayer:
@@ -1756,7 +1742,7 @@ Objects_Set:
 		adda	d7,a6
 		move.l	d0,obj_code(a6)
 		move.b	d2,obj_subid(a6)
-		lea	(RAM_ObjDispList).w,a6
+		lea	(RAM_ObjDispList).w,a6	; Remove last display slot
 		move.w	d1,d7
 		add.w	d7,d7
 		move.w	#0,(a6,d7.w)
@@ -1774,21 +1760,26 @@ Objects_Set:
 ; d0.l | Sets -1 if no free slot found.
 ;
 ; Breaks:
-; d7,a5-a6
+; d6-d7,a5-a6
 ; --------------------------------------------------------
 
 Objects_Add:
-		movem.l	d7/a5-a6,-(sp)
+		movem.l	d6-d7/a5-a6,-(sp)
 		lea	(RAM_Objects).w,a6
+		lea	(RAM_ObjDispList).w,a5
+		moveq	#0,d6
 		move.w	#MAX_MDOBJ-1,d7
 .search:
 		move.l	obj_code(a6),d7
 		beq.s	.use_it
+		addq.w	#1*2,d6
 		adda	#sizeof_mdobj,a6
 		dbf	d7,.search
-		moveq	#-1,d0		; Return ran-out flag
+		moveq	#-1,d0			; Return ran-out flag
 		rts
 .use_it:
+; 		add.w	d6,d6
+		move.w	#0,(a5,d6.w)		; Remove last display slot
 		move.l	a6,a5
 		move.w	#sizeof_mdobj-1,d7
 .clr:
@@ -1796,45 +1787,19 @@ Objects_Add:
 		dbf	d7,.clr
 		move.l	d0,obj_code(a6)
 		move.b	d1,obj_subid(a6)
-		movem.l	(sp)+,d7/a5-a6
+		movem.l	(sp)+,d6-d7/a5-a6
 		rts
 
 ; --------------------------------------------------------
 ; Draw ALL Objects from display list
 ;
 ; Call this BEFORE VBlank.
+;
+; Breaks:
+; d0-d7/a4-a6
 ; --------------------------------------------------------
 
 Objects_Show:
-		movem.l	d7/a5-a6,-(sp)
-; 		move.w	(RAM_SprLinkNum).w,d6		; d6 - Starting sprite link
-; 		lea	(RAM_Sprites),a6		; a6 - Genesis sprites
-; 		move.w	d6,d7
-; 		subq.w	#1,d7
-; 		lsl.w	#3,d7
-; 		adda	d7,a6
-; 		move.w	(RAM_SprDrwCntr),d7
-; 		beq.s	.no_sprdrw
-; 		clr.w	(RAM_SprDrwCntr).w
-; 		lea	(RAM_SprDrwPz),a5
-; 		sub.w	#1,d7
-; .nexts:
-; 		cmp.w	#80,d6
-; 		bge.s	.no_sprdrw
-; 		move.w	(a5)+,d0
-; 		move.w	(a5)+,d1	; custom
-; 		and.w	#$FF,d1
-; 		lsl.w	#8,d1
-; 		or.w	d6,d1
-; 		move.w	(a5)+,d2
-; 		move.w	(a5)+,d3
-; 		move.w	d0,(a6)+
-; 		move.w	d1,(a6)+
-; 		move.w	d2,(a6)+
-; 		move.w	d3,(a6)+
-; 		add.w	#1,d6
-; 		dbf	d7,.nexts
-; .no_sprdrw:
 		move.w	(RAM_SprLinkNum).w,d6	; d6 - Starting sprite link
 		lea	(RAM_Sprites).w,a6	; a6 - Genesis sprites
 		lea	(RAM_ObjDispList).w,a5
@@ -1919,7 +1884,6 @@ Objects_Show:
 		clr.l	(a6)+
 .ran_out:
 		move.w	d6,(RAM_SprLinkNum).w
-		movem.l	(sp)+,d7/a5-a6
 		rts
 
 ; ====================================================================

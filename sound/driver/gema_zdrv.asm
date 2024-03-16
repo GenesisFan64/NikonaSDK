@@ -3322,15 +3322,15 @@ zmars_send:
 		jr	nz,.test_sub
 		set	1,(iy)		; "MAIN" lock
 		rst	8
-		ld	de,10h		; ix - MAIN data area
+		ld	de,18h		; ix - MAIN comm ports
 		add	hl,de
 	; ix - table
 	; hl - main data
-		ld	c,40h/10h	; c - Packets to send
+		ld	c,40h/8	; c - Packets to send
 .mcd_nextp:
 		bit	0,(iy+1)	; SUB is busy?
 		jr	nz,.mcd_nextp
-		ld	b,10h		; 2words to write
+		ld	b,8		; 2words to write
 		push	hl
 .copy_bytes:
 		ld	a,(ix)

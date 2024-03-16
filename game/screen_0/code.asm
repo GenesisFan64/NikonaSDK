@@ -52,7 +52,7 @@ sizeof_thisbuff		ds.l 0
 		move.w	#0,d0
 		move.w	#256,d1
 		moveq	#0,d2
-		bsr	Video_FadePal_Mars
+		bsr	Video_MdMars_FadePal
 		lea	(MapMars_Scrn0),a0
 		moveq	#0,d0
 		moveq	#0,d1
@@ -65,7 +65,7 @@ sizeof_thisbuff		ds.l 0
 		moveq	#0,d2
 		bsr	Video_MdMarsMap_Set
 		moveq	#1,d0
-		bsr	Video_MdMarsGfxMode
+		bsr	Video_MdMars_VideoMode
 	endif
 ; 	if MARS|MARSCD=0
 ; 		move.l	#Art_Scn0_BG,d0

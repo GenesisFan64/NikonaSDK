@@ -1007,8 +1007,14 @@ SH2_M_Entry:
 		bf	.wait_frm
 	else
 		mov 	#_vdpreg,r1
-		mov	#1,r0
-		mov	r0,r2
+.waite:		mov.b	@(vdpsts,r1),r0		; Wait VBlank
+		tst	#VBLK,r0
+		bf	.waite
+.waitl:		mov.b	@(vdpsts,r1),r0
+		tst	#VBLK,r0
+		bt	.waitl
+		mov	#1,r2			; Set Framebuffer 1
+		mov	r2,r0
 		mov.b	r0,@(framectl,r1)
 .wait_frm:	mov.b	@(framectl,r1),r0
 		cmp/eq	r2,r0

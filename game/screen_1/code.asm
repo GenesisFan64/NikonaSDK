@@ -55,7 +55,7 @@ sizeof_thisbuff		ds.l 0
 		move.w	#0,d0
 		move.w	#256,d1
 		moveq	#0,d2
-		bsr	Video_FadePal_Mars
+		bsr	Video_MdMars_FadePal
 		move.l	#ArtMars_TEST,d0
 		moveq	#0,d1
 		moveq	#0,d2
@@ -68,7 +68,7 @@ sizeof_thisbuff		ds.l 0
 		move.w	#0,d4
 		bsr	Video_MdMarsMap_Load
 		moveq	#1,d0
-		bsr	Video_MdMarsGfxMode
+		bsr	Video_MdMars_VideoMode
 	endif
 	if MARS|MARSCD=0
 		move.l	#ART_TEST,d0

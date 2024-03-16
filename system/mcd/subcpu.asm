@@ -154,7 +154,7 @@ SP_IRQ:
 		beq.s	.wait_start
 		bsr	CDPCM_Stream_IRQ
 		lea	(RAM_CdSub_PcmTable),a1
-		lea	(scpu_reg+mcd_dcomm_m).w,a2
+		lea	(scpu_reg+mcd_dcomm_m+8).w,a2
 		move.b	#$00,(scpu_reg+mcd_comm_s).w
 
 ; ----------------------------------------------------------------
@@ -165,9 +165,6 @@ SP_IRQ:
 		move.b	(scpu_reg+mcd_comm_m).l,d0	; Wait PASS
 		btst	#1,d0				; LOCK enabled?
 		beq.s	.exit_now
-		movem.l	d0/a1-a2,-(sp)
-		bsr	CDPCM_Stream_IRQ
-		movem.l	(sp)+,d0/a1-a2
 		btst	#0,d0				; MAIN passed the packet?
 		beq.s	.next_packet
 		move.l	a2,a0
@@ -175,10 +172,9 @@ SP_IRQ:
 		move.w	(a0)+,(a1)+
 		move.w	(a0)+,(a1)+
 		move.w	(a0)+,(a1)+
-		move.w	(a0)+,(a1)+
-		move.w	(a0)+,(a1)+
-		move.w	(a0)+,(a1)+
-		move.w	(a0)+,(a1)+
+		movem.l	d0/a1-a2,-(sp)
+		bsr	CDPCM_Stream_IRQ
+		movem.l	(sp)+,d0/a1-a2
 		move.b	#$01,(scpu_reg+mcd_comm_s).w	; Sub-CPU got the data
 .wait_main:	move.b	(scpu_reg+mcd_comm_m).w,d0	; Wait Z80 bit
 		btst	#0,d0

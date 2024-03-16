@@ -1,25 +1,26 @@
 ; ====================================================================
 ; ----------------------------------------------------------------
 ; 32X BOOT ON SEGA CD
-;
-; include this AFTER the header
 ; ----------------------------------------------------------------
 
 		lea	.file_marscode(pc),a0		; Load SH2 code from disc to WORD-RAM
 		jsr	(System_McdTrnsfr_WRAM).l
-		bra.s	.retry
+		bra.s	MarsCd_Boot
 .file_marscode:
 		dc.b "MARSCODE.BIN",0
 		align 2
-.retry:
-		lea	($A15100),a5
-		move.b	#0,1(a5)
-.normal:
-		lea	($A10000),a5
+
+; ----------------------------------------------------------------
+
+; MarsCd_Retry:
+; 		lea	($A15100).l,a5
+; 		move.b	#0,1(a5)
+MarsCd_Boot:
+		lea	($A10000).l,a5
 		moveq	#1,d0
 ID_loop:
 		cmp.l	#"MARS",$30EC(a5)	; check MARS ID
-		bne	ID_loop
+; 		bne	ID_loop
 		bne	MarsError
 .sh_wait:
 		btst.b	#7,$5101(a5)		; adapter control reg. REN=1 ?
@@ -67,12 +68,10 @@ FrameClear:
 
 PaletteClear:
 		movem.l	d0/d7/a0,-(a7)
-
-		lea	$a15200,a0
+		lea	($A15200).l,a0
 .fm2
 		bclr.b	#7,-$100(a0)		; MD access
 		bne.b	.fm2
-
 		move.w	#(256/2/4-1),d7
 .pl:
 		move.l	d0,(a0)+
@@ -80,7 +79,6 @@ PaletteClear:
 		move.l	d0,(a0)+
 		move.l	d0,(a0)+
 		dbra	d7,.pl
-
 		movem.l	(a7)+,d0/d7/a0
 		rts
 
@@ -134,13 +132,14 @@ RestartPrg:
 		move	#0,ccr			; Complete
 		bra.b	IcdAllEnd
 Hot_Start:
-		lea	($a15100),a1
+		lea	($A15100).l,a1
 		move.w	d0,6(a1)		; DREQ Control Reg.
 		move.w	#$8000,d0
 		bra.b	IcdAllEnd
 MarsError:
 		move	#1,ccr			; Error
-		bra *
+		vdp_showme $00E
+		bra	*
 IcdAllEnd:
 ; 		bcs	_error
 
@@ -148,20 +147,12 @@ IcdAllEnd:
 ; Send the entire SH2 code in split parts
 ; ----------------------------------------------------------------
 
-		move.w	#$FF,d7				; HW: Wait a little
-.wait_enter:
-		nop
-		nop
-		dbf	d7,.wait_enter
 		lea	(sysmars_reg).l,a6
 .wait_fb:
 		bclr	#7,(a6)				; Set FM bit to MD
 		bne.s	.wait_fb			; Wait until it accepts.
 	; --------------------------------
 	; FRAMEBUFFER 1
-.wait_f1fb:
-		btst	#7,$8A(a6)			; Wait SVDP's VBlank
-		bne.s	.wait_f1fb
 .wait_f1:	bset	#0,$8B(a6)			; Set BUFFER 1
 		beq.s	.wait_f1
 		lea	($840000).l,a1
@@ -172,9 +163,6 @@ IcdAllEnd:
 		dbf	d7,.send_half
 	; --------------------------------
 	; FRAMEBUFFER 0
-.wait_f0fb:
-		btst	#7,$8A(a6)			; Wait SVDP's VBlank again
-		bne.s	.wait_f0fb
 .wait_f0:	bclr	#0,$8B(a6)			; Set BUFFER 0
 		bne.s	.wait_f0
 		lea	($840000).l,a1
@@ -188,11 +176,15 @@ IcdAllEnd:
 .send_code:
 		move.l	(a0)+,(a1)+
 		dbf	d7,.send_code
+	; --------------------------------
 .wait_adapter:
 		bset	#7,(a6)				; Set FM bit to 32X
 		beq.s	.wait_adapter
 		lea	($A15100).l,a6
 		move.l	#"_CD_",$20(a6)			; Tell 32X we are ready.
+.wait_f1fb:
+		btst	#7,$8A(a6)			; Wait SVDP's VBlank
+		beq.s	.wait_f1fb
 .master:	cmp.l	#"M_OK",$20(a6)
 		bne.s	.master
 .slave:		cmp.l	#"S_OK",$24(a6)
@@ -221,9 +213,9 @@ MarsInitHeader:
 		dc.l $00000000				; Not Used
 		dc.l $06000000				; SDRAM area
 	if EMU
-		dc.l MARS_RAMCODE_E-MARS_RAMCODE	; <-- Fusion is weird, this shouldn't be possible
+		dc.l MARS_RAMCODE_E-MARS_RAMCODE	; <-- Fusion needs full size, this shouldn't be possible
 	else
-		dc.l $1FFC8				; SDRAM size (MAXIMUM TRANSFER SIZE: $1FFC8)
+		dc.l $1FFC8				; SDRAM size, up to $1FFC8
 	endif
 		dc.l SH2_M_Entry			; Master SH2 PC (SH2 area)
 		dc.l SH2_S_Entry			; Slave SH2 PC (SH2 area)
