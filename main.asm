@@ -51,14 +51,14 @@
 ; --------------------------------------------------------
 ; 68000 RAM SIZES (SegaCD: MAIN-CPU)
 ;
-; MAX_SysCode, MAX_UserCode are only used in
-; Sega CD, 32X and CD32X.
+; MAX_SysCode, MAX_UserCode are only
+; used in Sega CD, 32X and CD32X.
 ;
 ; Check system/ram.asm for more details.
 ; --------------------------------------------------------
 
-MAX_SysCode	equ $2000	; ** CD/32X/CD32X ONLY ** Common routines
-MAX_UserCode	equ $8000	; ** CD/32X/CD32X ONLY ** Current screen code and small data
+MAX_SysCode	equ $2000	; Common routines ** CD/32X/CD32X ONLY **
+MAX_UserCode	equ $8000	; Current screen code and small data ** CD/32X/CD32X ONLY **
 MAX_ScrnBuff	equ $1800	; Current screen's RAM buffer
 MAX_MdVideo	equ $2000	; Video cache'd RAM for visuals, registers, etc.
 MAX_MdSystem	equ $0600	; Internal lib stuff and a safe copy of save data for reading/writing
@@ -98,17 +98,17 @@ MAX_MdOther	equ $0E00	; Add-on stuff
 
 	if MARS
 		include	"system/head_mars.asm"			; 32X header
-		lea	($880000+Md_SysCode),a0			; Transfer SYSTEM subs
+		lea	($880000+Md_SysCode),a0			; Copy SYSTEM routines
 		lea	(RAM_SystemCode),a1
 		move.w	#((Md_SysCode_e-Md_SysCode))-1,d0
 .copy_1:
 		move.b	(a0)+,(a1)+
 		dbf	d0,.copy_1
-		jsr	(Sound_init).l				; Init Sound driver (FIRST)
-		jsr	(Video_init).l				;  ''  Video
-		jsr	(System_Init).l				;  ''  System
-		move.w	#0,(RAM_ScreenMode).w			; Start at screen 0
-		jmp	(Md_ReadModes).l			; Jump to RAM
+		jsr	(Sound_init).l			; Init Sound driver (FIRST)
+		jsr	(Video_init).l			;  ''  Video
+		jsr	(System_Init).l			;  ''  System
+		move.w	#0,(RAM_ScreenMode).w		; Reset screen mode
+		jmp	(Md_ReadModes).l		; Go to SCREEN LOAD section
 
 ; ---------------------------------------------
 ; SEGA CD and CD32X
@@ -119,7 +119,7 @@ MAX_MdOther	equ $0E00	; Add-on stuff
 	elseif MCD|MARSCD
 		include	"system/head_mcd.asm"			; Sega CD header
 mcdin_top:
-		lea	Md_SysCode(pc),a0			; Transfer SYSTEM subs
+		lea	Md_SysCode(pc),a0			; Copy SYSTEM routines
 		lea	(RAM_SystemCode),a1
 		move.w	#((Md_SysCode_e-Md_SysCode))-1,d0
 .copy_1:
@@ -136,10 +136,10 @@ mcdin_top:
 		bcs.s	.loop_ram
 		jsr	(Sound_init).l				; Init Sound driver (FIRST)
 		jsr	(Video_init).l				; Init Video
-		jsr	(System_McdSubWait).l			; Wait Sub-CPU first.
+		jsr	(System_MdMcd_SubWait).l		; Wait Sub-CPU first.
 		jsr	(System_Init).l				; Init System
-		move.w	#0,(RAM_ScreenMode).l			; Start at screen 0
-		jmp	(Md_ReadModes).l			; Go to SCREENJUMP section
+		move.w	#0,(RAM_ScreenMode).l			; Reset screen mode
+		jmp	(Md_ReadModes).l			; Go to SCREEN LOAD section
 		phase $FFFF0600+*
 Z80_CODE:	include "sound/driver/gema_zdrv.asm"		; Z80 code loaded once on boot.
 Z80_CODE_END:
@@ -155,8 +155,8 @@ Z80_CODE_END:
 		bsr	Sound_init			; Init Sound driver (FIRST)
 		bsr	Video_init			;  ''  Video
 		bsr	System_Init			;  ''  Values
-		move.w	#0,(RAM_ScreenMode).w		; Start at screen 0
-		bra.w	Md_ReadModes			; Go to SCREENJUMP section
+		move.w	#0,(RAM_ScreenMode).w		; Reset screen mode
+		bra.w	Md_ReadModes			; Go to SCREEN LOOP section
 
 ; ---------------------------------------------
 ; MD
@@ -166,8 +166,8 @@ Z80_CODE_END:
 		bsr	Sound_init			; Init Sound driver (FIRST)
 		bsr	Video_init			;  ''  Video
 		bsr	System_Init			;  ''  Values
-		move.w	#0,(RAM_ScreenMode).w		; Start at screen 0
-		bra.w	Md_ReadModes			; Go to SCREENJUMP section
+		move.w	#0,(RAM_ScreenMode).w		; Reset screen mode
+		bra.w	Md_ReadModes			; Go to SCREEN LOAD section
 
 ; ---------------------------------------------
 	endif

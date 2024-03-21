@@ -1,8 +1,8 @@
 ; ===========================================================================
 ; -------------------------------------------------------------------
-; MACROS section
+; MACROS Section
 ;
-; THIS MUST BE INCLUDED AT START OF THE CODE.
+; *** THIS MUST BE INCLUDED AT START OF THE CODE ***
 ; -------------------------------------------------------------------
 
 ; ====================================================================
@@ -10,10 +10,17 @@
 ; AS Functions
 ; ------------------------------------------------------------
 
-locate		function a,b,c,(b&$FF)|(a<<8&$FF00)|(c<<16&$FF0000)	; VDP locate: X pos|Y pos|Layer for some video
-cell_vram	function a,(a<<5)					; VRAM position in CELLs 8x8
-cell_size	function a,(a>>5)					; Graphics size in CELLs 8x8
-map_size	function l,r,(((l-1)/8)<<16&$FFFF0000|((r-1)/8)&$FFFF)	; Full w/h sizes as CELLs 8x8
+; vdp_ctrl command
+vdp_addr	function a,(((a&$3FFF)|$4000)<<16)|(a>>14)&%11		; .l
+vdp_addr_l	function a,((a&$3FFF)|$4000)				; .w
+vdp_addr_r	function a,(a>>14)&%11					; .w
+cell_vram	function a,(a<<5)					; .w VRAM position in CELLs 8x8
+cell_size	function a,(a>>5)					; .w Graphics size in CELLs 8x8
+map_size	function l,r,(((l-1)/8)<<16&$FFFF0000|((r-1)/8)&$FFFF)	; .l Full W/H sizes to CELLs 8x8
+
+; Code-specific functions
+; locate: $00llxxyy
+locate		function a,b,c,(b&$FF)|(a<<8&$FF00)|(c<<16&$FF0000)	; .l CUSTOM screen locator: X,Y,layer
 
 ; ====================================================================
 ; ------------------------------------------------------------
@@ -282,8 +289,15 @@ endlbl label *
 	endif
 	endm
 
+; ====================================================================
+; ------------------------------------------------------------
+; CODE MACROS
+; ------------------------------------------------------------
+
 ; --------------------------------------------
 ; Set data bank(s) for the current screen
+;
+; Data pointers:
 ;
 ; mcdpos:
 ; 	dc.b "FILENAME.BIN",0
@@ -295,16 +309,16 @@ endlbl label *
 ; 	align 2
 ; --------------------------------------------
 
-set_dbanks macro mcdpos,marspos
+load_banks macro mcdpos,marspos
 	if MARS|MARSCD
 		lea	marspos(pc),a0		; 32X/CD32X: SH2 side data
-		bsr	System_MarsDataPack
-; 		bsr	Video_MdMars_SyncFrame
+		bsr	System_MarsDataPack	; MUST be first for CD32X
+		bsr	Video_MdMars_SyncFrame
 	endif
 	if MCD|MARSCD
-		bsr	System_McdSubWait
-		lea	mcdpos(pc),a0		; CD/CD32X: Genesis data
-		bsr	System_McdTrnsfr_WRAM
+		bsr	System_MdMcd_SubWait
+		lea	mcdpos(pc),a0		; CD/CD32X
+		bsr	System_McdTrnsfr_WRAM	; WORD-RAM stays loaded
 	endif
 	endm
 

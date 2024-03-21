@@ -836,10 +836,8 @@ HInt_Default:
 ; SEGA CD / CD32X ONLY
 ; ----------------------------------------------------------------
 
-	if MCD|MARSCD
-
 ; --------------------------------------------------------
-; System_McdSubWait
+; System_MdMcd_SubWait
 ;
 ; Waits until Sub-CPU finishes.
 ;
@@ -847,18 +845,20 @@ HInt_Default:
 ; a6,d7
 ; --------------------------------------------------------
 
-System_McdSubWait:
+System_MdMcd_SubWait:
+	if MCD|MARSCD
 		lea	(sysmcd_reg+mcd_comm_m),a6
 .wait_sub_o:	move.b	1(a6),d7
 		bmi.s	.wait_sub_o
+	endif
 		rts
 
 ; --------------------------------------------------------
-; System_McdSubTask
+; System_MdMcd_SubTask
 ;
 ; Request task to Sub-CPU
 ; ** Exits without waiting SUB to finish, call
-; System_McdSubWait after this IF required **
+; System_MdMcd_SubWait after this IF required **
 ;
 ; Input:
 ; d0.b | Task number
@@ -867,8 +867,9 @@ System_McdSubWait:
 ; d7/a6
 ; --------------------------------------------------------
 
-System_McdSubTask:
-		bsr	System_McdSubWait
+System_MdMcd_SubTask:
+	if MCD|MARSCD
+		bsr	System_MdMcd_SubWait
 ; 		lea	(sysmcd_reg+mcd_comm_m),a6
 .wait_else:	move.b	(a6),d7
 		andi.w	#$F0,d7
@@ -878,6 +879,7 @@ System_McdSubTask:
 .wait_sub_i:	move.b	1(a6),d7		; Wait until SUB gets busy
 		bpl.s	.wait_sub_i
 		move.b	#$00,(a6)		; Clear value, SUB already got the ID
+	endif
 		rts
 
 ; --------------------------------------------------------
@@ -893,11 +895,11 @@ System_McdSubTask:
 ; Uses:
 ; d0/d7/a5-a6
 ;
-; This calls Sub-Task $02
-; NEEDS WORD-RAM permission in 2M
+; This calls Sub-Task $02, NEEDS WORD-RAM permission in 2M
 ; --------------------------------------------------------
 
 System_McdTrnsfr_WRAM:
+	if MCD|MARSCD
 		movem.l	d0/d7/a5-a6,-(sp)
 		lea	(sysmcd_reg+mcd_dcomm_m),a5
 		move.w	(a0)+,(a5)+				; 0 copy filename
@@ -911,21 +913,22 @@ System_McdTrnsfr_WRAM:
 .set_perm:	bset	#1,(sysmcd_reg+mcd_memory).l		; Set WORD-RAM permission to SUB
 		beq.s	.set_perm
 		move.w	#$02,d0					; COMMAND $02
-		bsr	System_McdSubTask
-		bsr	System_McdSubWait
+		bsr	System_MdMcd_SubTask
+		bsr	System_MdMcd_SubWait
 		movem.l	(sp)+,d0/d7/a5-a6
+	endif
 		rts
 
 ; --------------------------------------------------------
 ; System_McdTrnsfr_RAM
 ;
-; Read file from disc and transfer it's contents to a1,
-; uses communication ports.
+; Read file from disc and transfer output the
+; data to a1, uses communication ports.
 ;
 ; Input:
 ; a0   | Filename string: "FILENAME.BIN",0
 ; a1   | Output location
-; d0.w | Size, $xxx0 sizes only
+; d0.w | Size, $10-aligned sizes only
 ;
 ; Uses:
 ; d7,a0-a1,a5-a6
@@ -933,11 +936,12 @@ System_McdTrnsfr_WRAM:
 ; This calls Sub-Task $01
 ; --------------------------------------------------------
 
-; TODO: I think the Sega CD has a mode to
-; transfer disc memory to MAIN (here) directly.
-; But this works without problem.
+; TODO: I think the Sega CD has a CDC mode to
+; transfer disc memory to MAIN (here) directly
+; but this works without problem.
 
 System_McdTrnsfr_RAM:
+	if MCD|MARSCD
 		movem.l	d0/d7/a5-a6,-(sp)
 		lea	(sysmcd_reg+mcd_dcomm_m),a5
 		move.w	(a0)+,(a5)+			; 0 copy filename
@@ -949,7 +953,7 @@ System_McdTrnsfr_RAM:
 		move.w	#0,(a5)+			; A <-- zero end
 		move.w	d0,d1
 		moveq	#$01,d0				; COMMAND: READ CD AND PASS DATA
-		bsr	System_McdSubTask
+		bsr	System_MdMcd_SubTask
 		move.w	d1,d0
 	; a0 - Output location
 	; d0 - Number of $10-byte packets
@@ -985,6 +989,7 @@ System_McdTrnsfr_RAM:
 		bclr	#7,d7
 		move.b	d7,(sysmcd_reg+mcd_comm_m).l
 		movem.l	(sp)+,d0/d7/a5-a6
+	endif
 		rts
 
 ; --------------------------------------------------------
@@ -994,9 +999,9 @@ System_McdTrnsfr_RAM:
 ; MAIN-CPU to SUB-CPU
 ;
 ; Input:
-; a0 - Input data
-; a1 - Output location in SUB-CPU area
-; d0 - Size ($10* sizes only)
+; a0   | Input data
+; a1   | Output location in SUB-CPU area
+; d0.w | Size, 8-aligned sizes only
 ;
 ; Uses:
 ; d7,a0-a1/a5-a6
@@ -1005,6 +1010,7 @@ System_McdTrnsfr_RAM:
 ; --------------------------------------------------------
 
 System_McdSendBuff:
+	if MCD|MARSCD
 		movem.l	d0/d7/a5-a6,-(sp)
 		move.l	a1,d7				; Write a1 to dcomm_m $00-$03
 		move.w	d7,(sysmcd_reg+mcd_dcomm_m+2).l
@@ -1012,8 +1018,8 @@ System_McdSendBuff:
 		move.w	d7,(sysmcd_reg+mcd_dcomm_m).l
 		move.w	d0,d6
 		moveq	#$08,d0				; COMMAND $08
-		bsr	System_McdSubTask
-		lsr.w	#4,d6				; size >> 4
+		bsr	System_MdMcd_SubTask
+		lsr.w	#3,d6				; size >> 3
 		subq.w	#1,d6				; -1
 		lea	(sysmcd_reg+mcd_dcomm_m),a6
 .wait_pre:	move.b	(sysmcd_reg+mcd_comm_s).l,d0	; SUB got the a0?
@@ -1028,10 +1034,10 @@ System_McdSendBuff:
 		move.w	(a0)+,(a5)+
 		move.w	(a0)+,(a5)+
 		move.w	(a0)+,(a5)+
-		move.w	(a0)+,(a5)+
-		move.w	(a0)+,(a5)+
-		move.w	(a0)+,(a5)+
-		move.w	(a0)+,(a5)+
+; 		move.w	(a0)+,(a5)+
+; 		move.w	(a0)+,(a5)+
+; 		move.w	(a0)+,(a5)+
+; 		move.w	(a0)+,(a5)+
 		move.b	(sysmcd_reg+mcd_comm_m).l,d0
 		bset	#6,d0
 		move.b	d0,(sysmcd_reg+mcd_comm_m).l	; Set PASS bit
@@ -1044,18 +1050,87 @@ System_McdSendBuff:
 		dbf	d6,.copy_ram
 		bclr	#7,(sysmcd_reg+mcd_comm_m).l	; UNLOCK
 		movem.l	(sp)+,d0/d7/a5-a6
+	endif
 		rts
 
-; ----------------------------------------------------------------
+; ================================================================
+; --------------------------------------------------------
+; CDDA PLAYBACK
+; --------------------------------------------------------
 
-	endif	; finish MCD section
+; --------------------------------------------------------
+; System_MdMcd_CdPlay, System_MdMcd_CdPlay_L
+;
+; Play CDDA track, normal or looped.
+;
+; Input:
+; d0.w | CD track number
+; 	 DO NOT USE TRACK $01
+;
+; This calls Sub-Task $10 for normal playback
+; and $11 for looped
+;
+; Uses:
+; d4
+; --------------------------------------------------------
+
+System_MdMcd_CdPlay:
+		movem.l	d0/d7/a6,-(sp)
+		move.w	#$0010,d4
+		bra	sysMdMcd_SetCdda
+
+System_MdMcd_CdPlay_L:
+		movem.l	d0/d7/a6,-(sp)
+		move.w	#$0011,d4
+sysMdMcd_SetCdda:
+	if MCD|MARSCD
+		tst.w	d0
+		beq.s	.fail_safe
+		bmi.s	.fail_safe
+		cmp.w	#$0001,d0
+		beq.s	.fail_safe
+		move.w	d0,(sysmcd_reg+mcd_dcomm_m).l
+		move.w	d4,d0
+		bsr	System_MdMcd_SubTask
+.fail_safe:
+	endif
+		movem.l	(sp)+,d0/d7/a6
+		rts
+
+; --------------------------------------------------------
+; System_MdMcd_CdFade
+;
+; Fade the CDDA Volume
+;
+; Input:
+; d0.w | Target volume
+;        $000-$400 - Min to Max
+; d1.w | Fading speed
+;        $001-$200 - Slow to Fast
+;             $400 - Set once
+;
+; This calls Sub-Task $10 for normal playback
+; and $11 for looped
+;
+; Uses:
+; d4
+
+; This calls Sub-Task $16
+; --------------------------------------------------------
+
+System_MdMcd_CdFade:
+		movem.l	d0-d1/d7/a6,-(sp)
+		move.w	d0,(sysmcd_reg+mcd_dcomm_m).l
+		move.w	d1,(sysmcd_reg+mcd_dcomm_m+2).l
+		move.w	#$0016,d0
+		bsr	System_MdMcd_SubTask
+		movem.l	(sp)+,d0-d1/d7/a6
+		rts
 
 ; ====================================================================
 ; ----------------------------------------------------------------
 ; 32X and CD32X ONLY
 ; ----------------------------------------------------------------
-
-	if MARS|MARSCD
 
 ; --------------------------------------------------------
 ; System_MarsDataPack
@@ -1066,20 +1141,21 @@ System_McdSendBuff:
 ; call this BEFORE doing any visuals.
 ;
 ; Input:
-; a0.l | Cartridge pointer and Filename:
-;        dc.l cart_pointer ; Cartridge only
-;        dc.b "FILENAME.BIN" ; CD32X only
+; a0 | Cartridge pointer and Filename:
+;      dc.l cart_pointer ; Cartridge only
+;      dc.b "FILENAME.BIN" ; CD32X only
 ;
-;        The SDRAM data MUST have the size at the
-;        begining of the data package:
-;        dc.l end_point-start_label
-;        dc.b (data)
+;      The SDRAM data MUST have the size at the
+;      begining of the data package:
+;      dc.l end_point-start_label
+;      dc.b (data)
 ;
 ; Uses:
 ; a4-a5,d3-d7
 ; --------------------------------------------------------
 
 System_MarsDataPack:
+	if MARS|MARSCD
 	if MARSCD
 		adda	#4,a0			; Skip cartridge label
 		bsr	System_McdTrnsfr_WRAM
@@ -1110,6 +1186,7 @@ System_MarsDataPack:
 		move.w	d4,d0
 		bsr	System_MarsSendDreq
 .exit_now:
+	endif
 		rts
 
 ; --------------------------------------------------------
@@ -1151,13 +1228,18 @@ System_MarsSendDreq:
 ; --------------------------------------------------------
 
 System_MarsUpdate:
+	if MARS|MARSCD
 		lea	(RAM_MdDreq).w,a0
 		move.w	#sizeof_dreq,d0
 		moveq	#0,d1
+	else
+		rts
+	endif
 
 ; --------------------------------------------------------
 
 sys_MSendDreq:
+	if MARS|MARSCD
 		movem.l	a4-a5/d5-d7,-(sp)
 		move.w	sr,d7
 		ori.w	#$0700,sr		; Disable interrupts
@@ -1197,8 +1279,8 @@ sys_MSendDreq:
 		move.w	#%000,dreqctl(a5)	; Reset 68S
 		move.w	d7,sr			; Restore interrupts
 		movem.l	(sp)+,a4-a5/d5-d7
-		rts
 	endif
+		rts
 
 ; ====================================================================
 ; ----------------------------------------------------------------
@@ -1213,24 +1295,22 @@ sys_MSendDreq:
 ; Send new code to the USER side of RAM and
 ; jumps into it.
 ;
-; ** FOR SEGA CD/CD+32X
 ; Input:
-; a0 - Filename string 8-bytes
-;
-; ** FOR SEGA 32X
-; Input:
-; a0 - Location of the RAM-code to copy from
-;      in the $880000/$900000 areas
+; a0 | SEGA CD/CD+32X:
+;      - Filename string 8-bytes
+;      SEGA 32X:
+;      - Location of the RAM-code to copy from
+;        in the $880000/$900000 areas
 ; --------------------------------------------------------
 
 System_GrabRamCode:
 	if MCD|MARSCD
-		bsr	System_McdSubWait
+		bsr	System_MdMcd_SubWait
 		; a0 - filename string,0
 		lea	(RAM_UserCode).l,a1
 		move.w	#(MAX_UserCode),d0
 		bsr	System_McdTrnsfr_RAM
-		bsr	System_McdSubWait
+		bsr	System_MdMcd_SubWait
 		jmp	(RAM_UserCode).l
 	elseif MARS
 		lea	(RAM_UserCode).l,a1

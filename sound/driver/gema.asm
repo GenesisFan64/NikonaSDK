@@ -19,12 +19,13 @@
 ; - Autodetection for the PSG's Tone3 mode
 ;
 ; Notes:
-; This sound driver uses RAM area $FFFF00-$FFFFFF,
-; reserved in case I'll make a 68k version of this driver
-; just for the Sega PICO
-; Currently the Z80 writes a flag directly for a
-; workaround to bypass a data-reading hardware
-; limitation. (see Sound_Update)
+; Thie RAM area $FFFF00-$FFFFFF is reserved
+; for the driver, currently the Z80 writes a flag
+; directly for a workaround to bypass a data-reading
+; hardware limitation. (see Sound_Update)
+; The entire section will be used in case
+; I translate the Z80 code to the 68K just for
+; the Sega PICO
 ;
 ; ⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣠⣴⣶⡿⠿⠿⠿⣶⣦⣄⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 ; ⠀⠀⠀⠀⠀⠀⢀⣠⣶⢟⣿⠟⠁⢰⢋⣽⡆⠈⠙⣿⡿⣶⣄⡀⠀⠀⠀⠀⠀⠀
@@ -47,6 +48,10 @@
 
 ; Shared for all DAC, PCM, PWM
 ; FOR WAV SAMPLES, OFFSET STARTS AT $2C
+;
+; gSmplData Label,"filepath",loop_point(0-beginning)
+; If not doing loop, just write 0.
+;
 gSmplData macro labl,file,loop
 labl	label *
 	dc.b ((labl_e-labl_s)&$FF),(((labl_e-labl_s)>>8)&$FF),(((labl_e-labl_s)>>16)&$FF)
@@ -55,12 +60,6 @@ labl_s:
 	binclude file,$2C
 labl_e:
 	endm
-
-; ; Failsafe version:
-; gSmpHead macro len,loop
-; 	dc.b ((len)&$FF),(((len)>>8)&$FF),(((len)>>16)&$FF)	; length
-; 	dc.b ((loop)&$FF),(((loop)>>8)&$FF),(((loop)>>16)&$FF)
-; 	endm
 
 ; --------------------------------------------------------
 ; Variables
@@ -135,24 +134,26 @@ Sound_Init:
 ; ----------------------------------------------------------------
 ; Sound_Update
 ;
-; Call this during DISPLAY or call it during a VBlank wait-loop
-; to communicate with the Z80
+; Call this during DISPLAY or call it during a pre-VBlank
+; wait-loop to communicate and sycronize with the Z80
 ;
-; SegaCD/CD32X:
+; RAM-to-Z80 transferRom workaround:
 ; This checks if the Z80 wants to read from RAM (as it can't
 ; see it) then this CPU manually writes the RAM bytes from
 ; here to the Z80's RAM
-; THIS IS REQUIRED for the tracks and instruments stored
-; on RAM in case you are doing ASIC-Stamps.
+; THIS IS REQUIRED if you want to play your the tracks
+; (and instruments) in case you do ASIC-Stamp scaling and
+; rotation.
 ;
-; DAC samples are safe to read from WORD-RAM
-; (again: if NOT using Stamps)
-; but careful when loading new data, and make sure MAIN-CPU
-; has the permission to read the data.
+; DAC samples are safe to read from WORD-RAM (NOT
+; during Stamp processing)
+; Be careful when loading new data with gemaSetMasterList to
+; WORD-RAM, make sure MAIN-CPU has the permission set to read
+; the data.
 ;
 ; Sega Pico:
-; This will be the entire sound driver rewritten from Z80 to 68k,
-; but this will be done in the future.
+; The entire Sound Driver will be here, translated from Z80 to 68k.
+; NO plans for it yet, it just returns as normal.
 ;
 ; Uses:
 ; d5-d7,a4-a6
@@ -164,23 +165,23 @@ Sound_Update:
 	else
 	; ------------------------------------------------
 	; If transferRom wants to read from 68k RAM
-		tst.b	(RAM_ZCdFlag_D).w	; *Z80 WRITES TO RAM*
+		tst.b	(RAM_ZCdFlag_D).w		; Z80 wrote the flag?
 		beq.s	.no_task
-		clr.b	(RAM_ZCdFlag_D).w
+		clr.b	(RAM_ZCdFlag_D).w		; Clear here
 		moveq	#0,d7
 		bsr	sndLockZ80
-		move.b	(z80_cpu+zDrvRamLen).l,d7
+		move.b	(z80_cpu+zDrvRamLen).l,d7	; Size != 0?
 		beq.s	.no_size
 		subq.w	#1,d7
 		lea	(z80_cpu+(zDrvRamSrc+1)),a6
 		lea	(z80_cpu),a5
-		move.b	-(a6),d6		; d6 - Source
+		move.b	-(a6),d6			; d6 - Source
 		swap	d6
 		move.b	-(a6),d6
 		lsl.w	#8,d6
 		move.b	-(a6),d6
 		moveq	#0,d5
-		move.b	-(a6),d5		; d5 - Dest
+		move.b	-(a6),d5			; d5 - Dest
 		lsl.w	#8,d5
 		move.b	-(a6),d5
 		add.l	d5,a5
@@ -188,7 +189,7 @@ Sound_Update:
 .copy_bytes:
 		move.b	(a4)+,(a5)+
 		dbf	d7,.copy_bytes
-		move.b	#0,(z80_cpu+zDrvRamLen).l
+		move.b	#0,(z80_cpu+zDrvRamLen).l	; Clear Len, breaks Z80 loop
 .no_size:
 		bsr	sndUnlockZ80
 .no_task:
@@ -338,7 +339,7 @@ gemaDmaResume:
 ;
 ; Call this BEFORE doing any DMA transfer
 ;
-; *** BANKS $880000/$900000 WILL BE GONE ***
+; 32X: THIS SETS THE RV bit, THIS CODE MUST BE IN RAM
 ; --------------------------------------------------------
 
 gemaDmaPauseRom:
@@ -352,10 +353,6 @@ gemaDmaPauseRom:
 		bsr	sndUnlockZ80
 		move.w	#96,d7				; ...Small delay...
 		dbf	d7,*
-; 	if MARS|MARSCD
-; 		move.w	#2,d6
-; 		bsr	sndReqCmd
-; 	endif
 	if MARS
 		bset	#0,(sysmars_reg+dreqctl+1).l	; Set RV=1
 	endif
@@ -369,7 +366,7 @@ gemaDmaPauseRom:
 ;
 ; Call this AFTER finishing DMA transfer
 ;
-; *** BANKS $880000/$900000 GET RESTORED ***
+; 32X: This clears the RV bit.
 ; --------------------------------------------------------
 
 gemaDmaResumeRom:
@@ -381,10 +378,6 @@ gemaDmaResumeRom:
 		bsr	sndLockZ80
 		move.b	#0,(z80_cpu+zDrvRomBlk)		; Block flag for Z80
 		bsr	sndUnlockZ80
-; 	if MARS|MARSCD
-; 		move.w	#3,d6
-; 		bsr	sndReqCmd
-; 	endif
 	if MARS
 		bclr	#0,(sysmars_reg+dreqctl+1).l	; Set RV=0
 	endif
@@ -416,7 +409,7 @@ gemaTest:
 ; Set Tracklist location
 ;
 ; Input:
-; d0.l - 68k pointer
+; d0.l | 68k pointer
 ; --------------------------------------------------------
 
 gemaSetMasterList:
@@ -433,10 +426,10 @@ gemaSetMasterList:
 ; Play a sequence with arguments
 ;
 ; Input:
-; d0.b - Playback slot number
+; d0.b | Playback slot number
 ;        If -1: use auto-search
-; d1.b - Sequence number
-; d2.b - Starting block
+; d1.b | Sequence number
+; d2.b | Starting block
 ; --------------------------------------------------------
 
 gemaPlayTrack:
@@ -457,9 +450,9 @@ gemaPlayTrack:
 ; Stops tracks with the same sequence number
 ;
 ; Input:
-; d0.b - Playback slot number
+; d0.b | Playback slot number
 ;        If -1: Read all slots
-; d1.b - Sequence number to search for
+; d1.b | Sequence number to search for
 ;        If -1: stop tracks with any sequence
 ; --------------------------------------------------------
 
@@ -495,15 +488,14 @@ gemaStopAll:
 ; Set Master volume to a track slot.
 ;
 ; Input:
-; d0.b - Playback slot number
+; d0.b | Playback slot number
 ;        If -1: Apply to all slots
-; d1.b - Target volume
-; d2.b - Fade speed TODO
+; d1.b | Target volume
+; d2.b | Fade speed TODO
 ;
 ; Notes:
 ; - DO NOT MIX THIS WITH gemaSetTrackVol
-; - In v1.0 this only works on (re)start
-;   or during new notes on playback.
+; - In v1.0 this only works during new notes on playback.
 ; --------------------------------------------------------
 
 gemaFadeTrack:
@@ -522,9 +514,10 @@ gemaFadeTrack:
 ; Set Master volume to a track slot.
 ;
 ; Input:
-; d0.b - Playback slot number
+; d0.b | Playback slot number
 ;        If -1: Set to all slots
-; d1.b - Master volume ($00-$40 max-min)
+; d1.b | Master volume:
+;        $00-max $40-min
 ;
 ; Notes:
 ; - DO NOT MIX THIS WITH gemaFadeTrack
@@ -545,12 +538,14 @@ gemaSetTrackVol:
 ; --------------------------------------------------------
 ; gemaSetBeats
 ;
-; Sets global subbeats
+; Sets global sub-beats, affects ALL tracks.
 ;
-; d0.w - sub-beats
+; Input:
+; d0.w | sub-beats
 ; --------------------------------------------------------
 
-; TODO: find a way to calculate this to a tempo.
+; TODO: Find a way to calculate this to a tempo
+; Value 212 is tempo 125 on NTSC speed
 
 gemaSetBeats:
 		bsr	sndReq_Enter

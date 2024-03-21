@@ -4,11 +4,11 @@
 ;
 ; Stored on DISC and loaded to Sub-CPU
 ;
-; ** DO NOT LEAVE THIS SECTION EMPTY **
+; *** DO NOT LEAVE THIS SECTION EMPTY ***
 ; --------------------------------------------------------
 
 	align $800
-; 	gSmplData Label,"file",loop_start
+; 	gSmplData Label,"file",loop_point(0-start)
  	gSmplData PcmIns_techno_01,"sound/instr/smpl/techno/01.wav",0
  	gSmplData PcmIns_techno_02,"sound/instr/smpl/techno/02.wav",0
   	gSmplData PcmIns_techno_03,"sound/instr/smpl/techno/03.wav",0

@@ -27,9 +27,12 @@
 ; dc.w OP1,OP2,OP3,OP4	; FM3 special ONLY: Manual frequencies
 ;
 ; $90,$94,$98,$9C: SSG-EG
-; This CAN be used, but can be problematic on clone systems.
+; These CAN be used, but can be problematic
+; on non-genuine systems.
 ;
-; $B4 PAN, PMS, AMS: %00aa0ppp
+; $B4: %00aa0ppp
+; a - AMS
+; p - PMS
 ; Keep panning bits 0, set the panning in your track.
 ;
 ; $22 LFO: %0000evvv

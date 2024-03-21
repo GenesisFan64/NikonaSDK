@@ -1470,7 +1470,7 @@ MstrMode_2D:
 		bsr	marsScrl_CopyTopBot
 		nop
 		mov	#240,r2				; $xxFF patcher
-		mov	#FBVRAM_PATCH,r3
+		mov	#SET_FBVRAM_PATCH,r3
 		bsr	MarsVideo_FixTblShift
 		mov	#0,r1
 

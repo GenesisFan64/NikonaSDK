@@ -1,6 +1,6 @@
 ; ===========================================================================
 ; -------------------------------------------------------------------
-; GEMA/Nikona Z80 code v0.9
+; GEMA/Nikona Z80 code v1.0
 ; by GenesisFan64 2023-2024
 ; -------------------------------------------------------------------
 
@@ -1352,24 +1352,24 @@ tblbuff_read:
 		ld	ix,trkChnls
 		ld	de,trk_ChnIndx
 		add	hl,de
-		ld	a,(iy+trk_MaxChnl)	; If zero, read ALL indexes (lazy mode)
+		ld	a,(iy+trk_MaxChnl)	; LAZY MODE: If zero, Read ALL channels
 		or	a
 		jr	nz,.valid
-		ld	b,MAX_TRKINDX
+		ld	a,MAX_TRKINDX
 .valid:
 		rst	8
 		ld	b,a
 .next_indx:
 		ld	a,(hl)			; Read index
 		or	a
-		jr	nz,.has_indx		; non-zero: valid
-		push	bc			; waste CPU to
-		ld	b,4			; ** wave sync
+		jr	nz,.has_indx		; If non-zero: valid
+		push	bc			; ** wave sync
+		ld	b,4
 		nop
 		nop
 		rst	8
 		djnz	$
-		pop	bc
+		pop	bc			; **
 		jr	.no_indx
 .has_indx:
 		and	00011111b
@@ -1383,9 +1383,9 @@ tblbuff_read:
 		push	hl
 		push	ix
 		add	ix,de
-		ld	a,(ix)		; Read evin
+		ld	a,(ix)			; Read 0000evin
 		and	00001111b
-		call	nz,.do_chip	; Call if non-zero
+		call	nz,.do_chip		; Call if non-zero
 		rst	8
 		pop	ix
 		pop	hl
@@ -1407,8 +1407,8 @@ tblbuff_read:
 		rst	8
 		dec	a			; inst-1
 		and	01111111b
-		ld	hl,instListOut		; temporal storage for instrument
-		ld	c,(iy+trk_BankIns)	; c - current intrument loaded
+		ld	hl,instListOut		; hl - Temporal storage for instrument
+		ld	c,(iy+trk_BankIns)	;  c - Current intrument loaded
 		bit	7,c			; First time?
 		jr	nz,.first_ins
 		cp	c			; SAME instrument data?
@@ -1517,12 +1517,14 @@ tblbuff_read:
 .invldl:
 		push	de
 		ld	de,MAX_TBLSIZE
-; 		rst	8
-; 		nop	; wave sync *
+; 		rst	8		; *** wave sync
+; 		nop
 		add	hl,de
 		pop	de
 		jr	.srch_lloop
 .reroll:
+
+	; ----------------------------------------
 	; *** Special re-roll check ***
 		push	hl
 		ld	bc,4		; <-- fake iy+04h
@@ -1755,7 +1757,7 @@ dtbl_multi:
 		rst	8
 		ld	de,MAX_TBLSIZE
 		add	iy,de
-		ld	b,3	; wave sync ** IMPORTANT **
+		ld	b,3		; wave sync ** IMPORTANT **
 		djnz	$
 		rst	8
 		jr	dtbl_multi

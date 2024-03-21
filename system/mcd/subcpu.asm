@@ -95,7 +95,7 @@ SP_Init:
 ; 		bclr	#3,(scpu_reg+$33).w
 ; 		move.b	#$2F,(scpu_reg+$31).w
 ; 		move.l	#SP_Timer,(_LEVEL3+2).l
-
+		bsr	subCDDA_ResetVolume
 		move.b	#0,(scpu_reg+mcd_memory).l
 		bsr	spInitFS
 		lea	file_subdata(pc),a0
@@ -202,14 +202,15 @@ SP_IRQ:
 ; ----------------------------------------------------------------
 
 SP_Main:
-	rept 6
 		bsr	CDPCM_Stream
-	endm
 		move.b	(scpu_reg+mcd_comm_m).w,d0
 		move.b	d0,d1
 		andi.w	#$F0,d1
 		cmpi.b	#$F0,d1					; Z80 got first?
 		beq.s	SP_Main
+		move.l	d0,-(sp)
+		bsr	CDPCM_Stream
+		move.l	(sp)+,d0
 		andi.w	#%00111111,d0				; <-- current limit
 		beq.s	SP_Main
 ; 		bclr	#3,(scpu_reg+$33).w
@@ -245,7 +246,7 @@ SP_Main:
 ; $30-$3F: ???
 
 SP_cmdlist:
-		dc.w SP_cmnd00-SP_cmdlist	; $00 | INVALID
+		dc.w SP_cmnd00-SP_cmdlist	; $00 | **INVALID**
 		dc.w SP_cmnd01-SP_cmdlist	; $01 | Read file from disc, copy data through mcd_dcomm_s
 		dc.w SP_cmnd02-SP_cmdlist	; $02 | Read file from disc, sends output to WORD-RAM
 		dc.w SP_cmnd00-SP_cmdlist	; $03
@@ -262,14 +263,14 @@ SP_cmdlist:
 		dc.w SP_cmnd00-SP_cmdlist	; $0E
 		dc.w SP_cmnd00-SP_cmdlist	; $0F
 
-		dc.w SP_cmnd10-SP_cmdlist	; $10 | Play CDDA track
-		dc.w SP_cmnd00-SP_cmdlist
-		dc.w SP_cmnd00-SP_cmdlist
-		dc.w SP_cmnd00-SP_cmdlist
-		dc.w SP_cmnd00-SP_cmdlist
-		dc.w SP_cmnd00-SP_cmdlist
-		dc.w SP_cmnd00-SP_cmdlist
-		dc.w SP_cmnd00-SP_cmdlist
+		dc.w SP_cmnd10-SP_cmdlist	; $10 | Play CDDA once
+		dc.w SP_cmnd11-SP_cmdlist	; $11 | Play CDDA and loop
+		dc.w SP_cmnd00-SP_cmdlist	; $12 |
+		dc.w SP_cmnd00-SP_cmdlist	; $13 |
+		dc.w SP_cmnd14-SP_cmdlist	; $14 | Stop CDDA
+		dc.w SP_cmnd00-SP_cmdlist	; $15 |
+		dc.w SP_cmnd16-SP_cmdlist	; $16 | CDDA fade-out
+		dc.w SP_cmnd17-SP_cmdlist	; $17 | CDDA Reset volumes
 		dc.w SP_cmnd00-SP_cmdlist
 		dc.w SP_cmnd00-SP_cmdlist
 		dc.w SP_cmnd00-SP_cmdlist
@@ -296,6 +297,13 @@ SP_cmdlist:
 		dc.w SP_cmnd00-SP_cmdlist
 		dc.w SP_cmnd00-SP_cmdlist
 
+; =====================================================================
+; ----------------------------------------------------------------
+; Commands $01-$0F
+;
+; General purpose data transfering
+; ----------------------------------------------------------------
+
 ; --------------------------------------------------------
 ; NULL COMMAND
 ; --------------------------------------------------------
@@ -309,23 +317,26 @@ SP_cmnd00:
 ; Read data from disc and transfer through
 ; dcomm_s as packets of $10 bytes
 ;
-; mcd_comm_m: %lp------
-; l - Lock bit, unlocking exit loop.
-; p - MAIN response bit
+; Input:
+; mcd_comm_m  | %lp------
+;               l - LOCK bit set by MAIN-CPU
+;               p - Data-PASS bit
 ;
-; mcd_comm_s: %-p------
-; p - PASS bit
+; mcd_dcomm_m | "FILENAME.BIN",0
+;               Filename string 8.3 zero terminated
 ;
-; mcd_dcomm_m:
-; dc.b "FILENAME.BIN",0
+; Returns:
+; mcd_comm_s  | %-p------
+;               p - SUB-CPU reports that data passed
 ;
-; mcd_dcomm_s:
-; all
+; Uses:
+; mcd_dcomm_s $00 to $10
 ; --------------------------------------------------------
 
 SP_cmnd01:
-		BIOS_MSCSTOP
-		lea	(scpu_reg+mcd_dcomm_m).w,a0	; a0 - filename
+		move.w	#MSCSTOP,d0			; Stop CDDA music
+		jsr	(_CDBIOS).w
+		lea	(scpu_reg+mcd_dcomm_m).w,a0	; a0 - Filename
 		bsr	spSearchFile
 		lea	(ISO_Output),a0
 		bsr	spReadSectorsN
@@ -333,7 +344,7 @@ SP_cmnd01:
 		lea	(scpu_reg+mcd_dcomm_s).w,a2
 .next_packet:
 		move.l	a2,a1
-		move.w	(a0)+,(a1)+			; WORD writes to be safe...
+		move.w	(a0)+,(a1)+			; WORD writes
 		move.w	(a0)+,(a1)+
 		move.w	(a0)+,(a1)+
 		move.w	(a0)+,(a1)+
@@ -366,17 +377,19 @@ SP_cmnd01:
 ; --------------------------------------------------------
 ; Command $02
 ;
-; Read data from disc and sends it to WORD-RAM
+; Read data from disc directly to WORD-RAM
 ;
-; mcd_dcomm_m:
-; dc.b "FILENAME.BIN",0
+; Input:
+; mcd_dcomm_m | "FILENAME.BIN",0
+;               Filename string 8.3 zero terminated
 ; --------------------------------------------------------
 
 SP_cmnd02:
 		move.b	(scpu_reg+mcd_memory).l,d0
 		btst	#1,d0
 		beq.s	SP_cmnd02
-		BIOS_MSCSTOP
+		move.w	#MSCSTOP,d0			; Stop CDDA music
+		jsr	(_CDBIOS).w
 		lea	(scpu_reg+mcd_dcomm_m).w,a0	; a0 - filename
 		bsr	spSearchFile
 		lea	(scpu_wram),a0
@@ -387,6 +400,20 @@ SP_cmnd02:
 
 ; --------------------------------------------------------
 ; Command $08
+;
+; Transfer memory from MAIN-CPU to SUB-CPU
+;
+; Input:
+; mcd_comm_m  | %lp------
+;               l - LOCK bit set by MAIN-CPU
+;               p - Data-PASS bit
+;
+; mcd_dcomm_m | From $00 to $07
+;               Data packets
+;
+; Returns:
+; mcd_comm_s  | %-p------
+;               p - SUB-CPU reports that data passed
 ; --------------------------------------------------------
 
 SP_cmnd08:
@@ -415,10 +442,10 @@ SP_cmnd08:
 		move.w	(a0)+,(a1)+
 		move.w	(a0)+,(a1)+
 		move.w	(a0)+,(a1)+
-		move.w	(a0)+,(a1)+
-		move.w	(a0)+,(a1)+
-		move.w	(a0)+,(a1)+
-		move.w	(a0)+,(a1)+
+; 		move.w	(a0)+,(a1)+
+; 		move.w	(a0)+,(a1)+
+; 		move.w	(a0)+,(a1)+
+; 		move.w	(a0)+,(a1)+
 		move.b	(scpu_reg+mcd_comm_s).w,d7
 		bset	#6,d7
 		move.b	d7,(scpu_reg+mcd_comm_s).w
@@ -430,21 +457,120 @@ SP_cmnd08:
 		move.b	d7,(scpu_reg+mcd_comm_s).w
 		bra	.next_packet
 .exit_now:
-
 		rts
+
+; =====================================================================
+; ----------------------------------------------------------------
+; Commands $10-$1F
+;
+; CDDA
+; ----------------------------------------------------------------
 
 ; --------------------------------------------------------
 ; Command $10
+;
+; Play CDDA Track, once
+;
+; Input:
+; mcd_dcomm_m | dc.w CD track number
+;                    - DO NOT USE TRACK 1
+;                    - TRACK 0 IS INVALID
 ; --------------------------------------------------------
 
 SP_cmnd10:
-		BIOS_MSCSTOP
+		move.w	#MSCSTOP,d0
+		jsr	(_CDBIOS).w
+		bsr	subCDDA_ResetVolume
 		lea	(scpu_reg+mcd_dcomm_m).w,a0
-; 		lea	.this(pc),a0
-		BIOS_MSCPLAYR
+		move.w	#MSCPLAY1,d0
+		jsr	(_CDBIOS).w
 		rts
-		align 2
-; .this:		dc.w 2
+
+; --------------------------------------------------------
+; Command $11
+;
+; Play CDDA Track, loops
+;
+; Input:
+; mcd_dcomm_m | dc.w track_num ; Track number
+;                    - DO NOT USE TRACK 1
+;                    - TRACK 0 IS INVALID
+; --------------------------------------------------------
+
+SP_cmnd11:
+		move.w	#MSCSTOP,d0
+		jsr	(_CDBIOS).w
+		bsr	subCDDA_ResetVolume
+		lea	(scpu_reg+mcd_dcomm_m).w,a0
+		move.w	#MSCPLAYR,d0
+		jsr	(_CDBIOS).w
+		rts
+
+; --------------------------------------------------------
+; Command $14
+;
+; Stop CDDA Track
+; --------------------------------------------------------
+
+SP_cmnd14:
+		move.w	#MSCSTOP,d0
+		jsr	(_CDBIOS).w
+		bra	subCDDA_ResetVolume
+
+; --------------------------------------------------------
+; Command $16
+;
+; Fade-out/Fade-in CD Volume
+;
+; Input:
+; mcd_dcomm_m | dc.w target_vol,fade_speed
+;
+;               Target volume: $000-$400 Max-Min
+;               Fade Speed:    $001-$200 Slow-Fast
+;                                   $400 Set once
+; --------------------------------------------------------
+
+SP_cmnd16:
+		move.l	(scpu_reg+mcd_dcomm_m).w,d1
+		move.w	#FDRCHG,d0
+		jsr	_CDBIOS.w
+		rts
+
+; --------------------------------------------------------
+; Command $17
+;
+; CDDA Fade-out
+; --------------------------------------------------------
+
+SP_cmnd17:
+; 		move.l	#$0380,d1
+; 		move.w	#FDRSET,d0			; Set CDDA music volume
+; 		jsr	(_CDBIOS).w
+; 		move.l	#$0380|$8000,d1
+; 		move.w	#FDRSET,d0			; Set CDDA music master volume
+; 		jsr	(_CDBIOS).w
+; 		rts
+
+; --------------------------------------------------------
+; CDDA subroutines:
+
+subCDDA_ResetVolume:
+		movem.l	d0-d1/a0-a1,-(sp)
+		move.w	#$0400,d1
+		move.w	#FDRSET,d0			; Set CDDA music volume
+		jsr	(_CDBIOS).w
+		move.w	#$0400|$8000,d1
+		move.w	#FDRSET,d0			; Set CDDA music master volume
+		jsr	(_CDBIOS).w
+		movem.l	(sp)+,d0-d1/a0-a1
+		rts
+
+; =====================================================================
+; ----------------------------------------------------------------
+; Commands $20-$2F
+;
+; Stamps
+; ----------------------------------------------------------------
 
 ; --------------------------------------------------------
 ; Command $20
@@ -481,28 +607,28 @@ spReadSectorsN:
 		move.l	a0,8(a5)
 		move.b	#%011,(scpu_reg+4).w		; Set CDC device to "Sub CPU"
 		move.w	#CDCSTOP,d0			; Stop CDC
-		jsr	_CDBIOS.w
+		jsr	(_CDBIOS).w
 		move.l	a5,a0
 		move.w	#ROMREADN,d0			; Read sector by count
-		jsr	_CDBIOS.w
+		jsr	(_CDBIOS).w
 .wait_STAT:
 		move.w	#CDCSTAT,d0			; Get CDC Status
-		jsr	_CDBIOS.w
+		jsr	(_CDBIOS).w
  		bcs.s	.wait_STAT
 .wait_READ:
 		move.w	#CDCREAD,d0			; CDC Read mode
-		jsr	_CDBIOS.w
+		jsr	(_CDBIOS).w
 		bcs.s	.wait_READ
 		move.l	d0,$10(a5)
 .WaitTransfer:
 		movea.l	8(a5),a0		; a0 - DATA Destination
 		lea	$10(a5),a1			; a1 - HEADER out
 		move.w	#CDCTRN,d0			; CDC Transfer data
-		jsr	_CDBIOS.w
+		jsr	(_CDBIOS).w
 		bcs.s	.waitTransfer			; If not done, branch
 
 		move.w	#CDCACK,d0			; Finish read
-		jsr	_CDBIOS.w
+		jsr	(_CDBIOS).w
 
 		addi.l	#$800,8(a5)
 		addq.l	#1,(a5)

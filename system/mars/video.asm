@@ -10,11 +10,11 @@
 ; Settings
 ; --------------------------------------------------------
 
-SET_MSCRLSIZE	equ 16		; ** Hard-coded, can't change for now **
-SET_MSCRLWDTH	equ 320
-SET_MSCRLHGHT	equ 240
-FBVRAM_BLANK	equ $1FD80	; Framebuffer location of the BLANK line
-FBVRAM_PATCH	equ $1E000	; Framebuffer location to store the affected XShift lines.
+SET_MSCRLSIZE		equ 16		; !! Hard-coded, can't change for now.
+SET_MSCRLWDTH		equ 320		; Affects scrolling and SuperSprites
+SET_MSCRLHGHT		equ 240		;                 ''
+SET_FBVRAM_BLANK	equ $1FD80	; Framebuffer location of the BLANK line
+SET_FBVRAM_PATCH	equ $1E000	; Framebuffer location to store the affected XShift lines.
 
 ; --------------------------------------------------------
 ; Variables
@@ -37,10 +37,10 @@ FBVRAM_PATCH	equ $1E000	; Framebuffer location to store the affected XShift line
 		align 4
 MarsVideo_Init:
 		mov	#_sysreg,r1
-		mov 	#FM,r0			; Set SuperVDP permission for SH2
-  		mov.b	r0,@(adapter,r1)	; ** The Genesis side will control the
+		mov 	#FM,r0				; Set SuperVDP permission for SH2
+  		mov.b	r0,@(adapter,r1)		; ** The Genesis side will write the palette**
 		mov	#_vdpreg,r1
-		mov	#0,r0			; Start at BLANK
+		mov	#0,r0				; BLANK mode
 		mov.b	r0,@(bitmapmd,r1)
 		mov	#SET_MSCRLWDTH+SET_MSCRLSIZE,r1	; Set scroll-area settings
 		mov	#SET_MSCRLHGHT+SET_MSCRLSIZE,r2
@@ -92,7 +92,7 @@ MarsVideo_FixTblShift:
 		and	#%11,r0
 		cmp/eq	#1,r0
 		bf	.ptchset
-		mov.w	@(marsGbl_XShift,gbr),r0	; XShift is set? (Note: external value)
+		mov.w	@(marsGbl_XShift,gbr),r0	; XShift is set? (EXTERNAL value)
 		and	#1,r0
 		tst	r0,r0
 		bt	.ptchset

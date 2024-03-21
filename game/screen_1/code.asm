@@ -34,6 +34,7 @@ RAM_GemaArg2		ds.w 1
 RAM_GemaArg3		ds.w 1
 RAM_GemaArg4		ds.w 1
 RAM_GemaArg5		ds.w 1
+RAM_GemaArg6		ds.w 1
 RAM_ChnlLinks		ds.w 26
 sizeof_thisbuff		ds.l 0
 			endstrct
@@ -46,7 +47,7 @@ sizeof_thisbuff		ds.l 0
 ; ------------------------------------------------------
 
 		bsr	Mode_Init
-		set_dbanks file_mddata_def,pointr_marsdata_def
+		load_banks file_mddata_def,pointr_marsdata_def
 
 	; ----------------------------------------------
 	; Load assets
@@ -112,7 +113,8 @@ sizeof_thisbuff		ds.l 0
 		clr.w	(RAM_GemaArg3).w
 		clr.w	(RAM_GemaArg4).w
 		clr.w	(RAM_GemaArg5).w
-		move.w	#214,d0
+		move.w	#212,(RAM_GemaArg6).w
+		move.w	#212,d0
 		bsr	gemaSetBeats
 ; 		moveq	#1,d0
 ; 		bsr	gemaPlayTrack
@@ -141,26 +143,26 @@ sizeof_thisbuff		ds.l 0
 		move.l	#locate(31,26,0),d0
 		bsr	Video_Print
 
-	; Controls
-	if MCD|MARSCD
-		lea	(Controller_1).w,a6
-		move.w	on_press(a6),d7
-		btst	#bitJoyMode,d7
-		beq.s	.n_aplay
-; 		moveq	#1,d0
-; 		bsr	Video_MdMarsGfxMode
-		move.w	#$0002,(sysmcd_reg+mcd_dcomm_m).l
-		move.w	#$0010,d0
-		bsr	System_McdSubTask
-.n_aplay:
-	endif
+; 	; Controls
+; 	if MCD|MARSCD
+; 		lea	(Controller_1).w,a6
+; 		move.w	on_press(a6),d7
+; 		btst	#bitJoyMode,d7
+; 		beq.s	.n_aplay
+; ; 		moveq	#1,d0
+; ; 		bsr	Video_MdMarsGfxMode
+; 		move.w	#$0002,(sysmcd_reg+mcd_dcomm_m).l
+; 		move.w	#$0010,d0
+; 		bsr	System_McdSubTask
+; .n_aplay:
+; 	endif
 
 		lea	(Controller_1).w,a6
 		lea	(RAM_CurrPick).w,a5
 	; UP/DOWN
 		move.w	on_hold(a6),d7
-		btst	#bitJoyB,d7
-		bne.s.	.n_up
+		andi.w	#JoyA+JoyB+JoyC,d7
+		bne.s	.n_up
 		move.w	on_press(a6),d7
 		btst	#bitJoyDown,d7
 		beq.s	.n_down
@@ -205,7 +207,7 @@ sizeof_thisbuff		ds.l 0
 		bra.w	.option_3
 		bra.w	.option_4
 		bra.w	.option_5
-		bra.w	.nothing
+		bra.w	.option_6
 		bra.w	.option_7
 
 ; ------------------------------------------------------
@@ -330,6 +332,45 @@ sizeof_thisbuff		ds.l 0
 		bra	gemaStopAll
 .no_press2:
 		rts
+
+; ------------------------------------------------------
+; OPTION 6
+; ------------------------------------------------------
+
+.option_6:
+		lea	(RAM_GemaArg6).w,a5
+		move.w	on_hold(a6),d7
+		andi.w	#JoyB,d7
+		beq.s	.no_press2
+		move.w	on_press(a6),d7
+		btst	#bitJoyRight,d7
+		beq.s	.op2_right
+		addq.w	#1,(a5)
+		bra	.show_me_2
+.op2_right:
+		btst	#bitJoyLeft,d7
+		beq.s	.op2_left
+		subq.w	#1,(a5)
+		bsr	.show_me_2
+.op2_left:
+		move.w	on_hold(a6),d7
+		btst	#bitJoyDown,d7
+		beq.s	.op2_down
+		addq.w	#1,(a5)
+		bsr	.show_me_2
+.op2_down:
+		btst	#bitJoyUp,d7
+		beq.s	.op2_up
+		subq.w	#1,(a5)
+		bsr	.show_me_2
+.op2_up:
+		move.w	on_press(a6),d7
+		btst	#bitJoyStart,d7
+		beq.s	.no_press2
+.show_me_2:
+		bsr	.show_me
+		move.w	(a5),d0
+		bra	gemaSetBeats
 
 ; ------------------------------------------------------
 ; OPTION 7
@@ -569,7 +610,6 @@ Object_Sisi:
 		move.b	#1,obj_index(a6)
 		move.l	#objMap_Sisi,obj_map(a6)
 		move.w	#setVram_Sisi|$2000,obj_vram(a6)
-		bclr	#bitobj_Mars,obj_set(a6)	; Genesis object
 ; 		move.w	#320/2,obj_x(a6)
 ; 		move.w	#224/2,obj_y(a6)
 		clr.w	obj_frame(a6)
@@ -788,11 +828,12 @@ str_TesterInit:
 		dc.b "    --> EXIT"
 		dc.b 0
 		align 2
-str_ShowMe:	dc.b "\\w \\w \\w",$A
-		dc.b $A
-		dc.b "\\w \\w \\w",0
+str_ShowMe:	dc.b "\\w \\w \\w",$A,$A
+		dc.b "\\w \\w \\w",$A,$A,$A
+		dc.b "\\w",0
 		dc.l RAM_GemaArg0,RAM_GemaArg1,RAM_GemaArg2
 		dc.l RAM_GemaArg3,RAM_GemaArg4,RAM_GemaArg5
+		dc.l RAM_GemaArg6
 		align 2
 str_Info:
 		dc.b "\\l",0

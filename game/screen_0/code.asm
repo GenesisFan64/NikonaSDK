@@ -8,11 +8,11 @@
 ; Variables
 ; ------------------------------------------------------
 
-setVram_Emily		equ $440
-setVram_Doremi		equ $440+(4*6)
-setVram_Sophie		equ $440+((4*6)*2)
-setVram_Nicole		equ $440+((4*6)*3)
-setVram_Bibi		equ $4A0
+setVram_Emily		equ $460
+setVram_Doremi		equ $460+(4*6)
+setVram_Sophie		equ $460+((4*6)*2)
+setVram_Nicole		equ $460+((4*6)*3)
+setVram_Bibi		equ $4D0
 
 ; ====================================================================
 ; ------------------------------------------------------
@@ -31,7 +31,8 @@ setVram_Bibi		equ $4A0
 
 			strct RAM_ScrnBuff
 RAM_SC0_Null		ds.l 1
-RAM_WhoIAm		ds.l 1
+; RAM_WhoIAm		ds.l 1
+RAM_SC0_Cmnd		ds.w 1
 sizeof_thisbuff		ds.l 0
 			endstrct
 
@@ -43,7 +44,10 @@ sizeof_thisbuff		ds.l 0
 ; ------------------------------------------------------
 
 		bsr	Mode_Init
-		set_dbanks file_mddata_def,pointr_marsdata_def
+		load_banks file_mddata_def,pointr_marsdata_def
+		lea	(ASCII_FONT).l,a0
+		move.l	#0,a1
+		bsr	Video_PrintInit
 
 	; ----------------------------------------------
 	; Load assets
@@ -66,27 +70,21 @@ sizeof_thisbuff		ds.l 0
 		bsr	Video_MdMarsMap_Set
 		moveq	#1,d0
 		bsr	Video_MdMars_VideoMode
+	else
+		move.l	#Art_Scn0_BG,d0
+		move.w	#cell_vram($0001),d1
+		move.w	#Art_Scn0_BG_e-Art_Scn0_BG,d2
+		bsr	Video_LoadArt
+		lea	(MAP_Scr0_BG),a0
+		move.l	#locate(0,0,1),d0
+		move.l	#map_size(320,224),d1
+		move.w	#$0001|$6000,d2
+		bsr	Video_LoadMap
 	endif
-; 	if MARS|MARSCD=0
-; 		move.l	#Art_Scn0_BG,d0
-; 		move.w	#cell_vram($0001),d1
-; 		move.w	#Art_Scn0_BG_e-Art_Scn0_BG,d2
-; 		bsr	Video_LoadArt
-; 		lea	(MAP_Scr0_BG),a0
-; 		move.l	#locate(0,0,1),d0
-; 		move.l	#map_size(320,224),d1
-; 		move.w	#$0001,d2
-; 		bsr	Video_LoadMap
-; 	endif
-		lea	(ASCII_FONT).l,a0
-		lea	(ASCII_PAL).l,a1
-		bsr	Video_PrintInit
-
-
-; 		lea	PAL_SCR0_TEST(pc),a0
-; 		moveq	#0,d0
-; 		move.w	#16,d1
-; 		bsr	Video_FadePal
+		lea	PAL_SCR0_TEST(pc),a0
+		moveq	#48,d0
+		move.w	#16,d1
+		bsr	Video_FadePal
 
 		lea	(objPal_Emily),a0
 		moveq	#0,d0
@@ -100,11 +98,9 @@ sizeof_thisbuff		ds.l 0
 		moveq	#32,d0
 		move.w	#16,d1
 		bsr	Video_FadePal
-
 		lea	str_Scrn0Intro(pc),a0
 		move.l	#locate(1,1,0),d0
 		bsr	Video_Print
-
 		move.l	#Obj_Emily,d0		; IN THIS ORDER
 		moveq	#0,d1
 		bsr	Objects_Add
@@ -122,17 +118,12 @@ sizeof_thisbuff		ds.l 0
 		bsr	Objects_Add
 
 	; ----------------------------------------------
-		move.w	#214,d0
-		bsr	gemaSetBeats
-		moveq	#0,d0
-		moveq	#0,d1
-		moveq	#0,d2
-		bsr	gemaPlayTrack
-; 	if MCD|MARSCD
-; 		move.w	#$0002,(sysmcd_reg+mcd_dcomm_m).l
-; 		move.w	#$0010,d0
-; 		bsr	System_McdSubTask
-; 	endif
+; 		move.w	#214,d0
+; 		bsr	gemaSetBeats
+; 		moveq	#0,d0
+; 		moveq	#0,d1
+; 		moveq	#0,d2
+; 		bsr	gemaPlayTrack
 	; ----------------------------------------------
 ; 		bsr	.show_me
 ; 		bsr	.steal_vars
@@ -151,14 +142,13 @@ sizeof_thisbuff		ds.l 0
 
 .loop:
 		bsr	System_Render
-; 		vdp_showme $0E0
 		bsr	Objects_Run
 		bsr	ShowMe_Who
 		move.w	(Controller_1+on_press),d7
 		btst	#bitJoyStart,d7
 		bne.s	.snd_test
-; 		vdp_showme $000
 		bra.s	.loop
+
 .snd_test:
 		bsr	gemaStopAll
 		bsr	System_Render
@@ -202,7 +192,6 @@ Obj_Emily:
 		move.b	#1,obj_index(a6)
 		move.l	#objMap_Emily,obj_map(a6)
 		move.w	#setVram_Emily|$8000,obj_vram(a6)
-		bclr	#bitobj_Mars,obj_set(a6)	; Set as Genesis object
 		move.l	#$03030202,obj_size(a6)		; UDLR sizes
 		move.w	#(320/2)-32,obj_x(a6)
 		move.w	#(224/2)-32,obj_y(a6)
@@ -268,15 +257,15 @@ Obj_Emily:
 		blt.s	.y_posi
 		move.w	#224,obj_y(a6)
 .y_posi:
-		clr.l	(RAM_WhoIAm).w
-		bsr	object_Collision
-		tst.l	d0
-		beq.s	.no_one
-		move.l	d0,(RAM_WhoIAm).w
-.no_one:
+; 		clr.l	(RAM_WhoIAm).w
+; 		bsr	object_Collision
+; 		tst.l	d0
+; 		beq.s	.no_one
+; 		move.l	d0,(RAM_WhoIAm).w
+; .no_one:
 		lea	(objDma_Emily),a0
 		lea	(Art_Emily),a1
-		bsr	object_DMA
+		bsr	object_DMA_Auto
 		bra	object_Display
 
 ; ----------------------------------------------
@@ -319,7 +308,6 @@ Obj_Doremi:
 ; ----------------------------------------------
 .init:
 		move.b	#1,obj_index(a6)
-		bclr	#bitobj_Mars,obj_set(a6)	; Set as Genesis object
 		move.l	#$03030202,obj_size(a6)		; UDLR sizes
 		move.b	obj_subid(a6),d0
 		lsl.w	#4,d0
@@ -351,7 +339,7 @@ Obj_Doremi:
 		adda	d0,a2
 		move.l	(a2)+,a0
 		move.l	(a2)+,a1
-		bsr	object_DMA
+		bsr	object_DMA_Auto
 		bra	object_Display
 
 ; ----------------------------------------------
@@ -393,7 +381,6 @@ Obj_Bibi:
 ; ----------------------------------------------
 .init:
 		move.b	#1,obj_index(a6)
-		bclr	#bitobj_Mars,obj_set(a6)	; Set as Genesis object
 		move.l	#$02030202,obj_size(a6)		; UDLR sizes
 		move.w	#(320/2),obj_x(a6)
 		move.w	#(224/2),obj_y(a6)
@@ -489,7 +476,7 @@ Obj_Bibi:
 
 		lea	(objDma_Bibi),a0
 		lea	(Art_Bibi),a1
-		bsr	object_DMA
+		bsr	object_DMA_Auto
 		bra	object_Display
 
 ; ----------------------------------------------
@@ -532,31 +519,32 @@ Obj_Bibi:
 ; ------------------------------------------------------
 
 ShowMe_Who:
-		lea	list_WhoIAm(pc),a1
-
-		move.l	(RAM_WhoIAm).w,d3
-		tst.l	d3
-		beq.s	.nadie
-		move.l	d3,a2
-		lea	str_ListWho(pc),a0
-.next_one:
-		move.l	(a1),d0
-		move.w	4(a1),d1
-		cmp.l	#-1,d0
-		beq.s	.nadie
-		cmp.l	obj_code(a2),d0
-		bne.s	.not_this
-		cmp.b	obj_subid(a2),d1
-		beq.s	.found
-.not_this:
-		adda	#6,a1
-		adda	#8,a0
-		bra.s	.next_one
-.nadie:
+	if MCD|MARSCD
+		lea	(Controller_1),a6
+		move.w	on_press(a6),d7
+		btst	#bitJoyC,d7
+		beq.s	.noto_c
+		moveq	#2,d0
+		bsr	System_MdMcd_CdPlay_L
+.noto_c:
+		btst	#bitJoyB,d7
+		beq.s	.noto_b
+		move.w	#$0000,d0
+		move.w	#$0010,d1
+		bsr	System_MdMcd_CdFade
+		bra	.noto_a
+.noto_b:
+		btst	#bitJoyA,d7
+		beq.s	.noto_a
+		move.w	#$0400,d0
+		move.w	#$0010,d1
+		bsr	System_MdMcd_CdFade
+.noto_a:
+	endif
 		lea	str_Nadie(pc),a0
-.found:
-		move.l	#locate(21,2,0),d0
+		move.l	#locate(1,3,0),d0
 		bra	Video_Print
+; 		rts
 
 ; ====================================================================
 ; ------------------------------------------------------
@@ -576,29 +564,32 @@ PAL_SCR0_TEST:
 		binclude "game/screen_0/data/md/maps/test/md_pal.bin"
 		align 2
 str_Scrn0Intro:
-		dc.b "Probando colision con objectos",$A
-		dc.b "Emiliy toca toca a:",0
+		dc.b "Probando los comandos CDDA",0
 		align 2
-str_Nadie:	dc.b "NADIE  ",0
-str_ListWho:	dc.b "Bibi   ",0
-		dc.b "Doremi ",0
-		dc.b "Sophie ",0
-		dc.b "Nicole ",0
-		dc.b "Nikona ",0
-list_WhoIAm:	dc.l Obj_Bibi
-		dc.w 0
-		dc.l Obj_Doremi
-		dc.w 0
-		dc.l Obj_Doremi
-		dc.w 1
-		dc.l Obj_Doremi
-		dc.w 2
-		dc.l -1
-		dc.w 0
+str_Nadie:	dc.b "\\w",0
+		dc.l RAM_SC0_Cmnd
+		align 2
 
-str_ShowMe:	dc.b "\\w | \\w \\w",0
-		dc.l $FF0000,$FF0004,$FF0006
-		align 2
+
+; str_ListWho:	dc.b "Bibi   ",0
+; 		dc.b "Doremi ",0
+; 		dc.b "Sophie ",0
+; 		dc.b "Nicole ",0
+; 		dc.b "Nikona ",0
+; list_WhoIAm:	dc.l Obj_Bibi
+; 		dc.w 0
+; 		dc.l Obj_Doremi
+; 		dc.w 0
+; 		dc.l Obj_Doremi
+; 		dc.w 1
+; 		dc.l Obj_Doremi
+; 		dc.w 2
+; 		dc.l -1
+; 		dc.w 0
+;
+; str_ShowMe:	dc.b "\\w | \\w \\w",0
+; 		dc.l $FF0000,$FF0004,$FF0006
+; 		align 2
 
 ; List_ObjPos:	dc.w 1
 ; 		dc.w 215,164
