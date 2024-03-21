@@ -1992,16 +1992,18 @@ object_Display:
 ; Makes DMA graphics entry for this object,
 ; for Genesis VDP Sprites ONLY.
 ;
-; Calling the _Auto version will
-; OVERWRITE obj_vram
-;
 ; Input:
 ; a6   | This object
 ; a0   | DMA map data
 ; a1   | Graphics data
 ;
 ; Returns:
-; d1.w | New VRAM Position
+; d1.w | New VRAM Position for _Auto
+;
+; Notes:
+; - Calling the _Auto version will
+;   OVERWRITE obj_vram with the available
+;   position for output.
 ; --------------------------------------------------------
 
 object_DMA_Auto:
@@ -2027,19 +2029,22 @@ object_DMA:
 ; ------------------------------------------------
 
 objMkDMA_Go:
-		move.l	a1,d3			; d3 - Art data
-		move.w	obj_frame(a6),d4
+		btst	#bitobj_Mars,obj_set(a6)
+		bne.s	.no_dma
+		move.l	a1,d3			; d3 - BASE graphics data
+		move.w	obj_frame(a6),d4	; d4 - Current frame
  		add.w	d4,d4
 		move.w	(a0,d4.w),d4
  		adda	d4,a0
  		moveq	#0,d4
  		move.w	(a0)+,d4
- 		beq.s	.no_dma
+ 		beq.s	.no_dma			; If no valid entries, skip
+ 		bmi.s	.no_dma
  		subq.w	#1,d4
 		move.w	obj_vram(a6),d1
 		andi.w	#$7FF,d1
 		lsl.w	#5,d1
-		move.l	a6,-(sp)	; SAVE a6
+		move.l	a6,-(sp)		; SAVE a6
 .next_pz:
 		swap	d4
 		move.w	(a0)+,d4
@@ -2056,8 +2061,8 @@ objMkDMA_Go:
 		add.w	d2,d1
 		swap	d4
 		dbf	d4,.next_pz
-		move.l	(sp)+,a6
-		lsr.w	#5,d1		; Return d1
+		move.l	(sp)+,a6		; Restore a6
+		lsr.w	#5,d1			; Return d1
 .no_dma:
 		rts
 
@@ -2070,12 +2075,29 @@ objMkDMA_Go:
 ; a6 | This object
 ; a0 | Animation data
 ;
-; Breaks:
-; a0/d5-d7
+; Notes:
+; - Calling this will OVERWRITE obj_frame with the
+;   new frame number set on the animation sequence.
 ; --------------------------------------------------------
 
+; anim_data:
+; 	dc.w .frame_1-anim_data
+; 	dc.w .frame_2-anim_data
+; 	;...
+;
+; .frame_num:
+; 	dc.w $speed			; Animation speed
+; 	dc.w $frame_0,$frame_1,...	; Frames list
+; 	dc.w $command			; End-of-data action command
+;
+; $command:
+; | -1 Finish animation, ends at last frame
+; | -2 Loop animation, goes back to index 0
+; | -3 Go to index:
+; |    dc.w -3,to_slot
+
 object_Animate:
-		movem.l	d5-d7,-(sp)
+		movem.l	a0/d5-d7,-(sp)
 		moveq	#0,d7
  		move.b	obj_anim_icur(a6),d7
  		cmp.b	obj_anim_id(a6),d7
@@ -2104,9 +2126,9 @@ object_Animate:
  		adda	d7,a0
  		move.w	(a0),d5
  		cmpi.w	#-1,d5
- 		beq.s	.noAnim		; loop
- 		cmpi.w	#-2,d5
  		beq.s	.lastFrame	; finish
+ 		cmpi.w	#-2,d5
+ 		beq.s	.noAnim		; loop animation
  		cmpi.w	#-3,d5
  		beq.s	.goToFrame
  		move.w	d5,obj_frame(a6)
@@ -2124,7 +2146,7 @@ object_Animate:
 .lastFrame:
  		clr.b	obj_anim_spd(a6)
 .exit_anim:
-		movem.l	(sp)+,d5-d7
+		movem.l	(sp)+,a0/d5-d7
 		rts
 
 ; --------------------------------------------------------

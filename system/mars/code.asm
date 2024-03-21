@@ -540,29 +540,20 @@ m_irq_vres:
 		mov	#_sysreg,r1
 		mov	r15,r0
 		mov.w	r0,@(vresintclr,r1)
-		mov	#_DMAOPERATION,r1	; Quickly cancel DMA's
-		mov	#0,r0
-		mov	r0,@r1
-		mov	#_sysreg,r1		; If RV was active, freeze.
 		mov.w	@(dreqctl,r1),r0
 		tst	#1,r0
 		bf	.rv_busy
-		mov 	#_vdpreg,r1
+		mov	#_DMAOPERATION,r1	; Quickly cancel DMA's
 		mov	#0,r0
-		mov.b	r0,@(bitmapmd,r1)
+		mov	r0,@r1
 		mov	#(STACK_MSTR)-8,r15	; Reset Master's STACK
 		mov	#SH2_M_HotStart,r0	; Write return point and status
 		mov	r0,@r15
 		mov.w   #$F0,r0
 		mov	r0,@(4,r15)
-		mov	#_sysreg,r1		; Report Master as OK
-		mov	#"M_OK",r0
-		mov	r0,@(comm0,r1)
-		nop
-		nop
-		nop
-		nop
-		nop
+; 		mov	#_sysreg,r1		; Report Master as OK
+; 		mov	#"M_OK",r0
+; 		mov	r0,@(comm0,r1)
 		rte
 		nop
 		align 4
@@ -903,26 +894,20 @@ s_irq_vres:
 		mov	#_sysreg,r1
 		mov	r15,r0
 		mov.w	r0,@(vresintclr,r1)
-		mov	#_DMAOPERATION,r1	; Quickly cancel DMA's
-		mov	#0,r0
-		mov	r0,@r1
-		mov	#_sysreg,r1		; If RV was active, freeze.
 		mov.w	@(dreqctl,r1),r0
 		tst	#1,r0
 		bf	.rv_busy
+		mov	#_DMAOPERATION,r1	; Quickly cancel DMA's
+		mov	#0,r0
+		mov	r0,@r1
 		mov	#(STACK_SLV)-8,r15	; Reset Slave's STACK
 		mov	#SH2_S_HotStart,r0	; Write return point and status
 		mov	r0,@r15
 		mov.w   #$F0,r0
 		mov	r0,@(4,r15)
-		mov	#_sysreg,r1
-		mov	#"S_OK",r0		; Report Slave as OK
-		mov	r0,@(comm4,r1)
-		nop
-		nop
-		nop
-		nop
-		nop
+; 		mov	#_sysreg,r1
+; 		mov	#"S_OK",r0		; Report Slave as OK
+; 		mov	r0,@(comm4,r1)
 		rte
 		nop
 		align 4
@@ -948,29 +933,29 @@ SH2_M_Entry:
 		mov	#SH2_Master,r0			; Reset vbr
 		ldc	r0,vbr
 		mov.l	#_FRT,r1
-		mov	#0,r0
+		mov	#$00,r0
 		mov.b	r0,@(0,r1)
 		mov.b	#$E2,r0
+		mov.b	r0,@(7,r1)
+		mov	#$00,r0
+		mov.b	r0,@(4,r1)
+		mov	#$01,r0
+		mov.b	r0,@(5,r1)
+		mov	#$00,r0
+		mov.b	r0,@(6,r1)
+		mov	#$01,r0
+		mov.b	r0,@(1,r1)
+		mov	#$00,r0
+		mov.b	r0,@(3,r1)
+		mov.b	r0,@(2,r1)
+		mov.b	#$F2,r0				; <-- VRES wake up
 		mov.b	r0,@(7,r1)
 		mov	#0,r0
 		mov.b	r0,@(4,r1)
 		mov	#1,r0
 		mov.b	r0,@(5,r1)
-		mov	#0,r0
-		mov.b	r0,@(6,r1)
-		mov	#1,r0
-		mov.b	r0,@(1,r1)
-		mov	#0,r0
-		mov.b	r0,@(3,r1)
-		mov.b	r0,@(2,r1)
-; 		mov.b	#$F2,r0				; <-- not needed here
-; 		mov.b	r0,@(7,r1)
-; 		mov	#0,r0
-; 		mov.b	r0,@(4,r1)
-; 		mov	#1,r0
-; 		mov.b	r0,@(5,r1)
-; 		mov.b	#$E2,r0
-; 		mov.b	r0,@(7,r1)
+		mov.b	#$E2,r0
+		mov.b	r0,@(7,r1)
 
 	; --------------------------------------------------------
 	; Extra interrupt settings

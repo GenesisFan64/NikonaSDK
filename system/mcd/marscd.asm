@@ -197,7 +197,7 @@ IcdAllEnd:
 		move.l	#$80048104,(a6)			; Default top VDP regs
 		moveq	#0,d0				; Clear both Master and Slave comm's
 		move.l	d0,comm12(a5)
-		move.w	#$7F,d7				; Delay
+		move.w	#$FF,d7				; Delay
 .wait_sh2:
 		move.w	#$7F,d6
 		dbf	d6,*

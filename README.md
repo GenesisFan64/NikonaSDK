@@ -12,3 +12,6 @@ Code targets a modified version of AS Macro Assembler by Flamewing and a custom 
 
 - Windows: tools/AS/win32
 - Linux: tools/AS/linux
+
+CURRENT ISSUES:
+- 32X: Solve the RV bit freeze on Reset, already known issue.

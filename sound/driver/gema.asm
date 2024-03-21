@@ -231,6 +231,7 @@ sndUnlockZ80:
 ; ------------------------------------------------
 
 sndReq_Enter:
+		ori.w	#$0700,sr			; Disable interrupts
 	if PICO=0
 		move.w	#$0100,(z80_bus).l		; Request Z80 Stop
 	endif
@@ -255,7 +256,7 @@ sndReq_Exit:
 		suba	#8+(4*4),sp
 		movem.l	(sp)+,d6-d7/a5-a6		; And pop those back
 		adda	#8,sp
-; 		andi.w	#$F8FF,sr			; Enable interrupts
+		andi.w	#$F8FF,sr			; Enable interrupts
 		rts
 
 ; ------------------------------------------------

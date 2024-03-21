@@ -277,19 +277,23 @@ Obj_Emily:
 		dc.w .anim_l-.anim_data
 .anim_d:
 		dc.w 8
-		dc.w 0,1,2,3,-1
+		dc.w 0,1,2,3
+		dc.w -2
 		align 2
 .anim_u:
 		dc.w 8
-		dc.w 4,5,6,7,-1
+		dc.w 4,5,6,7
+		dc.w -2
 		align 2
 .anim_r:
 		dc.w 8
-		dc.w 8,9,10,11,-1
+		dc.w 8,9,10,11
+		dc.w -2
 		align 2
 .anim_l:
 		dc.w 8
-		dc.w 12,13,14,15,-1
+		dc.w 12,13,14,15
+		dc.w -2
 		align 2
 
 ; --------------------------------------------------
@@ -423,7 +427,6 @@ Obj_Bibi:
 .plus_y_spd:
 		move.w	d5,obj_y_spd(a6)
 .no_y_spd:
-
 		tst.w	d7
 		beq.s	.no_x_spd
 		moveq	#2,d0
@@ -495,23 +498,23 @@ Obj_Bibi:
 .stand:
 		dc.w 7
 		dc.w 0
-		dc.w -1
+		dc.w -2
 .walk_d:
 		dc.w 7
 		dc.w 0,1,0,2
-		dc.w -1
+		dc.w -2
 .walk_u:
 		dc.w 7
 		dc.w 3,4,3,5
-		dc.w -1
+		dc.w -2
 .walk_lr:
 		dc.w 7
 		dc.w 6,7,6,8
-		dc.w -1
+		dc.w -2
 .yatta:
 		dc.w 7
 		dc.w 9
-		dc.w -1
+		dc.w -2
 
 ; ====================================================================
 ; ------------------------------------------------------

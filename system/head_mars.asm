@@ -244,29 +244,69 @@ MD_ErrorTrap:
 ; ----------------------------------------------------------------
 
 MD_Init:
+; 		btst	#15,d0
+; 		bne.b	.vres_rv
+; 		bra	_init
+; .vres_rv:
+; 		vdp_showme $0E0
+; 		lea	(sysmars_reg).l,a5
+; 		btst.b	#ADEN,adapter(a5)
+; 		bne	.adapter_on
+; 		vdp_showme $00E
+; 		lea	.l0(pc),a0	; copy from ROM to RAM
+; 		lea	($FF0000),a1
+; 		move.l	a1,a2
+; 		move.l	(a0)+,(a1)+
+; 		move.l	(a0)+,(a1)+
+; 		move.l	(a0)+,(a1)+
+; 		move.l	(a0)+,(a1)+
+; 		move.l	(a0)+,(a1)+
+; 		move.l	(a0)+,(a1)+
+; 		move.l	(a0)+,(a1)+
+; 		move.l	(a0)+,(a1)+
+; 		jmp	(a2)			; jump workram
+; .l0:
+; 		move.b	#1,adapter(a5)		; switch back into MARS mode
+; 		move.l	#$880000|.restart_icd,a0
+; 		jmp	(a0)			; jump ROM(+$880000)
+; .restart_icd:
+; 		lea	($A10000).l,a5
+; 		move.l	#-64,a4
+; 		move.w	#3900,d7		; 8
+; 		move.l	#$880000|$6E4,a1
+; 		jmp	(a1)			; jump icd_mars.prg ?res_wait
+; .adapter_on:
+; 		lea	(sysmars_reg).l,a5
+; 		btst.b	#1,adapter(a5)
+; 		bne	_hotstart
+; 		bra.s	.restart_icd
+;
+; ; ----------------------------------------------------------------
+;
+; _init:
 		move.w	#$2700,sr
-		tst.w	(vdp_ctrl).l
+; _hotstart:
+		lea	(RAM_Stack),sp		; HW: Set STACK manually, Pressing RESET moves it to 0
+		lea	(vdp_data),a6
+		lea	(sysmars_reg).l,a5
+		move.l	#$80048104,4(a6)	; Reset these VDP registers, Cancels any DMA
+.wait_dma:	move.w	4(a6),d7		; But also check if we got in middle of one...
+		btst	#1,d7
+		bne.s	.wait_dma
+		move.l	#$C0000000,4(a6)	; Clear ALL palette
+		moveq	#64-1,d7
+		moveq	#0,d6
+.palclear:
+		move.w	d6,(a6)
+		dbf	d7,.palclear
 		lea	($FFFF0000),a0		; Clean our RAM.
 		move.l	#sizeof_mdram,d1
 		moveq	#0,d0
 .loop_ram:	move.w	d0,(a0)+
 		cmp.l	d1,a0
 		bcs.s	.loop_ram
-		lea	(vdp_data),a6		; Clear palette directly
-		lea	(sysmars_reg).l,a5
-.wait_dma:	move.w	4(a6),d7		; Check if DMA is active.
-		btst	#1,d7
-		bne.s	.wait_dma
-		move.l	#$80048104,4(a6)	; Default top VDP regs
 		moveq	#0,d0			; Clear both Master and Slave comm's
 		move.l	d0,comm12(a5)
-		lea	(RAM_Stack),sp		; HW: Set STACK manually, Pressing RESET moves it to 0
-		move.l	#$C0000000,4(a6)
-		moveq	#64-1,d7
-		moveq	#0,d6
-.palclear:
-		move.w	d6,(a6)
-		dbf	d7,.palclear
 		move.w	#$7F,d7			; Delay until SH2 starts first.
 .wait_sh2:
 		move.w	#$7F,d6
