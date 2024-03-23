@@ -52,6 +52,9 @@ sizeof_thisbuff		ds.l 0
 	; ----------------------------------------------
 	; Load assets
 	if MARS|MARSCD
+; 		lea	(RAM_MdMars_SuperSpr),a0
+; 		move.l	#0,sspr_Art(a0)
+
 		lea	(PalMars_TEST),a0
 		move.w	#0,d0
 		move.w	#256,d1

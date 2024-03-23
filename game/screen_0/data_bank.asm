@@ -22,6 +22,12 @@ MapMars_Scrn0:
 ; 32X Palettes
 ; ----------------------------------------------------------------
 
+PalMars_Doremi:
+		binclude "game/screen_0/data/mars/objects/doremi/doremi_pal.bin"
+		align 2
+PalMars_Sophie:
+		binclude "game/screen_0/data/mars/objects/sophie/sophie_pal.bin"
+		align 2
 PalMars_Scrn0:
 		binclude "game/screen_0/data/mars/maps/test/data_pal.bin"
 		align 2

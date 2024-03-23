@@ -66,9 +66,10 @@ monowidth	equ	$38		; PWM Monaural Width
 
 ; _sysreg
 ; adapter
-CART		equ	%00000001	; CD or Cartridge
-ADEN		equ	%00000010	; MARS Enabled: No/Yes
+ADEN		equ	%00000001	; MARS Enabled: No/Yes
+RES		equ	%00000010	; SH2 Reset: Yes/Cancelled
 FM		equ	%10000000	; SuperVDP permission: MD or SH
+
 ; framectl
 FS		equ	%00000001	; Current framebuffer DRAM pixel data
 FEN		equ	%00000010	; Can write to Framebuffer: Yes/No

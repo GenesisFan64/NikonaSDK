@@ -114,9 +114,9 @@ MD_Entry:
 		move	#$2700,sr			; Disable interrputs
 		move.b	(sys_io).l,d0			; Read IO port
 		andi.b	#%00001111,d0			; Get version, right 4 bits
-		beq.s	.oldmd				; If 0, No TMSS
+		beq.s	.old_md				; If 0, No TMSS
 		move.l	($100).l,(sys_tmss).l		; Write "SEGA" to port sys_tmss
-.oldmd:
+.old_md:
 		tst.w	(vdp_ctrl).l			; Test VDP to unlock Video
 	; --------------------------------
 		moveq	#0,d0
@@ -132,6 +132,7 @@ MD_Entry:
 .wait_dma:	move.w	4(a6),d7			; Check if DMA is active.
 		btst	#1,d7
 		bne.s	.wait_dma
+		move.l	#$80048104,4(a6)		; Reset these VDP registers
 		move.l	#$C0000000,4(a6)		; Clear palette
 		moveq	#64-1,d7
 		moveq	#0,d6

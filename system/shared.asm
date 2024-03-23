@@ -96,7 +96,7 @@ sizeof_dreq	ds.l 0
 RAM_MdMars_Palette	equ RAM_MdDreq+Dreq_Palette
 RAM_MdMars_SuperSpr	equ RAM_MdDreq+Dreq_SuperSpr
 RAM_MdMars_ScrlData	equ RAM_MdDreq+Dreq_ScrlData
-RAM_MdMars_ScrlBuff	equ RAM_MdDreq+Dreq_ScrlBuff
+RAM_MdMars_Screen	equ RAM_MdDreq+Dreq_ScrlBuff
 
 ; ----------------------------------------------------------------
 

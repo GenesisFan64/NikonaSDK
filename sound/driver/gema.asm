@@ -296,6 +296,8 @@ sndReq_sbyte:
 ; gemaDmaPause
 ;
 ; Call this BEFORE doing any DMA transfer
+;
+; 32X: Set RV bit manually AFTER calling this.
 ; --------------------------------------------------------
 
 gemaDmaPause:
@@ -304,7 +306,6 @@ gemaDmaPause:
 	else
 		swap	d7
 		swap	d6
-; .retry_flag:
 		bsr	sndLockZ80
 		move.b	#1,(z80_cpu+zDrvRomBlk)		; Block flag for Z80
 		bsr	sndUnlockZ80
@@ -319,6 +320,8 @@ gemaDmaPause:
 ; gemaDmaResume
 ;
 ; Call this AFTER finishing DMA transfer
+;
+; 32X: Clear the RV bit manually AFTER calling this.
 ; --------------------------------------------------------
 
 gemaDmaResume:
@@ -328,60 +331,8 @@ gemaDmaResume:
 		swap	d7
 		swap	d6
 		bsr	sndLockZ80
-		move.b	#0,(z80_cpu+zDrvRomBlk)		; Block flag for Z80
+		move.b	#0,(z80_cpu+zDrvRomBlk)		; Unblock flag for Z80
 		bsr	sndUnlockZ80
-		swap	d6
-		swap	d7
-		rts
-	endif
-
-; --------------------------------------------------------
-; gemaDmaPauseRom
-;
-; Call this BEFORE doing any DMA transfer
-;
-; 32X: THIS SETS THE RV bit, THIS CODE MUST BE IN RAM
-; --------------------------------------------------------
-
-gemaDmaPauseRom:
-	if PICO
-		rts
-	else
-		swap	d7
-		swap	d6
-		bsr	sndLockZ80
-		move.b	#1,(z80_cpu+zDrvRomBlk)		; Block flag for Z80
-		bsr	sndUnlockZ80
-		move.w	#96,d7				; ...Small delay...
-		dbf	d7,*
-	if MARS
-		bset	#0,(sysmars_reg+dreqctl+1).l	; Set RV=1
-	endif
-		swap	d6
-		swap	d7
-		rts
-	endif
-
-; --------------------------------------------------------
-; gemaDmaResumeRom
-;
-; Call this AFTER finishing DMA transfer
-;
-; 32X: This clears the RV bit.
-; --------------------------------------------------------
-
-gemaDmaResumeRom:
-	if PICO
-		rts
-	else
-		swap	d7
-		swap	d6
-		bsr	sndLockZ80
-		move.b	#0,(z80_cpu+zDrvRomBlk)		; Block flag for Z80
-		bsr	sndUnlockZ80
-	if MARS
-		bclr	#0,(sysmars_reg+dreqctl+1).l	; Set RV=0
-	endif
 		swap	d6
 		swap	d7
 		rts

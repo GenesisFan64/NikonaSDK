@@ -31,7 +31,8 @@ setVram_Bibi		equ $4D0
 
 			strct RAM_ScrnBuff
 RAM_SC0_Null		ds.l 1
-; RAM_WhoIAm		ds.l 1
+RAM_TempAnim		ds.w 1
+RAM_TempAnim2		ds.w 1
 RAM_SC0_Cmnd		ds.w 1
 sizeof_thisbuff		ds.l 0
 			endstrct
@@ -52,9 +53,39 @@ sizeof_thisbuff		ds.l 0
 	; ----------------------------------------------
 	; Load assets
 	if MARS|MARSCD
-		lea	(PalMars_Scrn0),a0
+		lea	(PalMars_Doremi),a0
 		move.w	#0,d0
-		move.w	#256,d1
+		move.w	#64,d1
+		moveq	#0,d2
+		bsr	Video_MdMars_FadePal
+		lea	(PalMars_Sophie),a0
+		move.w	#64,d0
+		move.w	#64,d1
+		moveq	#0,d2
+		bsr	Video_MdMars_FadePal
+
+		lea	(RAM_MdMars_SuperSpr),a0
+		move.l	#ArtSSpr_Doremi,sspr_Art(a0)
+		move.b	#(64/8)-1,sspr_Size(a0)
+		move.b	#(104/8)-1,sspr_Size+1(a0)
+		move.w	#$10,sspr_Xpos(a0)
+		move.w	#$70,sspr_Ypos(a0)
+		move.w	#0,sspr_Indx(a0)
+		move.w	#0,sspr_Frame(a0)
+		adda	#sizeof_marsspr,a0
+		move.l	#ArtSSpr_Sophie,sspr_Art(a0)
+		move.b	#(48/8)-1,sspr_Size(a0)
+		move.b	#(104/8)-1,sspr_Size+1(a0)
+		move.w	#$104,sspr_Xpos(a0)
+		move.w	#$70,sspr_Ypos(a0)
+		move.w	#64,sspr_Indx(a0)
+		move.w	#0,sspr_Frame(a0)
+		bset	#0,sspr_Flags+1(a0)
+		clr.w	(RAM_TempAnim).w
+
+		lea	(PalMars_Scrn0),a0
+		move.w	#128,d0
+		move.w	#64,d1
 		moveq	#0,d2
 		bsr	Video_MdMars_FadePal
 		lea	(MapMars_Scrn0),a0
@@ -62,8 +93,9 @@ sizeof_thisbuff		ds.l 0
 		moveq	#0,d1
 		move.w	#320/16,d2
 		move.w	#224/16,d3
-		move.w	#0,d4
+		move.w	#128,d4
 		bsr	Video_MdMarsMap_Load
+
 		move.l	#ArtMars_Scrn0,d0
 		moveq	#0,d1
 		moveq	#0,d2
@@ -101,6 +133,8 @@ sizeof_thisbuff		ds.l 0
 		lea	str_Scrn0Intro(pc),a0
 		move.l	#locate(1,1,0),d0
 		bsr	Video_Print
+
+	if MARS|MARSCD=0
 		move.l	#Obj_Emily,d0		; IN THIS ORDER
 		moveq	#0,d1
 		bsr	Objects_Add
@@ -116,8 +150,14 @@ sizeof_thisbuff		ds.l 0
 		move.l	#Obj_Doremi,d0
 		moveq	#2,d1
 		bsr	Objects_Add
+	endif
 
 	; ----------------------------------------------
+	if MCD|MARSCD
+		moveq	#2,d0
+		bsr	System_MdMcd_CdPlay_L
+	endif
+
 ; 		move.w	#214,d0
 ; 		bsr	gemaSetBeats
 ; 		moveq	#0,d0
@@ -522,7 +562,68 @@ Obj_Bibi:
 ; ------------------------------------------------------
 
 ShowMe_Who:
-	if MCD|MARSCD
+	if MARS|MARSCD
+		lea	(RAM_MdMars_SuperSpr),a0
+		move.w	(RAM_TempAnim).w,d0
+		lsr.w	#8,d0
+		move.w	d0,sspr_Frame(a0)
+		add.w	#$0020,(RAM_TempAnim).w
+		cmp.w	#$0500,(RAM_TempAnim).w
+		blt.s	.lower_frm
+		clr.w	(RAM_TempAnim).w
+.lower_frm:
+		lea	(RAM_MdMars_SuperSpr+sizeof_marsspr),a0
+		move.w	(RAM_TempAnim2).w,d0
+		lsr.w	#8,d0
+		move.w	d0,sspr_Frame(a0)
+		addi.w	#$0018,(RAM_TempAnim2).w
+		cmpi.w	#$0300,(RAM_TempAnim2).w
+		blt.s	.lower_frm2
+		clr.w	(RAM_TempAnim2).w
+.lower_frm2:
+
+		lea	(RAM_MdMars_SuperSpr),a0
+		lea	(Controller_1),a4
+		clr.w	obj_x_spd(a6)
+		clr.w	obj_y_spd(a6)
+		move.w	on_hold(a4),d4
+		btst	#bitJoyDown,d4
+		beq.s	.go_down
+		addi.w	#4,sspr_Ypos(a0)
+.go_down:
+		btst	#bitJoyUp,d4
+		beq.s	.go_up
+		subi.w	#4,sspr_Ypos(a0)
+.go_up:
+		btst	#bitJoyRight,d4
+		beq.s	.go_r
+		addi.w	#4,sspr_Xpos(a0)
+.go_r:
+		btst	#bitJoyLeft,d4
+		beq.s	.go_l
+		subi.w	#4,sspr_Xpos(a0)
+.go_l:
+
+		lea	(RAM_MdMars_Screen),a0
+		btst	#bitJoyY,d4
+		beq.s	.go_y
+		addi.w	#4,mscrl_Ypos(a0)
+.go_y:
+		btst	#bitJoyX,d4
+		beq.s	.go_x
+		subi.w	#4,mscrl_Ypos(a0)
+.go_x:
+		lea	(RAM_MdMars_Screen),a0
+		btst	#bitJoyB,d4
+		beq.s	.go_b
+		addi.w	#4,mscrl_Xpos(a0)
+.go_b:
+		btst	#bitJoyA,d4
+		beq.s	.go_a
+		subi.w	#4,mscrl_Xpos(a0)
+.go_a:
+
+	elseif MCD
 		lea	(Controller_1),a6
 		move.w	on_press(a6),d7
 		btst	#bitJoyC,d7
@@ -544,9 +645,10 @@ ShowMe_Who:
 		bsr	System_MdMcd_CdFade
 .noto_a:
 	endif
-		lea	str_Nadie(pc),a0
-		move.l	#locate(1,3,0),d0
-		bra	Video_Print
+		rts
+; 		lea	str_Nadie(pc),a0
+; 		move.l	#locate(1,3,0),d0
+; 		bra	Video_Print
 ; 		rts
 
 ; ====================================================================
@@ -567,11 +669,11 @@ PAL_SCR0_TEST:
 		binclude "game/screen_0/data/md/maps/test/md_pal.bin"
 		align 2
 str_Scrn0Intro:
-		dc.b "Probando los comandos CDDA",0
+		dc.b "Checking 32X visuals",0
 		align 2
-str_Nadie:	dc.b "\\w",0
-		dc.l RAM_SC0_Cmnd
-		align 2
+; str_Nadie:	dc.b "\\w",0
+; 		dc.l RAM_SC0_Cmnd
+; 		align 2
 
 
 ; str_ListWho:	dc.b "Bibi   ",0

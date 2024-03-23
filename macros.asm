@@ -271,7 +271,7 @@ thislbl label *
 ; --------------------------------------------
 
 sdram_bkend macro thislbl,endlbl
-		align $800	; DREQ data-pack alignment
+		align $2000	; DREQ data-pack alignment
 	if MARS|MARSCD
 		dephase
 	endif

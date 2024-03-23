@@ -62,6 +62,16 @@ if not os.path.exists(user_folder):
  os.makedirs(user_folder)
 
 user_folder = user_folder+"/"
+FRAME_WDTH = int(user_wdth)
+FRAME_HGHT = int(user_hght)
+
+#print(hex(FRAME_WDTH),hex(FRAME_HGHT))
+if FRAME_WDTH&7 != 0:
+ print("BAD WIDTH, NOT CELL ALIGNED")
+ exit()
+if FRAME_HGHT&7 != 0:
+ print("BAD HEIGHT, NOT CELL ALIGNED")
+ exit()
 
 #======================================================================
 # -------------------------------------------------
@@ -148,8 +158,8 @@ if has_pal == True:
 # -------------------------------------------------
 
 if has_img == True:
- FRAME_WDTH = int(user_wdth)
- FRAME_HGHT = int(user_hght)
+ # FRAME_WDTH = int(user_wdth)
+ # FRAME_HGHT = int(user_hght)
  GLBL_IMGPOS = input_file.tell()  # SET image top-left global
  art_file = output_file = open(user_folder+user_thisname+"_art.bin","wb")
 

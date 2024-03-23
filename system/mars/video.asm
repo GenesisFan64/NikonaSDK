@@ -621,6 +621,10 @@ MarsVideo_SuperSpr_Draw:
 		lds	r0,mach
 		mov.w	@(sspr_Flags,r8),r0
 		extu.w	r0,r6
+		shll16	r6
+		mov.w	@(sspr_Indx,r8),r0
+		extu.b	r0,r0
+		or	r0,r6			; r6 - $ffff00ii: f-Flags i-Index
 		mov.w	@(sspr_Size,r8),r0
 		extu.b	r0,r5			; Y size
 		shlr8	r0
@@ -631,7 +635,7 @@ MarsVideo_SuperSpr_Draw:
 		exts.w	r0,r3
 		add	#1,r4
 		add	#1,r5
-		shll2	r4		; Expand sizes to 8pixels
+		shll2	r4		; Expand sizes to 8pixels(cells)
 		shll2	r5
 		shll	r4
 		shll	r5
@@ -651,9 +655,15 @@ MarsVideo_SuperSpr_Draw:
 		shll2	r0
 		cmp/ge	r0,r3
 		bt	.off_sspr
+
+		mov.w	@(sspr_Frame,r8),r0
+		mulu	r4,r5
+		sts	macl,r1
+		mulu	r0,r1
+		sts	macl,r0
 		sts	mach,r1
 		bsr	scrlDrw_SSprDraw
-		nop
+		add	r0,r1
 .off_sspr:
 		mov	#sizeof_marsspr,r0
 		dt	r7
@@ -693,8 +703,6 @@ MarsVideo_MkFillBlk:
 		extu.b	r0,r5			; Y size
 		shlr8	r0
 		extu.b	r0,r4			; X size
-		mov.w	@(sspr_Frame,r14),r0
-		extu.w	r0,r1
 		mov.w	@(sspr_Xpos,r14),r0
 		exts.w	r0,r2
 		mov.w	@(sspr_Ypos,r14),r0
@@ -935,7 +943,7 @@ MarsVideo_DrawFillBlk:
 ; r3 - Ypos *
 ; r4 - Xsize *
 ; r5 - Ysize *
-; r6 - Flags *
+; r6 - Flags | Pixel increment *
 ;
 ; In Loop:
 ; r14 - Framebuffer output
@@ -978,7 +986,7 @@ scrlDrw_SSprDraw:
 		bf	.xy_flip
 		sub	r13,r7
 .xy_flip:
-		mov	r6,r0		; Y flip? start
+		swap	r6,r0		; Y flip? start
 		tst	#%10,r0
 		bt	.y_flip
 		muls	r4,r5
@@ -987,7 +995,7 @@ scrlDrw_SSprDraw:
 		sub	r4,r1
 .y_flip:
 		mov	#4,r8
-		mov	r6,r0		; X flip?
+		swap	r6,r0		; X flip?
 		tst	#%01,r0
 		bt	.x_flip
 		neg	r8,r8
@@ -1003,7 +1011,7 @@ scrlDrw_SSprDraw:
 		bt	.y_top
 		add	r3,r5
 		muls	r4,r3
-		mov	r6,r0
+		swap	r6,r0
 		tst	#%10,r0
 		bt	.y_rflip
 		sts	macl,r0
@@ -1017,7 +1025,6 @@ scrlDrw_SSprDraw:
 .y_top:
 		mov	r3,r0
 		add	r5,r0
-; 		mov	#240,r10
 		mov	#(SET_MSCRLHGHT+4)>>2,r10	; 240
 		shll2	r10
 		cmp/ge	r10,r0
@@ -1027,7 +1034,7 @@ scrlDrw_SSprDraw:
 .y_bot:
 		nop
 		mov	r4,r10
-		mov	r6,r0		; Y flip? start
+		swap	r6,r0		; Y flip? start
 		tst	#%10,r0
 		bt	.y_loop
 		neg	r4,r4
@@ -1037,7 +1044,7 @@ scrlDrw_SSprDraw:
 	; r3 -
 	; r4 - Y increment f/b
 	; r5 - Y lines / X current beam
-	; r6 - flags (X flip only)
+	; r6 - flags (X flip only) | pixel increment
 	; r7 - current TL pos
 	; r8 - X increment f/b
 	; r9 -
@@ -1066,8 +1073,29 @@ scrlDrw_SSprDraw:
 ; r9 - Pixel data $12345678
 
 .x_swap:
-		mov	@r3,r9		; 11 22 33 44
-		mov	r6,r0
+		mov	@r3,r0
+		extu.b	r6,r9
+		swap.w	r0,r0		; 3 4 1 2
+		swap.b	r0,r0		; 3 4 2 1
+		tst	#$FF,r0
+		bt	.z_0
+		add	r9,r0
+.z_0:		swap.b	r0,r0		; 3 4 1 2
+		tst	#$FF,r0
+		bt	.z_1
+		add	r9,r0
+.z_1:		swap.w	r0,r0		; 1 2 3 4
+		swap.b	r0,r0		; 1 2 4 3
+		tst	#$FF,r0
+		bt	.z_2
+		add	r9,r0
+.z_2:		swap.b	r0,r0		; 1 2 3 4
+		tst	#$FF,r0
+		bt	.z_3
+		add	r9,r0
+.z_3:
+		mov	r0,r9
+		swap	r6,r0
 		tst	#%01,r0
 		bt	.x_mswap
 		swap.b	r9,r9
@@ -1076,8 +1104,8 @@ scrlDrw_SSprDraw:
 .x_mswap:
 		cmp/pz	r5
 		bf	.x_left
-		mov	#SET_MSCRLWDTH-4,r0
-		cmp/gt	r0,r5
+		mov	#SET_MSCRLWDTH,r0
+		cmp/ge	r0,r5
 		bf	.x_mid
 
 ; ---------------------------------------

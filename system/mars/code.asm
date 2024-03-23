@@ -401,13 +401,13 @@ m_irq_dma:
 		mov.b	@(7,r1),r0
 		xor	#2,r0
 		mov.b	r0,@(7,r1)
-		mov	#_DMASOURCE0,r1		; Check Channel 0
-		mov	@($C,r1),r0		; Dummy READ
+		mov	#_DMACHANNEL0,r1	; Check Channel 0
+		mov	@r1,r0			; Dummy READ
 		mov	#%0100010011100000,r0
-		mov	r0,@($C,r1)		; Transfer mode + DMA enable OFF
-		mov	#_sysreg+comm12,r1	; Send signal
+		mov	r0,@r1			; Transfer mode + DMA enable OFF
+		mov	#_sysreg+comm12,r1
 		mov.b	@r1,r0
-		or	#%01000000,r0
+		and	#%10111111,r0		; Exit DMA status
 		mov.b	r0,@r1
 		rts
 		nop
@@ -472,19 +472,32 @@ m_irq_cmd:
 		mov	r0,@(8,r3)			; Length set by 68k
 		mov	#_sysreg+dreqfifo,r1
 		mov	r1,@r3				; Source point: DREQ FIFO
-		mov	#%0100010011100101,r0		; Transfer mode + DMA enable + Use DMA interrupt
+; 		mov	#%0100010011100101,r0		; Transfer mode + DMA enable + Use DMA interrupt
+		mov	#%0100010011100001,r0		; Transfer mode + DMA enable
 		mov	r0,@($C,r3)			; Dest:Incr(01) Src:Keep(00) Size:Word(01)
-		mov.b	@r2,r0				; Set PASS bit to Genesis side.
-		or	#%01000000,r0
+		mov.b	@r2,r0
+		or	#%01000000,r0			; Enter DMA status
 		mov.b	r0,@r2
+
+	; ********************************
+	; Wait here if not using interrupt
+	; ********************************
+		mov	#_DMACHANNEL0,r1
+.wait_dma:
+		mov	@r1,r0
+		tst	#%10,r0
+		bt	.wait_dma
+		mov	#_DMACHANNEL0,r1
+		mov	@r1,r0
+		mov	#%0100010011100000,r0
+		mov	r0,@r1
+		mov	#_sysreg+comm12,r1
+		mov.b	@r1,r0
+		and	#%10111111,r0			; Exit DMA status
+		mov.b	r0,@r1
 		mov	@r15+,r4
 		mov	@r15+,r3
 		mov	@r15+,r2
-		nop
-		nop
-		nop
-		nop
-		nop
 		rts
 		nop
 		align 4
@@ -543,17 +556,23 @@ m_irq_vres:
 		mov.w	@(dreqctl,r1),r0
 		tst	#1,r0
 		bf	.rv_busy
+		mov.b	#$F0,r0			; ** $F0
+		extu.b	r0,r0
+		ldc	r0,sr
+		mov	#0,r0			; Disable interrupt bits
+		mov.w	r0,@r1
+		mov	#_sysreg+comm12,r1	; Clear our comm
+		mov.w	r0,@r1
 		mov	#_DMAOPERATION,r1	; Quickly cancel DMA's
-		mov	#0,r0
 		mov	r0,@r1
 		mov	#(STACK_MSTR)-8,r15	; Reset Master's STACK
 		mov	#SH2_M_HotStart,r0	; Write return point and status
 		mov	r0,@r15
 		mov.w   #$F0,r0
 		mov	r0,@(4,r15)
-; 		mov	#_sysreg,r1		; Report Master as OK
-; 		mov	#"M_OK",r0
-; 		mov	r0,@(comm0,r1)
+		mov	#_sysreg,r1		; Report Master as OK
+		mov	#"M_OK",r0
+		mov	r0,@(comm0,r1)
 		rte
 		nop
 		align 4
@@ -897,17 +916,23 @@ s_irq_vres:
 		mov.w	@(dreqctl,r1),r0
 		tst	#1,r0
 		bf	.rv_busy
+		mov.b	#$F0,r0			; ** $F0
+		extu.b	r0,r0
+		ldc	r0,sr
+		mov	#0,r0			; Disable interrupt bits
+		mov.w	r0,@r1
+		mov	#_sysreg+comm14,r1	; Clear our comm
+		mov.w	r0,@r1
 		mov	#_DMAOPERATION,r1	; Quickly cancel DMA's
-		mov	#0,r0
 		mov	r0,@r1
 		mov	#(STACK_SLV)-8,r15	; Reset Slave's STACK
 		mov	#SH2_S_HotStart,r0	; Write return point and status
 		mov	r0,@r15
 		mov.w   #$F0,r0
 		mov	r0,@(4,r15)
-; 		mov	#_sysreg,r1
-; 		mov	#"S_OK",r0		; Report Slave as OK
-; 		mov	r0,@(comm4,r1)
+		mov	#_sysreg,r1
+		mov	#"S_OK",r0		; Report Slave as OK
+		mov	r0,@(comm4,r1)
 		rte
 		nop
 		align 4
@@ -1075,12 +1100,14 @@ litr_MarsVideo_Init:
 ; ----------------------------------------------------------------
 ; MASTER CPU loop
 ;
-; comm12: %BS00ccccRF00mmmm
+; comm12: %BD00cccc 00PFRmmm
 
-; B | BUSY signal for CMD (TODO)
-; S | SIGNAL-status bits for CMD, clears only
-; F | Frame-ready flag, clears when frame is ready.
+; B | TODO
+; D | DREQ DMA Busy bit
 ; c | CMD task number
+;
+; P | Pause rendering/drawing, for the Full Fade-In/Fade-Out sequences
+; F | Frame-ready flag, clears when frame is ready.
 ; R | Graphics mode INIT flag
 ; m | Pseudo-Graphics mode
 ; ----------------------------------------------------------------
@@ -1093,6 +1120,11 @@ master_loop:
 		add	#1,r0
 		mov.b	r0,@r1
 	endif
+.too_late:
+		mov	#_sysreg+comm12,r1
+		mov.b	@r1,r0
+		tst	#%01000000,r0
+		bf	.too_late
 
 	; ---------------------------------------
 	; Flip the DREQ Read/Write points
@@ -1101,23 +1133,24 @@ master_loop:
 .waitl:		mov.b	@(vdpsts,r1),r0			; on VBlank
 		tst	#VBLK,r0
 		bf	.waitl
+		mov.b	r0,@r1
 		stc	sr,@-r15
 		mov.b	#$F0,r0				; ** $F0
 		extu.b	r0,r0
 		ldc	r0,sr
-		bsr	Mars_CachePurge			; Purge cache
-		nop
 		mov	@(marsGbl_DreqWrite,gbr),r0	; Flip DMA Read/Write buffers
 		mov	r0,r1
 		mov	@(marsGbl_DreqRead,gbr),r0
 		mov	r0,@(marsGbl_DreqWrite,gbr)
 		mov	r1,r0
 		mov	r0,@(marsGbl_DreqRead,gbr)
+		ldc	@r15+,sr
+		bsr	Mars_CachePurge			; Purge cache
+		nop
 		mov	#_sysreg+comm12+1,r1		; Reset FrameWait bit from 68K
 		mov.b	@r1,r0
-		and	#%10111111,r0
+		and	#%11101111,r0
 		mov.b	r0,@r1
-		ldc	@r15+,sr
 
 	; ---------------------------------------
 	; Write palette using DREQ data
@@ -1147,15 +1180,16 @@ master_loop:
 	endm
 		dt	r3
 		bf	.copy_pal
-.not_ready:
 		mov	#_sysreg+comm12,r1
 		mov.w	@r1,r0
+; 		tst	#%00100000,r0
+; 		bf	master_loop
 		mov	#mstr_list,r1
-		tst	#$80,r0
+		tst	#%00001000,r0
 		bt	.non_init
 		add	#4,r1
 .non_init:
-		and	#%00001111,r0		; <-- Current limit
+		and	#%00000111,r0		; <-- Current limit
 		shll2	r0
 		shll	r0
 		add	r0,r1
@@ -1177,17 +1211,28 @@ MstrMode_0_i:
 		mov 	#_vdpreg,r1
 		mov	#0,r0
 		mov.b	r0,@(bitmapmd,r1)
+		mov	r0,@(marsGbl_Scrl_Xpos,gbr)
+		mov	r0,@(marsGbl_Scrl_Ypos,gbr)
+		mov	r0,@(marsGbl_Scrl_FbTL,gbr)
+		mov	r0,@(marsGbl_Scrl_FbY,gbr)
+		mov	r0,@(marsGbl_Scrl_DrwAll,gbr)
+		mov	r0,@(marsGbl_Scrl_DrwR,gbr)
+		mov	r0,@(marsGbl_Scrl_DrwL,gbr)
+		mov	r0,@(marsGbl_Scrl_DrwD,gbr)
+		mov	r0,@(marsGbl_Scrl_DrwU,gbr)
+		mov	#0,r1
+		mov	#240,r2				; Show scroll area 0 to 240
+		bsr	MarsVideo_ShowScrlBg
 		nop
 		mov	#_sysreg+comm12+1,r1
 		mov.b	@r1,r0
-		and	#$7F,r0
+		and	#%11110111,r0
 		mov.b	r0,@r1
 MstrMode_0:
 		mov	#_vdpreg,r1
 .waitl:		mov.b	@(vdpsts,r1),r0
 		tst	#VBLK,r0
 		bf	.waitl
-
 		bra	master_loop
 		nop
 
@@ -1232,7 +1277,7 @@ MstrMode_2D_i:
 		mov.b	r0,@(bitmapmd,r3)
 		mov	#_sysreg+comm12+1,r1
 		mov.b	@r1,r0
-		and	#$7F,r0
+		and	#%11110111,r0
 		bra	MstrMode_2D
 		mov.b	r0,@r1
 		align 4

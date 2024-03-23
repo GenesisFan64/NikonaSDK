@@ -298,7 +298,7 @@ Video_ClearScreen:
 		move.l	d6,(a6)+
 		move.l	d6,(a5)+
 		dbf	d7,.pnext
-	if MARS
+	if MARS|MARSCD
 		lea	(RAM_MdDreq+Dreq_Palette).w,a6
 		lea	(RAM_MdMarsPalFd).w,a5
 		move.w	#(256/2)-1,d7
@@ -307,12 +307,17 @@ Video_ClearScreen:
 		move.l	d6,(a6)+
 		move.l	d6,(a5)+
 		dbf	d7,.pmnext
+		lea	(RAM_MdDreq+Dreq_SuperSpr).w,a6
+		move.w	#((sizeof_marsspr*MAX_MARSSPR)/2)-1,d7
+.ssp_next:
+		move.w	d6,(a6)+
+		dbf	d7,.ssp_next
 	endif
 		rts
 
 ; ====================================================================
 ; ----------------------------------------------------------------
-; Palette fade system, Genesis side
+; Palette fading system
 ; ----------------------------------------------------------------
 
 ; --------------------------------------------------------
@@ -320,12 +325,13 @@ Video_ClearScreen:
 ; --------------------------------------------------------
 
 Video_FadeIn:
-		move.w	#1,(RAM_FadeMdIncr).w	; Increment speed
-		move.w	#2,(RAM_FadeMarsIncr).w
-		move.w	#1,(RAM_FadeMdDelay).w	; Delay by
-		move.w	#0,(RAM_FadeMarsDelay).w
 		move.w	#1,(RAM_FadeMdReq).w	; Fade-in task
 		move.w	#1,(RAM_FadeMarsReq).w
+
+		move.w	#1,(RAM_FadeMdIncr).w
+		move.w	#1,(RAM_FadeMdDelay).w
+		move.w	#2,(RAM_FadeMarsIncr).w
+		move.w	#0,(RAM_FadeMarsDelay).w
 		bra	Video_WaitFade
 
 ; --------------------------------------------------------
@@ -333,32 +339,41 @@ Video_FadeIn:
 ; --------------------------------------------------------
 
 Video_FadeOut:
-		move.w	#1,(RAM_FadeMdIncr).w	; Increment speed
-		move.w	#2,(RAM_FadeMarsIncr).w
-		move.w	#1,(RAM_FadeMdDelay).w	; Delay by
-		move.w	#0,(RAM_FadeMarsDelay).w
 		move.w	#2,(RAM_FadeMdReq).w	; Fade-in task
 		move.w	#2,(RAM_FadeMarsReq).w
-		bra	Video_WaitFade
+
+		move.w	#1,(RAM_FadeMdIncr).w
+		move.w	#1,(RAM_FadeMdDelay).w
+		move.w	#2,(RAM_FadeMarsIncr).w
+		move.w	#0,(RAM_FadeMarsDelay).w
+; 		bra	Video_WaitFade
 
 ; --------------------------------------------------------
 ; Video_WaitFade
 ; --------------------------------------------------------
 
 Video_WaitFade:
-		bsr	System_Render
+		bsr	Objects_Run
+		bsr	Objects_Show
+.wait_fade:
+		move.w	(vdp_ctrl).l,d7
+		btst	#bitVBlk,d7
+		bne.s	.wait_fade
 	if MARS|MARSCD
+		bsr	Video_Render
+		bsr	System_MarsUpdate
 		bsr	Video_DoPalFade
 		bsr	Video_MdMars_DoPalFade
 		move.w	(RAM_FadeMdReq).w,d7
 		move.w	(RAM_FadeMarsReq).w,d6
 		or.w	d6,d7
 	else
+		bsr	System_Render
 		bsr	Video_DoPalFade
 		move.w	(RAM_FadeMdReq).w,d7
 	endif
 		tst.w	d7
-		bne.s	Video_WaitFade
+		bne.s	.wait_fade
 		rts
 
 ; --------------------------------------------------------
@@ -1074,8 +1089,8 @@ Video_DmaBlast:
 
 Video_MdMars_SyncFrame:
 	if MARS|MARSCD
-		bset	#6,(sysmars_reg+comm12+1).l
-.wait_mars:	btst	#6,(sysmars_reg+comm12+1).l
+		bset	#4,(sysmars_reg+comm12+1).l
+.wait_mars:	btst	#4,(sysmars_reg+comm12+1).l
 		bne.s	.wait_mars
 	endif
 		rts
@@ -1089,13 +1104,16 @@ Video_MdMars_SyncFrame:
 ; d0.w | Mode number
 ;        Write $00 to disable all 32X visuals.
 ;
+; Uses:
+; d7/a0
+;
 ; Notes:
 ; Changing modes takes 3 FRAMES to process.
 ; --------------------------------------------------------
 
 Video_MdMars_VideoMode:
-		move.l	d7,-(sp)
 	if MARS|MARSCD
+		movem.l	d7/a0,-(sp)
 		move.l	d0,-(sp)
 	rept 3
 		bsr	Video_MdMars_SyncFrame	; Wait frame and update DREQ RAM
@@ -1103,10 +1121,10 @@ Video_MdMars_VideoMode:
 	endm
 		move.l	(sp)+,d0
 		move.w	d0,d7
-		ori.w	#$80,d7
+		ori.w	#%00001000,d7
 		move.b	d7,(sysmars_reg+(comm12+1)).l
+		movem.l	(sp)+,d7/a0
 	endif
-		move.l	(sp)+,d7
 		rts
 
 ; --------------------------------------------------------
@@ -1173,11 +1191,13 @@ Video_MdMars_DoPalFade:
 	if MARS|MARSCD
 		subi.w	#1,(RAM_FadeMarsTmr).w
 		bpl.s	.active
+		bset	#5,(sysmars_reg+comm12+1).l		; PAUSE rendering
 		move.w	(RAM_FadeMarsDelay).w,(RAM_FadeMarsTmr).w
 		move.w	(RAM_FadeMarsReq).w,d7
 		add.w	d7,d7
 		move.w	.fade_list(pc,d7.w),d7
-		jmp	.fade_list(pc,d7.w)
+		jsr	.fade_list(pc,d7.w)
+		bclr	#5,(sysmars_reg+comm12+1).l		; RESTORE rendering
 .active:
 		rts
 

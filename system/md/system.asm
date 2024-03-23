@@ -188,9 +188,9 @@ System_Init:
 ; --------------------------------------------------------
 
 System_Render:
-		move.b	(RAM_VdpRegs+1).w,d7	; ** If the user forgets to enable
-		btst	#bitDispEnbl,d7		; ** DISPLAY skip all this
-		beq.s	.forgot_disp		; **
+		move.b	(RAM_VdpRegs+1).w,d7		; ** If the user forgets to enable
+		btst	#bitDispEnbl,d7			; ** DISPLAY skip all of this
+		beq.s	.forgot_disp			; **
 .wait_lag:
 		bsr	Sound_Update			; Syncronize/Update sound on lag
 		move.w	(vdp_ctrl).l,d7			; Got here during VBlank?
@@ -198,24 +198,20 @@ System_Render:
 		bne.s	.wait_lag
 		bsr	Sound_Update			; Update sound
 		bsr	Objects_Show			; Build sprite data from Objects
+	if MARS|MARSCD
+		bsr	System_MarsUpdate		; Send DREQ changes
+	endif
 .wait_in:
 		bsr	Sound_Update			; Syncronize/Update sound during Display
 		move.w	(vdp_ctrl).l,d7
 		btst	#bitVBlk,d7			; VBlank started?
 		beq.s	.wait_in
+.lost_frame:
 		bsr	System_Input			; Read input data FIRST
-	if MARS|MARSCD
-		bset	#6,(sysmars_reg+comm12+1).l	; 32X/CD32X: Set frame-wait bit from here
-	endif
 		bsr	Video_Render			; Render visuals
 		bsr	Sound_Update			; Update sound
 		addq.l	#1,(RAM_Framecount).w		; Count the frame.
-	if MARS|MARSCD
-.wait_mars:	btst	#6,(sysmars_reg+comm12+1).l	; 32X/CD32X: frame-wait cleared?
-		bne.s	.wait_mars
-		bsr	System_MarsUpdate		; Send DREQ changes
-	endif
-		bsr	Sound_Update			; Update sound again
+
 .forgot_disp:
 		rts
 
@@ -238,11 +234,21 @@ System_DmaExit_RAM:
 		bra	gemaDmaResume
 
 ; --------------------------------------------------------
+; *** THESE ENABLE AND DISABLE THE RV BIT ***
 
 System_DmaEnter_ROM:
-		bra	gemaDmaPauseRom
+		bsr	gemaDmaPause
+	if MARS
+		bset	#0,(sysmars_reg+dreqctl+1).l	; Set RV=1
+	endif
+		rts
+
 System_DmaExit_ROM:
-		bra	gemaDmaResumeRom
+		bsr	gemaDmaResume
+	if MARS
+		bclr	#0,(sysmars_reg+dreqctl+1).l	; Set RV=0
+	endif
+		rts
 
 ; ====================================================================
 ; ----------------------------------------------------------------
@@ -776,37 +782,37 @@ Mode_Init:
 		dbf	d5,.clr
 		rts
 
-; --------------------------------------------------------
-; Syncronized Fade-in/Fade-out for both VDP and SuperVDP
-; --------------------------------------------------------
-
-Mode_FadeIn:
-		bsr	Objects_Run
-		move.w	#1,(RAM_FadeMdReq).w
-		move.w	#1,(RAM_FadeMarsReq).w
-		move.w	#1,(RAM_FadeMdIncr).w
-		move.w	#2,(RAM_FadeMarsIncr).w
-		move.w	#1,(RAM_FadeMdDelay).w
-		move.w	#0,(RAM_FadeMarsDelay).w
-.loopw:
-		bsr	System_Render
-		bsr	Video_RunFade
-		bne.s	.loopw
-		rts
-
-Mode_FadeOut:
-		bsr	Objects_Run
-		move.w	#2,(RAM_FadeMdReq).w
-		move.w	#2,(RAM_FadeMarsReq).w
-		move.w	#1,(RAM_FadeMdIncr).w
-		move.w	#2,(RAM_FadeMarsIncr).w
-		move.w	#1,(RAM_FadeMdDelay).w
-		move.w	#0,(RAM_FadeMarsDelay).w
-.loopw:
-		bsr	System_Render
-		bsr	Video_RunFade
-		bne.s	.loopw
-		rts
+; ; --------------------------------------------------------
+; ; Syncronized Fade-in/Fade-out for both VDP and SuperVDP
+; ; --------------------------------------------------------
+;
+; Mode_FadeIn:
+; 		bsr	Objects_Run
+; 		move.w	#1,(RAM_FadeMdReq).w
+; 		move.w	#1,(RAM_FadeMarsReq).w
+; 		move.w	#1,(RAM_FadeMdIncr).w
+; 		move.w	#2,(RAM_FadeMarsIncr).w
+; 		move.w	#1,(RAM_FadeMdDelay).w
+; 		move.w	#0,(RAM_FadeMarsDelay).w
+; .loopw:
+; 		bsr	System_Render
+; 		bsr	Video_RunFade
+; 		bne.s	.loopw
+; 		rts
+;
+; Mode_FadeOut:
+; 		bsr	Objects_Run
+; 		move.w	#2,(RAM_FadeMdReq).w
+; 		move.w	#2,(RAM_FadeMarsReq).w
+; 		move.w	#1,(RAM_FadeMdIncr).w
+; 		move.w	#2,(RAM_FadeMarsIncr).w
+; 		move.w	#1,(RAM_FadeMdDelay).w
+; 		move.w	#0,(RAM_FadeMarsDelay).w
+; .loopw:
+; 		bsr	System_Render
+; 		bsr	Video_RunFade
+; 		bne.s	.loopw
+; 		rts
 
 ; ====================================================================
 ; ----------------------------------------------------------------
@@ -1262,20 +1268,18 @@ sys_MSendDreq:
 		lsr.w	#2,d5
 		subi.w	#1,d5
 		bset	#0,standby(a5)		; Call CMD interrupt to MASTER
-.wait_bit:	btst	#6,comm12(a5)		; Wait START signal
+.wait_bit:	btst	#6,comm12(a5)		; Wait ENTRANCE signal
 		beq.s	.wait_bit
-		bclr	#6,comm12(a5)		; Clear.
 		move.w	#%100,dreqctl(a5)	; Set 68S
 .l0:		move.w  (a0)+,(a4)		; *** CRITICAL PART ***
 		move.w  (a0)+,(a4)
 		move.w  (a0)+,(a4)
 		move.w  (a0)+,(a4)
 		dbf	d5,.l0
-	if EMU=0				; *** EMULATOR patch
-.wait_bit_e:	btst	#6,comm12(a5)		; Wait DMA END signal
-		beq.s	.wait_bit_e
-		bclr	#6,comm12(a5)		; Clear.
-	endif
+; 	if EMU=0				; *** EMULATOR patch
+.wait_bit_e:	btst	#6,comm12(a5)		; Wait EXIT signal
+		bne.s	.wait_bit_e
+; 	endif
 		move.w	#%000,dreqctl(a5)	; Reset 68S
 		move.w	d7,sr			; Restore interrupts
 		movem.l	(sp)+,a4-a5/d5-d7
@@ -1304,11 +1308,15 @@ sys_MSendDreq:
 ; --------------------------------------------------------
 
 System_GrabRamCode:
+	if MARS|MARSCD
+		moveq	#0,d0			; Turn OFF all 32X visuals
+		bsr	Video_MdMars_VideoMode
+	endif
 	if MCD|MARSCD
 		bsr	System_MdMcd_SubWait
 		; a0 - filename string,0
 		lea	(RAM_UserCode).l,a1
-		move.w	#(MAX_UserCode),d0
+		move.w	#MAX_UserCode,d0
 		bsr	System_McdTrnsfr_RAM
 		bsr	System_MdMcd_SubWait
 		jmp	(RAM_UserCode).l

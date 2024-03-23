@@ -134,9 +134,9 @@ mcdin_top:
 .loop_ram:	move.w	d0,(a0)+
 		cmp.l	d1,a0
 		bcs.s	.loop_ram
+		jsr	(System_MdMcd_SubWait).l		; Wait Sub-CPU first.
 		jsr	(Sound_init).l				; Init Sound driver (FIRST)
 		jsr	(Video_init).l				; Init Video
-		jsr	(System_MdMcd_SubWait).l		; Wait Sub-CPU first.
 		jsr	(System_Init).l				; Init System
 		move.w	#0,(RAM_ScreenMode).l			; Reset screen mode
 		jmp	(Md_ReadModes).l			; Go to SCREEN LOAD section
@@ -192,8 +192,9 @@ Md_SysCode:
 		include	"system/md/video.asm"
 		include	"system/md/system.asm"
 
-; ---------------------------------------------
-; Read screen modes
+; ====================================================================
+; --------------------------------------------------------
+; MAIN SCREEN MODE LOOP
 ;
 ;   MD/Pico: Direct ROM jump
 ; SCD/CD32X: Reads file from DISC and
@@ -203,10 +204,13 @@ Md_SysCode:
 ;            and the SH2
 ;
 ; - Returning in your current screen code
-; will loop here and reload the entire
-; screen code.
+;   will loop here and reload the entire
+;   screen code.
 ; - DO NOT JUMP TO SCREEN MODES DIRECTLY
-; ---------------------------------------------
+; - 32X/CD32X:
+;   This will turn OFF any pseudo-Video mode
+;   in use.
+; --------------------------------------------------------
 
 Md_ReadModes:
 		ori.w	#$0700,sr		; Disable interrupts
