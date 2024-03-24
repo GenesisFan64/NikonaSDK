@@ -202,48 +202,6 @@ MARS_Entry:
 		bcs	MD_MarsError
 		bra	MD_Init
 
-; ----------------------------------------------------------------
-; CHECK FOR RV BIT ON RESET
-; ----------------------------------------------------------------
-;
-; MD_MarsHotReset:
-; 		btst	#15,d0			; Hot start?
-; 		beq	MD_Init
-; 		lea	(sysmars_reg).l,a5
-; 		btst	#0,adapter(a5)		; Check ADEN
-; 		bne.s	MD_MarsAdapter
-; 		lea	.ram_patch(pc),a0	; Patch if the 32X got turned OFF...
-; 		lea	($FF0000).l,a1
-; 		move.l	a1,a2
-; 		move.w	#(.ram_patch_e-.ram_patch)/2,d0
-; .copy_toram:	move.w	(a0)+,(a1)+
-; 		dbf	d0,.copy_toram
-; 		jmp	(a2)
-;
-; ; --------------------------------------------------------
-;
-; .ram_patch:
-; 		move.b	#1,adapter(a5)			; Enable 32X manually
-; 		lea	($880000|MD_MarsRestart),a0	; Jump to .restart_icd
-; 		jmp	(a0)				; in the $880000 area
-; .ram_patch_e:
-; 		align 2
-;
-; ; --------------------------------------------------------
-;
-; MD_MarsRestart:
-; 		lea	($A10000).l,a5
-; 		move.l	#-64,a4
-; 		move.w	#3900,d7
-; 		lea	($880000|$6E4),a1	; Jump to ?res_wait
-; 		jmp	(a1)
-; MD_MarsAdapter:
-; 		vdp_showme $E00
-; 		lea	(sysmars_reg).l,a5
-; 		btst	#1,adapter(a5)		; Check RES
-; 		bne.s	MD_Init			; <-- Hotstart jump
-; 		bra	MD_MarsRestart
-
 ; ====================================================================
 ; ----------------------------------------------------------------
 ; If 32X is not detected
@@ -296,7 +254,6 @@ MD_HotStart:
 ; 		bne.s	.wait_slv
 ; 		clr.l	comm0(a5)
 ; 		clr.l	comm4(a5)
-
 
 ; ====================================================================
 ; ----------------------------------------------------------------

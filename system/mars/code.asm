@@ -373,6 +373,15 @@ SH2_S_ErrCode:
 
 		align 4
 m_irq_bad:
+		mov	#_FRT,r1
+		mov.b	@(7,r1),r0
+		xor	#2,r0
+		mov.b	r0,@(7,r1)
+		nop
+		nop
+		nop
+		nop
+		nop
 		rts
 		nop
 		align 4
@@ -387,6 +396,11 @@ m_irq_wdg:
 		mov.b	@(7,r1),r0
 		xor	#2,r0
 		mov.b	r0,@(7,r1)
+		nop
+		nop
+		nop
+		nop
+		nop
 		rts
 		nop
 		align 4
@@ -401,13 +415,16 @@ m_irq_dma:
 		mov.b	@(7,r1),r0
 		xor	#2,r0
 		mov.b	r0,@(7,r1)
-		mov	#_DMACHANNEL0,r1	; Check Channel 0
-		mov	@r1,r0			; Dummy READ
+		mov	#_DMACHANNEL0,r1
+.wait_dma:	mov	@r1,r0
+		tst	#%10,r0
+		bt	.wait_dma
+		mov	@r1,r0				; Dummy read
 		mov	#%0100010011100000,r0
-		mov	r0,@r1			; Transfer mode + DMA enable OFF
+		mov	r0,@r1
 		mov	#_sysreg+comm12,r1
 		mov.b	@r1,r0
-		and	#%10111111,r0		; Exit DMA status
+		and	#%10111111,r0			; Report EXIT status
 		mov.b	r0,@r1
 		rts
 		nop
@@ -425,10 +442,6 @@ m_irq_pwm:
 		mov.b	r0,@(7,r1)
 		mov	#_sysreg+pwmintclr,r1
 		mov.w	r0,@r1
-		nop
-		nop
-		nop
-		nop
 		rts
 		nop
 		align 4
@@ -472,29 +485,31 @@ m_irq_cmd:
 		mov	r0,@(8,r3)			; Length set by 68k
 		mov	#_sysreg+dreqfifo,r1
 		mov	r1,@r3				; Source point: DREQ FIFO
-; 		mov	#%0100010011100101,r0		; Transfer mode + DMA enable + Use DMA interrupt
-		mov	#%0100010011100001,r0		; Transfer mode + DMA enable
+		mov	#%0100010011100101,r0		; Transfer mode + DMA enable + Use DMA interrupt
+; 		mov	#%0100010011100001,r0		; Transfer mode + DMA enable
 		mov	r0,@($C,r3)			; Dest:Incr(01) Src:Keep(00) Size:Word(01)
 		mov.b	@r2,r0
-		or	#%01000000,r0			; Enter DMA status
+		or	#%01000000,r0			; Report ENTER status
 		mov.b	r0,@r2
 
 	; ********************************
-	; Wait here if not using interrupt
+	; Wait here if not using
+	; DMA interrupt
 	; ********************************
-		mov	#_DMACHANNEL0,r1
-.wait_dma:
-		mov	@r1,r0
-		tst	#%10,r0
-		bt	.wait_dma
-		mov	#_DMACHANNEL0,r1
-		mov	@r1,r0
-		mov	#%0100010011100000,r0
-		mov	r0,@r1
-		mov	#_sysreg+comm12,r1
-		mov.b	@r1,r0
-		and	#%10111111,r0			; Exit DMA status
-		mov.b	r0,@r1
+; 		mov	#_DMACHANNEL0,r1
+; .wait_dma:
+; 		mov	@r1,r0
+; 		tst	#%10,r0
+; 		bt	.wait_dma
+; 		mov	@r1,r0				; Dummy read
+; 		mov	#%0100010011100000,r0
+; 		mov	r0,@r1
+; 		mov	#_sysreg+comm12,r1
+; 		mov.b	@r1,r0
+; 		and	#%10111111,r0			; Report EXIT status
+; 		mov.b	r0,@r1
+	; ********************************
+
 		mov	@r15+,r4
 		mov	@r15+,r3
 		mov	@r15+,r2
@@ -514,11 +529,6 @@ m_irq_h:
 		mov.b	r0,@(7,r1)
 		mov	#_sysreg+hintclr,r1
 		mov.w	r0,@r1
-		nop
-		nop
-		nop
-		nop
-		nop
 		rts
 		nop
 		align 4
@@ -535,11 +545,6 @@ m_irq_v:
 		mov.b	r0,@(7,r1)
 		mov	#_sysreg+vintclr,r1
 		mov.w	r0,@r1
-		nop
-		nop
-		nop
-		nop
-		nop
 		rts
 		nop
 		align 4
@@ -874,11 +879,6 @@ s_irq_h:
 		mov.b	r0,@(7,r1)
 		mov	#_sysreg+hintclr,r1
 		mov.w	r0,@r1
-		nop
-		nop
-		nop
-		nop
-		nop
 		rts
 		nop
 		align 4
@@ -895,11 +895,6 @@ s_irq_v:
 		mov.b	r0,@(7,r1)
 		mov	#_sysreg+vintclr,r1
 		mov.w	r0,@r1
-		nop
-		nop
-		nop
-		nop
-		nop
 		rts
 		nop
 		align 4
@@ -1120,20 +1115,18 @@ master_loop:
 		add	#1,r0
 		mov.b	r0,@r1
 	endif
+
+	; ---------------------------------------
+	; Flip the DREQ Read/Write points
+	; ---------------------------------------
+
+	if EMU=0
 .too_late:
 		mov	#_sysreg+comm12,r1
 		mov.b	@r1,r0
 		tst	#%01000000,r0
 		bf	.too_late
-
-	; ---------------------------------------
-	; Flip the DREQ Read/Write points
-	; ---------------------------------------
-		mov	#_vdpreg,r1			; Check if we got late
-.waitl:		mov.b	@(vdpsts,r1),r0			; on VBlank
-		tst	#VBLK,r0
-		bf	.waitl
-		mov.b	r0,@r1
+	endif
 		stc	sr,@-r15
 		mov.b	#$F0,r0				; ** $F0
 		extu.b	r0,r0
@@ -1145,12 +1138,16 @@ master_loop:
 		mov	r1,r0
 		mov	r0,@(marsGbl_DreqRead,gbr)
 		ldc	@r15+,sr
-		bsr	Mars_CachePurge			; Purge cache
-		nop
+		mov	#_vdpreg,r1			; Check if we got late
+.waitl:		mov.b	@(vdpsts,r1),r0			; on VBlank
+		tst	#VBLK,r0
+		bf	.waitl
 		mov	#_sysreg+comm12+1,r1		; Reset FrameWait bit from 68K
 		mov.b	@r1,r0
 		and	#%11101111,r0
 		mov.b	r0,@r1
+		bsr	Mars_CachePurge			; Purge cache
+		nop
 
 	; ---------------------------------------
 	; Write palette using DREQ data

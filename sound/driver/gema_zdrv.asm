@@ -2491,6 +2491,8 @@ dtbl_singl:
 		jr	nz,.pw_note
 		bit	3,b			; Effect?
 		jr	nz,.pw_effc
+		bit	2,b			; Volume?
+		jr	nz,.pw_effc
 		ret
 .pw_effc:
 		ld	e,00001001b
@@ -2504,7 +2506,6 @@ dtbl_singl:
 		cpl			; Reverse and filter bits
 		and	00110000b
 		rst	8
-	; TODO: checar los volumenes de PWM otravez
 		ld	e,a		; Save panning to e
 		ld	a,(iy+08h)	; Read current volume
 		sub	a,(iy+03h)	; + MASTER vol
@@ -2557,10 +2558,10 @@ dtbl_singl:
 ; SHARED routine
 
 .readfreq_pcm:
-		ld	hl,wavFreq_CdPcm-(36*2)
+		ld	hl,wavFreq_CdPcm-(2*48)	; <-- one octave lower
 		jr	.set_wavfreq
 .readfreq_pwm:
-		ld	hl,wavFreq_List-(36*2)
+		ld	hl,wavFreq_List-(2*36)
 .set_wavfreq:
 		ld	d,0		; Freq index
 		ld	e,(iy+06h)
@@ -4224,6 +4225,13 @@ fmFreq_List:	dw 644
 		dw 1081
 		dw 1146
 		dw 1214
+
+; ----------------------------------------
+; DAC and PWM
+;
+; base C-5 freq: 16000hz
+; ----------------------------------------
+
 psgFreq_List:
 ; 	dw    -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1	; x-0
 ; 	dw    -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1	; x-1
@@ -4239,9 +4247,9 @@ psgFreq_List:
 
 ; ----------------------------------------
 ; DAC and PWM
-;
-; base C-5 freq: 16000hz
 ; ----------------------------------------
+
+; TODO
 wavFreq_List:
 	;   C     C#    D     D#    E     F     F#    G     G#    A     A#    B
 ; 	dw 0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h	; x-0
@@ -4257,14 +4265,12 @@ wavFreq_List:
 
 ; ----------------------------------------
 ; SegaCD ONLY
-;
-; base C-5 freq: 32000hz
 ; ----------------------------------------
 wavFreq_CdPcm:
 	;     C     C#     D      D#     E      F      F#     G      G#     A      A#     B
 ; 	dw  0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h	; x-0
 ; 	dw  0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h	; x-1
-; 	dw  0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h	; x-2  4000 unchecked
+; 	dw  0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h	; x-2  4000
 	dw  01F8h, 0214h, 023Ch, 0258h, 027Ch, 02A0h, 02C8h, 02F4h, 031Ch, 0348h, 037Ch, 03B0h	; x-3  8000 ok
 	dw  03F0h, 0424h, 0468h, 04A8h, 04ECh, 0540h, 0590h, 05E4h, 063Ch, 0698h, 0704h, 0760h	; x-4 16000 ok
 	dw  07DCh, 0848h, 08D4h, 0960h, 09F0h, 0A64h, 0B04h, 0BAAh, 0C60h, 0D18h, 0DE4h, 0EB6h	; x-5 32000 ok

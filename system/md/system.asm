@@ -1217,8 +1217,12 @@ System_MarsDataPack:
 ; --------------------------------------------------------
 
 System_MarsSendDreq:
+	if MARS|MARSCD
 		moveq	#1,d1
 		bra.s	sys_MSendDreq
+	else
+		rts
+	endif
 
 ; --------------------------------------------------------
 ; System_MarsUpdate
@@ -1270,17 +1274,20 @@ sys_MSendDreq:
 		bset	#0,standby(a5)		; Call CMD interrupt to MASTER
 .wait_bit:	btst	#6,comm12(a5)		; Wait ENTRANCE signal
 		beq.s	.wait_bit
-		move.w	#%100,dreqctl(a5)	; Set 68S
-.l0:		move.w  (a0)+,(a4)		; *** CRITICAL PART ***
+		move.w	#%100,dreqctl(a5)	; Set 68S and RV
+	; *** CRITICAL PART ***
+.loop_fifo:	btst	#7,dreqctl(a5)		; FIFO full?
+		bne.s	.loop_fifo
 		move.w  (a0)+,(a4)
 		move.w  (a0)+,(a4)
 		move.w  (a0)+,(a4)
-		dbf	d5,.l0
-; 	if EMU=0				; *** EMULATOR patch
+		move.w  (a0)+,(a4)
+		dbf	d5,.loop_fifo
+	if EMU=0
 .wait_bit_e:	btst	#6,comm12(a5)		; Wait EXIT signal
 		bne.s	.wait_bit_e
-; 	endif
-		move.w	#%000,dreqctl(a5)	; Reset 68S
+	endif
+		move.w	#%000,dreqctl(a5)	; Clear 68S and RV
 		move.w	d7,sr			; Restore interrupts
 		movem.l	(sp)+,a4-a5/d5-d7
 	endif

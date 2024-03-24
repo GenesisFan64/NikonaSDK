@@ -324,7 +324,7 @@ Video_ClearScreen:
 ; FULL Fade in
 ; --------------------------------------------------------
 
-Video_FadeIn:
+Video_FullFadeIn:
 		move.w	#1,(RAM_FadeMdReq).w	; Fade-in task
 		move.w	#1,(RAM_FadeMarsReq).w
 
@@ -338,7 +338,7 @@ Video_FadeIn:
 ; FULL Fade out
 ; --------------------------------------------------------
 
-Video_FadeOut:
+Video_FullFadeOut:
 		move.w	#2,(RAM_FadeMdReq).w	; Fade-in task
 		move.w	#2,(RAM_FadeMarsReq).w
 
@@ -350,17 +350,18 @@ Video_FadeOut:
 
 ; --------------------------------------------------------
 ; Video_WaitFade
+;
+; *** Custom VBlank wait ***
 ; --------------------------------------------------------
 
 Video_WaitFade:
-		bsr	Objects_Run
-		bsr	Objects_Show
+		bsr	System_Render
 .wait_fade:
 		move.w	(vdp_ctrl).l,d7
 		btst	#bitVBlk,d7
 		bne.s	.wait_fade
-	if MARS|MARSCD
 		bsr	Video_Render
+	if MARS|MARSCD
 		bsr	System_MarsUpdate
 		bsr	Video_DoPalFade
 		bsr	Video_MdMars_DoPalFade
@@ -975,6 +976,8 @@ Video_Copy:
 ; This gets normally called on System_Render
 ; --------------------------------------------------------
 
+; TODO: automate the DMA destination(s)
+
 Video_Render:
 		lea	(vdp_ctrl),a6
 		move.w	#$8100,d7		; DMA ON
@@ -1012,7 +1015,6 @@ Video_Render:
 		move.w	d7,(a6)
 		move.w	#1,(RAM_SprLinkNum).w				; Reset SPRITE LINK number
 		move.w	(RAM_SprAutoDmaSet).w,(RAM_SprAutoDmaCurr).w	; Reset Auto-DMA VRAM
-	; Process DMA BLAST from here
 
 ; --------------------------------------------------------
 ; Video_DmaBlast
@@ -1028,13 +1030,13 @@ Video_Render:
 ;        sets the RV bit
 ; --------------------------------------------------------
 
-; Format:
+; Struct:
 ; dc.w $94xx,$93xx		; Size
 ; dc.w $96xx,$95xx,$97xx	; Source
 ; dc.l $4xxx008x 		; VDP destination with DMA bit
-; dc.w $xxxx			; SegaCD/CD32X only: Graphics TOP-Word patch
+; dc.w $xxxx			; SegaCD/CD32X only: Patch for the first 4 pixels
 
-Video_DmaBlast:
+; Video_DmaBlast:
 		tst.w	(RAM_VdpDmaMod).w		; Got mid-write?
 		bne.s	.exit				; then can't transfer this.
 		tst.w	(RAM_VdpDmaIndx).w		; Any requests?
@@ -1058,9 +1060,9 @@ Video_DmaBlast:
 		move.w	d3,(a4)
 		move.w	(sp)+,(a4)		; *** CPU freezes ***
 		andi.w	#$FF7F,d2		; Remove DMA bit
-		move.w	d3,(a4)			; Write VDP control as normal
+		move.w	d3,(a4)			; Set VDP control normally
 		move.w	d2,(a4)
-		move.w	(a3)+,-4(a4)		; Write pixels patch $C00000
+		move.w	(a3)+,-4(a4)		; Write the patched pixels
 	else
 		move.w	(a3)+,(a4)		; Normal VDP control write
 		move.w	(a3)+,(a4)		; *** CPU freezes ***

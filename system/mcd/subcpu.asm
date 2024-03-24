@@ -202,7 +202,9 @@ SP_IRQ:
 ; ----------------------------------------------------------------
 
 SP_Main:
+	rept 5
 		bsr	CDPCM_Stream
+	endm
 		move.b	(scpu_reg+mcd_comm_m).w,d0
 		move.b	d0,d1
 		andi.w	#$F0,d1

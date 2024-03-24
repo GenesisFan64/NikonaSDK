@@ -173,7 +173,7 @@ sizeof_thisbuff		ds.l 0
 		bset	#bitDispEnbl,(RAM_VdpRegs+1).l		; Enable display
 		move.b	#%10000001,(RAM_VdpRegs+$C).w		; H40 + shadow mode
 		bsr	Video_Update
-		bsr	Video_FadeIn
+		bsr	Video_FullFadeIn
 
 ; ====================================================================
 ; ------------------------------------------------------
@@ -191,8 +191,7 @@ sizeof_thisbuff		ds.l 0
 
 .snd_test:
 		bsr	gemaStopAll
-		bsr	System_Render
-		bsr	Video_FadeOut
+		bsr	Video_FullFadeOut
 		move.w	#1,(RAM_ScreenMode).w
 		rts		; EXIT
 
