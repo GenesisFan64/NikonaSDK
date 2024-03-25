@@ -392,10 +392,10 @@ sizeof_thisbuff		ds.l 0
 .extnal_beats:
 	dc.w 214
 	dc.w 214
-	dc.w 200+32
-	dc.w 200+32
-	dc.w 200+32
-	dc.w 200+4
+	dc.w 214
+	dc.w 214
+	dc.w 214
+	dc.w 214
 	dc.w 200+32
 	dc.w 200+32
 	dc.w 200+32

@@ -285,7 +285,8 @@ endlbl label *
 	endif
 
 	if MARS|MARSCD
-		report "SH2 SDRAM DATA: thislbl",endlbl-thislbl,(CS3|$40000)-SH2_USER_DATA
+
+		report "SH2 SDRAM DATA: thislbl",endlbl-thislbl,((CS3+$40000)-SH2_USER_DATA)
 	endif
 	endm
 

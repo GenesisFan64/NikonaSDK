@@ -2510,12 +2510,8 @@ dtbl_singl:
 		ld	a,(iy+08h)	; Read current volume
 		sub	a,(iy+03h)	; + MASTER vol
 		neg	a
-		ccf
-		adc	a,a
-		adc	a,a
-		jr	nc,.pwv_much
-		ld	a,-1
-.pwv_much:
+		add	a,a
+	; no changes
 		and	11111100b
 		or	h		; Merge MSB freq
 		ld	bc,8
@@ -2558,7 +2554,7 @@ dtbl_singl:
 ; SHARED routine
 
 .readfreq_pcm:
-		ld	hl,wavFreq_CdPcm-(2*48)	; <-- one octave lower
+		ld	hl,wavFreq_CdPcm-(2*36)	; <-- one octave lower
 		jr	.set_wavfreq
 .readfreq_pwm:
 		ld	hl,wavFreq_List-(2*36)
@@ -4246,7 +4242,9 @@ psgFreq_List:
 
 
 ; ----------------------------------------
-; DAC and PWM
+; DAC and PWM shared list
+;
+; base C-5 freq: 16000hz
 ; ----------------------------------------
 
 ; TODO
@@ -4255,26 +4253,28 @@ wavFreq_List:
 ; 	dw 0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h	; x-0
 ; 	dw 0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h	; x-1
 ; 	dw 0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0036h,003Bh	; x-2
-	dw 003Eh,0043h,0046h,0049h,004Eh,0054h,0058h,005Eh,0063h,0068h,0070h,0075h	; x-3
-	dw 0085h,0087h,008Ch,009Ah,00A4h,00ADh,00B2h,00C0h,00CCh,00D7h,00E6h,00F0h	; x-4
-	dw 0100h,0110h,0120h,012Eh,0147h,015Ah,016Ah,017Fh,0191h,01ACh,01C2h,01E0h	; x-5
-	dw 01F8h,0210h,0240h,0260h,0280h,02A0h,02D0h,02F8h,0320h,0350h,0380h,03C0h	; x-6
+	dw 0040h,0044h,0048h,004Ch,0052h,0056h,005Ah,0060h,0066h,006Ch,0071h,0079h	; x-3 4000 ok
+	dw 0080h,0088h,0090h,0098h,00A2h,00ACh,00B4h,00C2h,00CCh,00D7h,00E4h,00F0h	; x-4 8000 ok
+	dw 0100h,0110h,0120h,012Eh,0147h,015Ah,016Ah,017Fh,0191h,01ACh,01C2h,01E0h	; x-5 16000 ok
+	dw 01F8h,0210h,0240h,0260h,0280h,02A0h,02D0h,02F8h,0320h,0350h,0380h,03C0h	; x-6 32000 UNTESTED
 ; 	dw 0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h	; x-7
 ; 	dw 0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h	; x-8
 ; 	dw 0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h,0100h	; x-9
 
 ; ----------------------------------------
-; SegaCD ONLY
+; SegaCD PCM
+;
+; base C-5 freq: 16000hz
 ; ----------------------------------------
 wavFreq_CdPcm:
 	;     C     C#     D      D#     E      F      F#     G      G#     A      A#     B
 ; 	dw  0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h	; x-0
 ; 	dw  0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h	; x-1
-; 	dw  0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h, 0100h	; x-2  4000
+	dw  00F8h, 0108h, 011Ch, 0128h, 013Ch, 014Ch, 0160h, 017Ch, 0188h, 01A0h, 01BCh, 01DCh	; x-2  4000 ok
 	dw  01F8h, 0214h, 023Ch, 0258h, 027Ch, 02A0h, 02C8h, 02F4h, 031Ch, 0348h, 037Ch, 03B0h	; x-3  8000 ok
 	dw  03F0h, 0424h, 0468h, 04A8h, 04ECh, 0540h, 0590h, 05E4h, 063Ch, 0698h, 0704h, 0760h	; x-4 16000 ok
-	dw  07DCh, 0848h, 08D4h, 0960h, 09F0h, 0A64h, 0B04h, 0BAAh, 0C60h, 0D18h, 0DE4h, 0EB6h	; x-5 32000 ok
-	dw  0FB0h, 1074h, 1184h, 1280h, 139Ch, 14C8h, 1624h, 174Ch, 18DCh, 1A38h, 1BE0h, 1D94h	; x-6 64000 unstable
+	dw  07DCh, 0848h, 08D4h, 0960h, 09F0h, 0A64h, 0B04h, 0BAAh, 0C60h, 0D18h, 0DE4h, 0EB8h	; x-5 32000 ok
+; 	dw  0FB0h, 1074h, 1184h, 1280h, 139Ch, 14C8h, 1624h, 174Ch, 18DCh, 1A38h, 1BE0h, 1D94h	; x-6 64000 unstable
 ; 	dw  1F64h, 20FCh, 2330h, 2524h, 2750h, 29B4h, 2C63h, 2F63h, 31E0h, 347Bh, 377Bh, 3B41h	; x-7 128000 bad
 ; 	dw  3EE8h, 4206h, 4684h, 4A5Ah, 4EB5h, 5379h, 58E1h, 5DE0h, 63C0h, 68FFh, 6EFFh, 783Ch	; x-8 256000 bad
 ; 	dw  7FC2h, 83FCh, 8D14h, 9780h,0AA5Dh,0B1F9h,   -1 ,   -1 ,   -1 ,   -1 ,   -1 ,   -1 	; x-9 bad
@@ -4389,7 +4389,7 @@ trkBuff_3	ds trk_ChnIndx+MAX_TRKINDX
 ; PWM  0E0h
 ; --------------------------------------------------------
 
-		org 1A00h	; <-- MUST BE 00h ALIGNED
+		org 1A00h			; <-- MUST BE 00h ALIGNED
 tblList:	dw tblPSG-tblList		;  80h
 		dw tblPSGN-tblList|8000h	;  90h *
 		dw tblFM-tblList		; 0A0h
@@ -4515,8 +4515,8 @@ sbeatAcc	dw 0		; Accumulates on each tick to trigger the sub beats
 sbeatPtck	dw 214		; Default global subbeats (this-32 for PAL) 214=125
 headerOut	ds 00Eh		; Temporal storage for 68k pointers
 headerOut_e	ds 2		; <-- reverse readpoint
-trkInfoCach	;ds 4
-sampleHead	;ds 006h
+trkInfoCach	ds 4
+sampleHead	ds 006h
 instListOut	ds 8
 
 ; ====================================================================

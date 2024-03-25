@@ -48,6 +48,8 @@
 ; USER SETTINGS
 ; ----------------------------------------------------------------
 
+SET_INITMODE	equ 0		; Starting screen mode number
+
 ; --------------------------------------------------------
 ; 68000 RAM SIZES (SegaCD: MAIN-CPU)
 ;
@@ -107,7 +109,7 @@ MAX_MdOther	equ $0E00	; Add-on stuff
 		jsr	(Sound_init).l			; Init Sound driver (FIRST)
 		jsr	(Video_init).l			;  ''  Video
 		jsr	(System_Init).l			;  ''  System
-		move.w	#0,(RAM_ScreenMode).w		; Reset screen mode
+		move.w	#SET_INITMODE,(RAM_ScreenMode).w		; Reset screen mode
 		jmp	(Md_ReadModes).l		; Go to SCREEN LOAD section
 
 ; ---------------------------------------------
@@ -138,7 +140,7 @@ mcdin_top:
 		jsr	(Sound_init).l				; Init Sound driver (FIRST)
 		jsr	(Video_init).l				; Init Video
 		jsr	(System_Init).l				; Init System
-		move.w	#0,(RAM_ScreenMode).l			; Reset screen mode
+		move.w	#SET_INITMODE,(RAM_ScreenMode).w	; Reset screen mode
 		jmp	(Md_ReadModes).l			; Go to SCREEN LOAD section
 		phase $FFFF0600+*
 Z80_CODE:	include "sound/driver/gema_zdrv.asm"		; Z80 code loaded once on boot.
@@ -155,7 +157,7 @@ Z80_CODE_END:
 		bsr	Sound_init			; Init Sound driver (FIRST)
 		bsr	Video_init			;  ''  Video
 		bsr	System_Init			;  ''  Values
-		move.w	#0,(RAM_ScreenMode).w		; Reset screen mode
+		move.w	#SET_INITMODE,(RAM_ScreenMode).w		; Reset screen mode
 		bra.w	Md_ReadModes			; Go to SCREEN LOOP section
 
 ; ---------------------------------------------
@@ -166,7 +168,7 @@ Z80_CODE_END:
 		bsr	Sound_init			; Init Sound driver (FIRST)
 		bsr	Video_init			;  ''  Video
 		bsr	System_Init			;  ''  Values
-		move.w	#0,(RAM_ScreenMode).w		; Reset screen mode
+		move.w	#SET_INITMODE,(RAM_ScreenMode).w		; Reset screen mode
 		bra.w	Md_ReadModes			; Go to SCREEN LOAD section
 
 ; ---------------------------------------------

@@ -9,7 +9,7 @@
 ; Settings
 ; --------------------------------------------------------
 
-SAMPLE_RATE	equ 16000	; Best for speed reasons, sounds good.
+SAMPLE_RATE	equ 16000	; Best one for CPU speed reasons
 MAX_PWMCHNL	equ 7
 
 ; --------------------------------------------------------

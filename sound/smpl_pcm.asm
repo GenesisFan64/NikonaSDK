@@ -6,9 +6,10 @@
 ;
 ; *** DO NOT LEAVE THIS SECTION EMPTY ***
 ; --------------------------------------------------------
+; 	gSmplData Label,"file",loop_point(0-start)
 
 	align $800
-; 	gSmplData Label,"file",loop_point(0-start)
+
  	gSmplData PcmIns_techno_01,"sound/instr/smpl/techno/01.wav",0
  	gSmplData PcmIns_techno_02,"sound/instr/smpl/techno/02.wav",0
   	gSmplData PcmIns_techno_03,"sound/instr/smpl/techno/03.wav",0
@@ -53,8 +54,10 @@
 ;   	gSmplData PcmIns_PTom,"sound/instr/smpl/sauron_tom.wav",0
 ;  	gSmplData PcmIns_NadieL,"sound/instr/smpl/nadie_l.wav",0
 ;  	gSmplData PcmIns_NadieR,"sound/instr/smpl/nadie_r.wav",0
- 	gSmplData PcmIns_MoveMe_Hit,"sound/instr/smpl/moveme_hit.wav",0
-  	gSmplData PcmIns_Kick,"sound/instr/smpl/kick_moveme.wav",0
-  	gSmplData PcmIns_Snare,"sound/instr/smpl/snare_moveme.wav",0
-  	gSmplData PcmIns_MoveMe_BrassL,"sound/instr/smpl/brass_move_l.wav",6478
-  	gSmplData PcmIns_MoveMe_BrassR,"sound/instr/smpl/brass_move_r.wav",6478
+;  	gSmplData PcmIns_MoveMe_Hit,"sound/instr/smpl/moveme_hit.wav",0
+;   	gSmplData PcmIns_Kick,"sound/instr/smpl/kick_moveme.wav",0
+;   	gSmplData PcmIns_Snare,"sound/instr/smpl/snare_moveme.wav",0
+;   	gSmplData PcmIns_MoveMe_BrassL,"sound/instr/smpl/brass_move_l.wav",6478
+;   	gSmplData PcmIns_MoveMe_BrassR,"sound/instr/smpl/brass_move_r.wav",6478
+
+;  	gSmplData PcmIns_test8,"sound/instr/smpl/test_8.wav",0

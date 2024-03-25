@@ -416,12 +416,12 @@ m_irq_dma:
 		xor	#2,r0
 		mov.b	r0,@(7,r1)
 		mov	#_DMACHANNEL0,r1
-.wait_dma:	mov	@r1,r0
+.wait_dma:	mov	@r1,r0				; <-- Fail-safe
 		tst	#%10,r0
 		bt	.wait_dma
 		mov	@r1,r0				; Dummy read
 		mov	#%0100010011100000,r0
-		mov	r0,@r1
+		mov	r0,@r1				; Turn this DMA off.
 		mov	#_sysreg+comm12,r1
 		mov.b	@r1,r0
 		and	#%10111111,r0			; Report EXIT status
@@ -749,7 +749,8 @@ s_irq_cmd:
 		add	#8,r3			; Next: Volume and Pitch MSB
 		mov.b	@r3,r0			; r0: %vvvvvvpp
 		mov	r0,r2			; Save pp-pitch
-		and	#%11111100,r0
+		and	#%11111100,r0		; first 2 bits lost/ignored
+		shll	r0
 		mov	r0,@(mchnsnd_vol,r7)
 		add	#8,r3			; Next: Pitch LSB
 		mov.b	@r3,r1			; r0: %pppppppp

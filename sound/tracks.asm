@@ -127,42 +127,43 @@ gemaHead macro blk,pat,ins,num
 
 	align 2
 Gema_MasterList:
+	gemaTrk 64,GemaTrk_Test
 	gemaTrk 4|$80,GemaTrk_Astral
 	gemaTrk 3|$80,GemaTrk_Arena1
 ; 	gemaTrk 6|$80,GemaTrk_MOVEME
 ; 	gemaTrk 6|$80,GemaTrk_NadieMD
 ; 	gemaTrk 6|$80,GemaTrk_NadieMCD
 ; 	gemaTrk 6|$80,GemaTrk_NadieMARS
-	gemaTrk 3|$80,GemaTrk_Crystal
-	gemaTrk 3,GemaTrk_Dream
+; 	gemaTrk 3|$80,GemaTrk_Crystal
+; 	gemaTrk 3,GemaTrk_Dream
 
 ; ------------------------------------------------------------
 ; BGM tracks
 ; ------------------------------------------------------------
-
-GemaSfx_All:
-	gemaHead .blk,.pat,.ins,1
-.blk:
-	binclude "sound/tracks/sfxall_blk.bin"
-	align 2
-.pat:
-	binclude "sound/tracks/sfxall_patt.bin"
-	align 2
-.ins:
-	gInsPsgN 0,$00,$00,$00,$00,$00,0,%100
-	gInsPsgN 0,$00,$00,$00,$00,$00,0,%101
-	gInsPsgN 0,$00,$00,$00,$00,$00,0,%110
-	gInsFm 0,FmIns_Ding_1
-	gInsFm3 0,FmIns_Fm3_Explosion
+;
+; GemaSfx_All:
+; 	gemaHead .blk,.pat,.ins,1
+; .blk:
+; 	binclude "sound/tracks/sfxall_blk.bin"
+; 	align 2
+; .pat:
+; 	binclude "sound/tracks/sfxall_patt.bin"
+; 	align 2
+; .ins:
+; 	gInsPsgN 0,$00,$00,$00,$00,$00,0,%100
+; 	gInsPsgN 0,$00,$00,$00,$00,$00,0,%101
+; 	gInsPsgN 0,$00,$00,$00,$00,$00,0,%110
+; 	gInsFm 0,FmIns_Ding_1
+; 	gInsFm3 0,FmIns_Fm3_Explosion
 
 ; ------------------------------------------------------------
 
-GemaTrk_TEST_0:
+GemaTrk_Test:
 	gemaHead .blk,.pat,.ins,3
 .ins:
 ; 	gInsPsgN 0,$00,$00,$00,$00,$00,0,%101
 ; 	gInsFm -36-6,FmIns_Ambient_dark
-	gInsPcm -12,PcmIns_MoveMe_BrassL,%11
+	gInsDac -12,PcmIns_test8,0
 ; 	gInsPwm 0,PwmIns_Piano,%00
 .blk:
 	binclude "sound/tracks/test_blk.bin"
@@ -171,75 +172,75 @@ GemaTrk_TEST_0:
 
 ; ------------------------------------------------------------
 
-GemaTrk_MOVEME:
-	gemaHead .blk,.pat,.ins,13
-.blk:
-	binclude "sound/tracks/moveme_blk.bin"
-	align 2
-.pat:
-	binclude "sound/tracks/moveme_patt.bin"
-	align 2
-.ins:
-	gInsPcm -12,PcmIns_MoveMe_Hit,%10
-	gInsFm 0,FmIns_Bass_Duck
-	gInsPcm -12,PcmIns_MoveMe_BrassL,%11
-	gInsFm 0,FmIns_ClosedHat
-	gInsPsgN 0,$00,$00,$00,$00,$04,0,%110
-	gInsFm -12,FmIns_HBeat_tom
-	gInsPcm -12,PcmIns_Snare,%10
-	gInsPcm -12,PcmIns_Kick,%10		;gInsFm -38,FmIns_DrumKick_gem
-	gInsFm -12,FmIns_Trumpet_carnival	;FmIns_Trumpet_2
-	gInsPsg 0,$20,$20,$10,$01,$08,0		;gInsFm -12,FmIns_Ding_Baseball;
-	gInsFm3 0,FmIns_Sp_OpenHat
-	gInsNull;gInsPwm -17,PwmIns_MyTime,%10
-	gInsPsg +12,$20,$10,$10,$0C,$0C,0
-	gInsPsg 0,$00,$00,$00,$00,$06,0
-	gInsPcm -12,PcmIns_MoveMe_BrassR,%11
-	gInsNull
-	gInsNull
-	gInsNull
-	gInsNull
+; GemaTrk_MOVEME:
+; 	gemaHead .blk,.pat,.ins,13
+; .blk:
+; 	binclude "sound/tracks/moveme_blk.bin"
+; 	align 2
+; .pat:
+; 	binclude "sound/tracks/moveme_patt.bin"
+; 	align 2
+; .ins:
+; 	gInsPcm -12,PcmIns_MoveMe_Hit,%10
+; 	gInsFm 0,FmIns_Bass_Duck
+; 	gInsPcm -12,PcmIns_MoveMe_BrassL,%11
+; 	gInsFm 0,FmIns_ClosedHat
+; 	gInsPsgN 0,$00,$00,$00,$00,$04,0,%110
+; 	gInsFm -12,FmIns_HBeat_tom
+; 	gInsPcm -12,PcmIns_Snare,%10
+; 	gInsPcm -12,PcmIns_Kick,%10		;gInsFm -38,FmIns_DrumKick_gem
+; 	gInsFm -12,FmIns_Trumpet_carnival	;FmIns_Trumpet_2
+; 	gInsPsg 0,$20,$20,$10,$01,$08,0		;gInsFm -12,FmIns_Ding_Baseball;
+; 	gInsFm3 0,FmIns_Sp_OpenHat
+; 	gInsNull;gInsPwm -17,PwmIns_MyTime,%10
+; 	gInsPsg +12,$20,$10,$10,$0C,$0C,0
+; 	gInsPsg 0,$00,$00,$00,$00,$06,0
+; 	gInsPcm -12,PcmIns_MoveMe_BrassR,%11
+; 	gInsNull
+; 	gInsNull
+; 	gInsNull
+; 	gInsNull
 
 ; ------------------------------------------------------------
 
-GemaTrk_Dream:
-	gemaHead .blk,.pat,.ins,8
-.blk:
-	binclude "sound/tracks/dream_blk.bin"
-.pat:
-	binclude "sound/tracks/dream_patt.bin"
-.ins:
-	gInsFm 0,FmIns_Hats_closed
-	gInsDac +12,DacIns_Kick_wegot,0
-	gInsFm -12,FmIns_brass_eur
-	gInsFm -24,FmIns_Trumpet_carnival
-	gInsPsg  0,$00,$20,$00,$02,$10,0
-	gInsPsgN 0,$00,$10,$00,$01,$04,0,%100
-	gInsFm 0,FmIns_Bass_low_1
-	gInsFm 0,FmIns_Hats_1
-	gInsPsgN 0,$00,$10,$00,$01,$08,0,%101
-	gInsNull
-	gInsNull
-	gInsNull
-	gInsNull
-	gInsPsg  0,$40,$00,$00,$00,$00,0
-	gInsFm -12,FmIns_Trumpet_1
+; GemaTrk_Dream:
+; 	gemaHead .blk,.pat,.ins,8
+; .blk:
+; 	binclude "sound/tracks/dream_blk.bin"
+; .pat:
+; 	binclude "sound/tracks/dream_patt.bin"
+; .ins:
+; 	gInsFm 0,FmIns_Hats_closed
+; 	gInsDac +12,DacIns_Kick_wegot,0
+; 	gInsFm -12,FmIns_brass_eur
+; 	gInsFm -24,FmIns_Trumpet_carnival
+; 	gInsPsg  0,$00,$20,$00,$02,$10,0
+; 	gInsPsgN 0,$00,$10,$00,$01,$04,0,%100
+; 	gInsFm 0,FmIns_Bass_low_1
+; 	gInsFm 0,FmIns_Hats_1
+; 	gInsPsgN 0,$00,$10,$00,$01,$08,0,%101
+; 	gInsNull
+; 	gInsNull
+; 	gInsNull
+; 	gInsNull
+; 	gInsPsg  0,$40,$00,$00,$00,$00,0
+; 	gInsFm -12,FmIns_Trumpet_1
 
-; Ticks: 3-1
-; TEMPO: 170
-GemaTrk_Crystal:
-	gemaHead .blk,.pat,.ins,7
-.blk:
-	binclude "sound/tracks/crystal_blk.bin"
-.pat:
-	binclude "sound/tracks/crystal_patt.bin"
-.ins:
-	gInsFm 0,FmIns_Organ2a
-	gInsPsgN 0,$00,$10,$00,$01,$10,0,%100
-	gInsDac 0,DacIns_Kick_wegot,0
-	gInsFm3 0,FmIns_Sp_OpenHat
-	gInsNull
-	gInsFm 0,FmIns_Bass_low_1
+; ; Ticks: 3-1
+; ; TEMPO: 170
+; GemaTrk_Crystal:
+; 	gemaHead .blk,.pat,.ins,7
+; .blk:
+; 	binclude "sound/tracks/crystal_blk.bin"
+; .pat:
+; 	binclude "sound/tracks/crystal_patt.bin"
+; .ins:
+; 	gInsFm 0,FmIns_Organ2a
+; 	gInsPsgN 0,$00,$10,$00,$01,$10,0,%100
+; 	gInsDac 0,DacIns_Kick_wegot,0
+; 	gInsFm3 0,FmIns_Sp_OpenHat
+; 	gInsNull
+; 	gInsFm 0,FmIns_Bass_low_1
 
 ; ------------------------------------------------------------
 

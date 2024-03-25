@@ -53,6 +53,9 @@
 ; If not doing loop, just write 0.
 ;
 gSmplData macro labl,file,loop
+	if MARS|MARSCD		; <-- label align for 32X
+		align 4
+	endif
 labl	label *
 	dc.b ((labl_e-labl_s)&$FF),(((labl_e-labl_s)>>8)&$FF),(((labl_e-labl_s)>>16)&$FF)
 	dc.b ((loop)&$FF),(((loop)>>8)&$FF),(((loop)>>16)&$FF)

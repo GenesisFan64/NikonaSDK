@@ -98,6 +98,8 @@ s_irq_pwm:
 		bra	.go_wave
 		extu.b	r4,r4
 .do_mono:
+		shar	r3	; MONO is very loud
+		shar	r4	; lower it a bit.
 		mov	r3,r4
 
 ; r3 - left byte
