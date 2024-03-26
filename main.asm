@@ -48,7 +48,7 @@
 ; USER SETTINGS
 ; ----------------------------------------------------------------
 
-SET_INITMODE	equ 0		; Starting screen mode number
+SET_INITMODE	equ 1		; Starting screen mode number
 
 ; --------------------------------------------------------
 ; 68000 RAM SIZES (SegaCD: MAIN-CPU)
@@ -72,7 +72,7 @@ MAX_MdOther	equ $0E00	; Add-on stuff
 		cpu 		68000		; Starting CPU is 68000
 		padding		off		; Dont pad dc.b
 		listing 	purecode	; Want listing file
-		supmode 	on 		; Supervisor mode (68K)
+		supmode 	on 		; Supervisor mode (68000)
 		dottedstructs	off
 		page 		0
 

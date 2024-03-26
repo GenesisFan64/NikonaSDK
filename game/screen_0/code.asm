@@ -50,6 +50,10 @@ sizeof_thisbuff		ds.l 0
 		move.l	#0,a1
 		bsr	Video_PrintInit
 
+; 		lea	($FF0000),a0
+; 		move.l	#$11223344,d0
+; 		movep.w	d0,(a0)
+
 	; ----------------------------------------------
 	; Load assets
 	if MARS|MARSCD
@@ -83,23 +87,22 @@ sizeof_thisbuff		ds.l 0
 		bset	#0,sspr_Flags+1(a0)
 		clr.w	(RAM_TempAnim).w
 
-; 		lea	(PalMars_Scrn0),a0
-; 		move.w	#128,d0
-; 		move.w	#64,d1
-; 		moveq	#0,d2
-; 		bsr	Video_MdMars_FadePal
-; 		lea	(MapMars_Scrn0),a0
-; 		moveq	#0,d0
-; 		moveq	#0,d1
-; 		move.w	#320/16,d2
-; 		move.w	#224/16,d3
-; 		move.w	#128,d4
-; 		bsr	Video_MdMarsMap_Load
-
-; 		move.l	#ArtMars_Scrn0,d0
-; 		moveq	#0,d1
-; 		moveq	#0,d2
-; 		bsr	Video_MdMarsMap_Set
+		lea	(PalMars_Scrn0),a0
+		move.w	#128,d0
+		move.w	#64,d1
+		moveq	#0,d2
+		bsr	Video_MdMars_FadePal
+		lea	(MapMars_Scrn0),a0
+		moveq	#0,d0
+		moveq	#0,d1
+		move.w	#320/16,d2
+		move.w	#224/16,d3
+		move.w	#128,d4
+		bsr	Video_MdMarsMap_Load
+		move.l	#ArtMars_Scrn0,d0
+		moveq	#0,d1
+		moveq	#0,d2
+		bsr	Video_MdMarsMap_Set
 		moveq	#1,d0
 		bsr	Video_MdMars_VideoMode
 	else

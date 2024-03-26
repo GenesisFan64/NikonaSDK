@@ -161,19 +161,73 @@ Video_Init:
 		lea	(RAM_MdVideo).w,a6		; Clear our RAM section
 		move.w	#$8000,d6
 		move.w	#(sizeof_mdvid-RAM_MdVideo)-1,d7
-.clrram:
+.clr_ram:
 		move.b	d6,(a6)+			; (Write the LSB zero)
-		dbf	d7,.clrram
+		dbf	d7,.clr_ram
+		lea	(RAM_VdpDmaList),a6
+		lea	.dma_entry(pc),a5
+		move.w	#MAX_MDDMATSK,d7
+.copy_dma:
+		move.l	(a5),(a6)+
+		move.l	4(a5),(a6)+
+		move.l	8(a5),(a6)+
+		move.l	$C(a5),(a6)+
+		dbf	d7,.copy_dma
 		move.w	#SET_DefAutoDma,(RAM_SprAutoDmaSet).w
 		move.w	#1,(RAM_SprLinkNum).w
 		move.w	(RAM_SprAutoDmaSet).w,(RAM_SprAutoDmaCurr).w
-		lea	list_vdpregs(pc),a6		; Write "cache'd" VDP registers
+		lea	.list_vdpregs(pc),a6		; Write "cache'd" VDP registers
 		lea	(RAM_VdpRegs).w,a5
 		move.w	#17-1,d7
 .loop:
 		move.b	(a6)+,d6
 		move.b	d6,(a5)+
 		dbf	d7,.loop
+		bra	Video_Update
+
+; ------------------------------------------------
+; Default VDP register settings
+; ------------------------------------------------
+
+.list_vdpregs:
+		dc.b $04			; No HBlank interrupt, HV Counter on
+		dc.b $04			; Display ON, No VBlank interrupt
+		dc.b (($C000)>>10)		; Layer A at VRAM $C000 (%00xxx000)
+		dc.b (($D000)>>10)		; Window  at VRAM $D000 (%00xxxxy0)
+		dc.b (($E000)>>13)		; Layer B at VRAM $E000 (%00000xxx)
+		dc.b (($F800)>>9)		; Sprites at VRAM $F800 (%0xxxxxxy) (OLD $F800)
+		dc.b $00			; Unused
+		dc.b $00			; Background color: $00
+		dc.b $00			; Unused
+		dc.b $00			; Unused
+		dc.b $00			; HInt line number trigger
+		dc.b (%000|%00)			; No ExtInt, Scroll: VSCR:full HSCR:full
+		dc.b $81			; H40, No shadow mode, 320-pixel resolution mode
+		dc.b (($FC00)>>10)		; HScroll at VRAM $FC00 (%00xxxxxx)
+		dc.b $00			; Unused
+		dc.b $02			; VDP auto-increment: $02
+		dc.b (%00<<4)|%01		; Scroll area size: V32 H64
+		dc.b $00
+		dc.b $00
+		align 2
+
+; ------------------------------------------------
+; DMA blast entry
+; ------------------------------------------------
+
+.dma_entry:
+		dc.w $9400,$9300		; Size
+		dc.w $9600,$9500,$9700		; Source
+		dc.l $40000080 			; VDP destination with DMA bit
+		dc.w $0000			; SegaCD/CD32X only: Patch for the first 4 pixels
+		align 2
+
+; ------------------------------------------------
+
+; Default ASCII PRINT palette
+ASCII_PAL:	dc.w $0000,$0EEE,$0CCC,$0AAA,$0888,$0444,$000E,$0008
+		dc.w $00EE,$0088,$00E0,$0080,$0E00,$0800,$0000,$0000
+		align 2
 
 ; --------------------------------------------------------
 ; Video_Update
@@ -201,36 +255,7 @@ Video_Update:
 .exit:
 		rts
 
-; ------------------------------------------------
-; Default VDP register settings
-; ------------------------------------------------
 
-list_vdpregs:
-		dc.b $04			; No HBlank interrupt, HV Counter on
-		dc.b $04			; Display ON, No VBlank interrupt
-		dc.b (($C000)>>10)		; Layer A at VRAM $C000 (%00xxx000)
-		dc.b (($D000)>>10)		; Window  at VRAM $D000 (%00xxxxy0)
-		dc.b (($E000)>>13)		; Layer B at VRAM $E000 (%00000xxx)
-		dc.b (($F800)>>9)		; Sprites at VRAM $F800 (%0xxxxxxy) (OLD $F800)
-		dc.b $00			; Unused
-		dc.b $00			; Background color: $00
-		dc.b $00			; Unused
-		dc.b $00			; Unused
-		dc.b $00			; HInt line number trigger
-		dc.b (%000|%00)			; No ExtInt, Scroll: VSCR:full HSCR:full
-		dc.b $81			; H40, No shadow mode, 320-pixel resolution mode
-		dc.b (($FC00)>>10)		; HScroll at VRAM $FC00 (%00xxxxxx)
-		dc.b $00			; Unused
-		dc.b $02			; VDP auto-increment: $02
-		dc.b (%00<<4)|%01		; Scroll area size: V32 H64
-		dc.b $00
-		dc.b $00
-		align 2
-
-; Default ASCII PRINT palette
-ASCII_PAL:	dc.w $0000,$0EEE,$0CCC,$0AAA,$0888,$0444,$000E,$0008
-		dc.w $00EE,$0088,$00E0,$0080,$0E00,$0800,$0000,$0000
-		align 2
 
 ; --------------------------------------------------------
 ; Video_Clear
@@ -325,9 +350,8 @@ Video_ClearScreen:
 ; --------------------------------------------------------
 
 Video_FullFadeIn:
-		move.w	#1,(RAM_FadeMdReq).w	; Fade-in task
+		move.w	#1,(RAM_FadeMdReq).w	; Fade-in mode
 		move.w	#1,(RAM_FadeMarsReq).w
-
 		move.w	#1,(RAM_FadeMdIncr).w
 		move.w	#1,(RAM_FadeMdDelay).w
 		move.w	#2,(RAM_FadeMarsIncr).w
@@ -339,9 +363,8 @@ Video_FullFadeIn:
 ; --------------------------------------------------------
 
 Video_FullFadeOut:
-		move.w	#2,(RAM_FadeMdReq).w	; Fade-in task
+		move.w	#2,(RAM_FadeMdReq).w	; Fade-out mode
 		move.w	#2,(RAM_FadeMarsReq).w
-
 		move.w	#1,(RAM_FadeMdIncr).w
 		move.w	#1,(RAM_FadeMdDelay).w
 		move.w	#2,(RAM_FadeMarsIncr).w
@@ -351,60 +374,29 @@ Video_FullFadeOut:
 ; --------------------------------------------------------
 ; Video_WaitFade
 ;
-; *** Custom VBlank wait ***
+; *** External VBlank loop ***
 ; --------------------------------------------------------
 
 Video_WaitFade:
-		bsr	System_Render
+		bsr	System_Render		; Render one frame normally
 .wait_fade:
-		move.w	(vdp_ctrl).l,d7
+		move.w	(vdp_ctrl).l,d7		; Wait VBlank
 		btst	#bitVBlk,d7
-		bne.s	.wait_fade
-		bsr	Video_Render
+		beq.s	.wait_fade
+		bsr	Video_Render		; Render VDP Visuals
 	if MARS|MARSCD
-		bsr	System_MarsUpdate
+		bsr	System_MarsUpdate	; Update DREQ RAM
 		bsr	Video_DoPalFade
 		bsr	Video_MdMars_DoPalFade
-		move.w	(RAM_FadeMdReq).w,d7
+		move.w	(RAM_FadeMdReq).w,d7	; Check both req status.
 		move.w	(RAM_FadeMarsReq).w,d6
 		or.w	d6,d7
 	else
-		bsr	System_Render
 		bsr	Video_DoPalFade
 		move.w	(RAM_FadeMdReq).w,d7
 	endif
 		tst.w	d7
 		bne.s	.wait_fade
-		rts
-
-; --------------------------------------------------------
-; Video_RunFade
-;
-; Processes palette fading for one frame returns
-; status on exit.
-;
-; Returns:
-; bne | Still active
-; beq | Finished
-;
-; Breaks:
-; ALL
-;
-; Notes:
-; Call System_Render FIRST before calling this
-; --------------------------------------------------------
-
-Video_RunFade:
-	if MARS|MARSCD
-		bsr	Video_DoPalFade
-		bsr	Video_MdMars_DoPalFade
-		move.w	(RAM_FadeMdReq).w,d7
-		move.w	(RAM_FadeMarsReq).w,d6
-		or.w	d6,d7
-	else
-		bsr	Video_DoPalFade
-		move.w	(RAM_FadeMdReq).w,d7
-	endif
 		rts
 
 ; --------------------------------------------------------
@@ -445,9 +437,36 @@ vidMd_Pal:
 		rts
 
 ; --------------------------------------------------------
-; Video_DoPalFade
+; Video_RunFade
 ;
-; NOTE: ONLY CALL THIS OUTSIDE OF VBLANK
+; Processes palette fading for one frame
+;
+; Returns:
+; bne | Still active
+; beq | Finished
+;
+; Breaks:
+; ALL
+;
+; Notes:
+; Call this during DISPLAY only.
+; --------------------------------------------------------
+
+Video_RunFade:
+	if MARS|MARSCD
+		bsr	Video_DoPalFade
+		bsr	Video_MdMars_DoPalFade
+		move.w	(RAM_FadeMdReq).w,d7
+		move.w	(RAM_FadeMarsReq).w,d6
+		or.w	d6,d7
+	else
+		bsr	Video_DoPalFade
+		move.w	(RAM_FadeMdReq).w,d7
+	endif
+		rts
+
+; --------------------------------------------------------
+; Video_DoPalFade
 ; --------------------------------------------------------
 
 Video_DoPalFade:
@@ -619,7 +638,7 @@ Video_DoPalFade:
 ; Input:
 ; d0.l | Graphics data (NOT a0)
 ; d1.w | VRAM location, cell_vram(vram_pos)
-; d2.w | Size
+; d2.w | Size (FULL)
 ;
 ; Breaks:
 ; d4-d7,a4
@@ -748,21 +767,23 @@ Video_LoadArt:
 ; --------------------------------------------------------
 ; Video_DmaMkEntry
 ;
-; Sets a new DMA graphics transfer entry to the
-; BLAST list to be processed on VBlank for the
-; next frame.
+; Makes a new entry in the DMA BLAST list
+; to be processed on VBlank for the next frame.
 ;
 ; Input:
 ; d0.l | Graphics data location
-; d1.w | VRAM location, cell_vram(vram_pos)
+; d1.w | VRAM location - cell_vram(vram_pos)
 ; d2.w | Size
 ;
 ; Breaks:
 ; d5-d7,a6
 ;
 ; Notes:
-; - Can only be called during DISPLAY only.
-; - For loading graphics quick use Video_LoadArt
+; - Can only be called during DISPLAY ONLY.
+; - For loading graphics as normal use Video_LoadArt
+; - SegaCD/CD32X:
+;   The 4 pixels patch is always applied even
+;   if not reading from WORD-RAM
 ; --------------------------------------------------------
 
 Video_DmaMkEntry:
@@ -789,7 +810,6 @@ Video_DmaMkEntry:
 		move.l	d0,d5
 		move.w	d1,d6
 		move.w	d2,d7
-
 ; d7 - size
 ; d6 - vram
 ; d5 - data
@@ -808,41 +828,39 @@ Video_DmaMkEntry:
 		bmi.s	.ran_out		; If negative, bad
 		move.w	#1,(RAM_VdpDmaMod).w
 		addq.w	#1,(RAM_VdpDmaIndx).w
-		lsl.l	#7,d7
-		lsr.w	#8,d7
-		ori.l	#$94009300,d7
-		move.l	d7,(a6)+
+		lsr.w	#1,d7
+		movep.w	d7,1(a6)
 	if MCD|MARSCD
-  		move.l	d5,-(sp)	; Save TOP point
-  		addq.l	#2,d5		; WORD-RAM patch
+  		move.l	d5,-(sp)		; Save TOP point
+  		move.l	d5,d7
+  		andi.l	#$F00000,d7
+  		cmpi.l	#$200000,d7
+  		bne.s	.not_wram
+  		addq.l	#2,d5			; WORD-RAM patch
+.not_wram:
 	endif
   		lsr.l	#1,d5			; d5 - Source
- 		move.l	#$96009500,d7
- 		move.b	d5,d7
- 		lsr.l	#8,d5
- 		swap	d7
- 		move.b	d5,d7
- 		move.l	d7,(a6)+
- 		move.w	#$9700,d7
- 		lsr.l	#8,d5
- 		move.b	d5,d7
- 		move.w	d7,(a6)+
-		move.w	d6,d7		; Destination
+  		move.l	d5,d7
+  		swap	d7
+ 		movep.w	d5,5(a6)
+ 		move.b	d7,9(a6)
+		move.w	d6,d7			; Destination
 		andi.l	#$3FFF,d6
 		ori.w	#$4000,d6
 		lsr.w	#8,d7
 		lsr.w	#6,d7
 		andi.w	#%11,d7
 		ori.w	#$80,d7
-		move.w	d6,(a6)+
-		move.w	d7,(a6)+
+		move.w	d6,$A(a6)
+		move.w	d7,$C(a6)
 	if MCD|MARSCD
+	; *** 4pixel PATCH IS ALWAYS APPLIED
+	; EVEN IF NOT IN WORD-RAM ***
 		move.l	a6,d7		; Save a6
 		move.l	(sp)+,a6	; Restore TOP point
 		move.w	(a6),d6		; Grab the graphs first word
 		move.l	d7,a6		; Restore a6
-		move.w	d6,(a6)+	; Copy to last entry
-.no_wpatch:
+		move.w	d6,$E(a6)	; Copy to last entry
 	endif
 		move.w	#0,(RAM_VdpDmaMod).w
 .ran_out:
@@ -854,7 +872,7 @@ Video_DmaMkEntry:
 ; Fill data to VRAM
 ;
 ; d0.w | WORD to fill
-; d1.w | VRAM destination, cell_vram(dest)
+; d1.w | VRAM destination - cell_vram(dest)
 ; d2.w | Size
 ;
 ; Notes:
@@ -911,8 +929,8 @@ Video_Fill:
 ; Copy VRAM data to another location
 ;
 ; Input:
-; d0.w | VRAM Source, cell_vram(src)
-; d1.w | VRAM Destination, cell_vram(dest)
+; d0.w | VRAM Source      - cell_vram(src)
+; d1.w | VRAM Destination - cell_vram(dest)
 ; d2.w | Size
 ; --------------------------------------------------------
 

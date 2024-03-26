@@ -7,23 +7,31 @@
 ; - Support for SEGA CD's PCM channels:
 ;   | All 8 channels with streaming support
 ;   | for larger samples.
+;
 ; - Support for 32X's PWM:
 ;   | 7 pseudo-channels in either MONO
 ;   | or STEREO.
 ;
-; - DMA ROM protection
-;   | This keeps DAC in a decent quality while
-;   | doing any DMA jobs in the 68k side.
-; - DAC Playback at 16000hz
+; - WAVE playback at 16000hz base for all
+;   channels that play samples.
+;   | (DAC, PCM and PWM)
+
+; - DMA ROM protection for DAC
+;   | This keeps the wave playback in a
+;   | decent quality while doing any DMA
+;   | task in the 68k side.
+;
 ; - FM special mode with custom frequencies
+;
 ; - Autodetection for the PSG's Tone3 mode
 ;
 ; Notes:
 ; Thie RAM area $FFFF00-$FFFFFF is reserved
-; for the driver, currently the Z80 writes a flag
-; directly for a workaround to bypass a data-reading
+; for this driver
+; Currently the Z80 writes a flag directly to
+; RAM for a workaround to bypass a data-reading
 ; hardware limitation. (see Sound_Update)
-; The entire section will be used in case
+; The entire RAM section will be used in case
 ; I translate the Z80 code to the 68K just for
 ; the Sega PICO
 ;
@@ -46,12 +54,14 @@
 ; Macros
 ; --------------------------------------------------------
 
+; ------------------------------------------------------------
+; Sample include
+;
 ; Shared for all DAC, PCM, PWM
 ; FOR WAV SAMPLES, OFFSET STARTS AT $2C
 ;
 ; gSmplData Label,"filepath",loop_point(0-beginning)
-; If not doing loop, just write 0.
-;
+; If not doing loop, write 0.
 gSmplData macro labl,file,loop
 	if MARS|MARSCD		; <-- label align for 32X
 		align 4
@@ -64,6 +74,7 @@ labl_s:
 labl_e:
 	endm
 
+; ====================================================================
 ; --------------------------------------------------------
 ; Variables
 ; --------------------------------------------------------
@@ -81,6 +92,7 @@ zDrvMcdBlk	equ mcdBlock		; Flag to disable SegaCD's PCM
 zDrvRamSrc	equ cdRamSrcB		; RAM-read source+dest pointers
 zDrvRamLen	equ cdRamLen		; RAM-read length and flag
 
+; ====================================================================
 ; --------------------------------------------------------
 ; Labels
 ; --------------------------------------------------------

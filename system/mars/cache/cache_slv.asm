@@ -50,10 +50,11 @@ s_irq_pwm:
 		mov	r4,r0
 		tst	#$80,r0
 		bf	.enabled
-.silence:	mov	#$80,r1
+.chnl_siln:	mov	#$80,r1
 		bra	.chnl_off
 		mov	r1,r2
 .enabled:
+		nop
 		mov	@(mchnsnd_pitch,r10),r3
 		tst	#%1000,r0
 		bt	.st_pitch
@@ -69,7 +70,7 @@ s_irq_pwm:
 		tst	#%0100,r0
 		bf	.loopit
 		xor	r0,r0
-		bra	.silence
+		bra	.chnl_siln
 		mov	r0,@(mchnsnd_enbl,r10)
 .loopit:
 		mov	@(mchnsnd_start,r10),r5
@@ -98,8 +99,6 @@ s_irq_pwm:
 		bra	.go_wave
 		extu.b	r4,r4
 .do_mono:
-		shar	r3	; MONO is very loud
-		shar	r4	; lower it a bit.
 		mov	r3,r4
 
 ; r3 - left byte
@@ -122,7 +121,11 @@ s_irq_pwm:
 		mov	@(mchnsnd_vol,r10),r0
 		cmp/pl	r0
 		bf	.chnl_off
+		mov	#64,r4
+		cmp/ge	r4,r0
+		bt	.chnl_siln
 		add	#1,r0
+		shll2	r0
 		mulu	r0,r1
 		sts	macl,r4
 		shlr8	r4
@@ -131,7 +134,13 @@ s_irq_pwm:
 		sts	macl,r4
 		shlr8	r4
 		sub	r4,r2
-		mov	#$80,r4
+		cmp/pl	r1
+		bt	.l_low
+		mov	#0,r1
+.l_low:		cmp/pl	r2
+		bt	.r_low
+		mov	#0,r2
+.r_low:		mov	#$80,r4		; <-- This prevents a click
 		mulu	r0,r4
 		sts	macl,r0
 		shlr8	r0
@@ -143,8 +152,7 @@ s_irq_pwm:
 		dt	r9
 		bf/s	.next_chnl
 		add	#sizeof_marssnd,r10
-
-		mov	#$3FF,r0
+		mov	#$7FF,r0
 		cmp/ge	r0,r6
 		bf	.l_max
 		mov	r0,r6

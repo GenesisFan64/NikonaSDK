@@ -750,7 +750,6 @@ s_irq_cmd:
 		mov.b	@r3,r0			; r0: %vvvvvvpp
 		mov	r0,r2			; Save pp-pitch
 		and	#%11111100,r0		; first 2 bits lost/ignored
-		shll	r0
 		mov	r0,@(mchnsnd_vol,r7)
 		add	#8,r3			; Next: Pitch LSB
 		mov.b	@r3,r1			; r0: %pppppppp

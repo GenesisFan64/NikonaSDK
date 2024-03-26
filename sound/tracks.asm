@@ -1,13 +1,10 @@
 ; ===========================================================================
 ; ------------------------------------------------------------
-; SOUND TRACKS SECTION
+; SOUNDTRACK SECTION
 ; ------------------------------------------------------------
 
-; ====================================================================
 ; ------------------------------------------------------------
 ; Instrument macros
-; ------------------------------------------------------------
-
 gInsNull macro
 	dc.b $00,$00,$00,$00
 	dc.b $00,$00,$00,$00
@@ -110,14 +107,30 @@ gemaHead macro blk,pat,ins,num
 	dc.l ins
 	endm
 
+; Track data format:
+; 	gemaHead .blk,.pat,.ins,3
+; .blk:
+; 	binclude "sound/tracks/track_blk.bin"
+; .pat:
+; 	binclude "sound/tracks/track_patt.bin"
+; .ins:
+; 	gIns??? pitch,ins_data,flags
+; 	; ...
+; 	; Entry for each instrument
+; 	; starts from 1, not 0.
+;
+; Default Samplerate for samples: 16000hz
+; APPLIES TO ALL.
+
 ; ====================================================================
 ; ------------------------------------------------------------
 ; Nikona DEFAULT track-list
 ;
-; gemaTrk ticks+beatsbit*,track_data
-; Add $80 ($80|ticks) to make the track use global sub-beats
+; Entry:
+; gemaTrk ticks,track_data	; Without global beats
+; gemaTrk ticks|$80,track_data	; With global beats
 ;
-; To use sub-beats call gemaSetBeats command
+; To use sub-beats call gemaSetBeats extenally
 ; BEFORE playing your track:
 ; 	move.w	#new_beats,d0
 ; 	bsr	gemaSetBeats
@@ -127,125 +140,30 @@ gemaHead macro blk,pat,ins,num
 
 	align 2
 Gema_MasterList:
-	gemaTrk 64,GemaTrk_Test
+	gemaTrk $3F,GemaTrk_Test
 	gemaTrk 4|$80,GemaTrk_Astral
 	gemaTrk 3|$80,GemaTrk_Arena1
-; 	gemaTrk 6|$80,GemaTrk_MOVEME
-; 	gemaTrk 6|$80,GemaTrk_NadieMD
-; 	gemaTrk 6|$80,GemaTrk_NadieMCD
-; 	gemaTrk 6|$80,GemaTrk_NadieMARS
-; 	gemaTrk 3|$80,GemaTrk_Crystal
-; 	gemaTrk 3,GemaTrk_Dream
-
-; ------------------------------------------------------------
-; BGM tracks
-; ------------------------------------------------------------
-;
-; GemaSfx_All:
-; 	gemaHead .blk,.pat,.ins,1
-; .blk:
-; 	binclude "sound/tracks/sfxall_blk.bin"
-; 	align 2
-; .pat:
-; 	binclude "sound/tracks/sfxall_patt.bin"
-; 	align 2
-; .ins:
-; 	gInsPsgN 0,$00,$00,$00,$00,$00,0,%100
-; 	gInsPsgN 0,$00,$00,$00,$00,$00,0,%101
-; 	gInsPsgN 0,$00,$00,$00,$00,$00,0,%110
-; 	gInsFm 0,FmIns_Ding_1
-; 	gInsFm3 0,FmIns_Fm3_Explosion
 
 ; ------------------------------------------------------------
 
 GemaTrk_Test:
 	gemaHead .blk,.pat,.ins,3
-.ins:
-; 	gInsPsgN 0,$00,$00,$00,$00,$00,0,%101
-; 	gInsFm -36-6,FmIns_Ambient_dark
-	gInsDac -12,PcmIns_test8,0
-; 	gInsPwm 0,PwmIns_Piano,%00
 .blk:
 	binclude "sound/tracks/test_blk.bin"
 .pat:
 	binclude "sound/tracks/test_patt.bin"
-
-; ------------------------------------------------------------
-
-; GemaTrk_MOVEME:
-; 	gemaHead .blk,.pat,.ins,13
-; .blk:
-; 	binclude "sound/tracks/moveme_blk.bin"
-; 	align 2
-; .pat:
-; 	binclude "sound/tracks/moveme_patt.bin"
-; 	align 2
-; .ins:
-; 	gInsPcm -12,PcmIns_MoveMe_Hit,%10
-; 	gInsFm 0,FmIns_Bass_Duck
-; 	gInsPcm -12,PcmIns_MoveMe_BrassL,%11
-; 	gInsFm 0,FmIns_ClosedHat
-; 	gInsPsgN 0,$00,$00,$00,$00,$04,0,%110
-; 	gInsFm -12,FmIns_HBeat_tom
-; 	gInsPcm -12,PcmIns_Snare,%10
-; 	gInsPcm -12,PcmIns_Kick,%10		;gInsFm -38,FmIns_DrumKick_gem
-; 	gInsFm -12,FmIns_Trumpet_carnival	;FmIns_Trumpet_2
-; 	gInsPsg 0,$20,$20,$10,$01,$08,0		;gInsFm -12,FmIns_Ding_Baseball;
-; 	gInsFm3 0,FmIns_Sp_OpenHat
-; 	gInsNull;gInsPwm -17,PwmIns_MyTime,%10
-; 	gInsPsg +12,$20,$10,$10,$0C,$0C,0
-; 	gInsPsg 0,$00,$00,$00,$00,$06,0
-; 	gInsPcm -12,PcmIns_MoveMe_BrassR,%11
-; 	gInsNull
-; 	gInsNull
-; 	gInsNull
-; 	gInsNull
-
-; ------------------------------------------------------------
-
-; GemaTrk_Dream:
-; 	gemaHead .blk,.pat,.ins,8
-; .blk:
-; 	binclude "sound/tracks/dream_blk.bin"
-; .pat:
-; 	binclude "sound/tracks/dream_patt.bin"
-; .ins:
-; 	gInsFm 0,FmIns_Hats_closed
-; 	gInsDac +12,DacIns_Kick_wegot,0
-; 	gInsFm -12,FmIns_brass_eur
-; 	gInsFm -24,FmIns_Trumpet_carnival
-; 	gInsPsg  0,$00,$20,$00,$02,$10,0
-; 	gInsPsgN 0,$00,$10,$00,$01,$04,0,%100
-; 	gInsFm 0,FmIns_Bass_low_1
-; 	gInsFm 0,FmIns_Hats_1
-; 	gInsPsgN 0,$00,$10,$00,$01,$08,0,%101
-; 	gInsNull
-; 	gInsNull
-; 	gInsNull
-; 	gInsNull
-; 	gInsPsg  0,$40,$00,$00,$00,$00,0
-; 	gInsFm -12,FmIns_Trumpet_1
-
-; ; Ticks: 3-1
-; ; TEMPO: 170
-; GemaTrk_Crystal:
-; 	gemaHead .blk,.pat,.ins,7
-; .blk:
-; 	binclude "sound/tracks/crystal_blk.bin"
-; .pat:
-; 	binclude "sound/tracks/crystal_patt.bin"
-; .ins:
-; 	gInsFm 0,FmIns_Organ2a
-; 	gInsPsgN 0,$00,$10,$00,$01,$10,0,%100
-; 	gInsDac 0,DacIns_Kick_wegot,0
-; 	gInsFm3 0,FmIns_Sp_OpenHat
-; 	gInsNull
-; 	gInsFm 0,FmIns_Bass_low_1
+.ins:
+	gInsNull
+; 	gInsPwm -12,PwmIns_test8,0
 
 ; ------------------------------------------------------------
 
 GemaTrk_Arena1:
-	gemaHead shrd_blk,shrd_pat,.ins,4
+	gemaHead .blk,.patt,.ins,4
+.blk:
+	binclude "sound/tracks/techno_blk.bin"
+.patt:
+	binclude "sound/tracks/techno_patt.bin"
 .ins:
 	gInsPcm -12,PcmIns_techno_01,0
 	gInsPcm -12,PcmIns_techno_02,0
@@ -258,13 +176,15 @@ GemaTrk_Arena1:
 	gInsPcm -12,PcmIns_techno_09,1
 	gInsPcm -12,PcmIns_techno_10,1
 	gInsPcm -12,PcmIns_techno_11,0
-shrd_blk:
-	binclude "sound/tracks/techno_blk.bin"
-shrd_pat:
-	binclude "sound/tracks/techno_patt.bin"
+
+; ------------------------------------------------------------
 
 GemaTrk_Astral:
 	gemaHead .blk,.patt,.ins,4
+.blk:
+	binclude "sound/tracks/astral_blk.bin"
+.patt:
+	binclude "sound/tracks/astral_patt.bin"
 .ins:
 	gInsPcm -12,PcmIns_astral_01,1
 	gInsPcm -12,PcmIns_astral_02,1
@@ -292,66 +212,3 @@ GemaTrk_Astral:
 	gInsPcm -12,PcmIns_astral_24,0
 	gInsPcm -12,PcmIns_astral_25,0
 	gInsPcm -12,PcmIns_astral_26,0
-.blk:
-	binclude "sound/tracks/astral_blk.bin"
-.patt:
-	binclude "sound/tracks/astral_patt.bin"
-
-; ------------------------------------------------------------
-
-; GemaTrk_NadieMD:
-; 	gemaHead .blk,.patt,.inst,7
-; .blk:
-; 	binclude "sound/tracks/nadie_md_blk.bin"
-; 	align 2
-; .patt:
-; 	binclude "sound/tracks/nadie_md_patt.bin"
-; 	align 2
-; .inst:
-; 	gInsDac 0,DacIns_Nadie,0
-; 	gInsFm -36,FmIns_Piano_Aqua
-; 	gInsFm -12,FmIns_HBeat_tom
-; 	gInsFm -37,FmIns_DrumKick_gem
-; 	gInsPsg 0,$50,$70,$00,$06,$08,0
-; 	gInsFm 0,FmIns_Trumpet_1
-; 	gInsNull
-; 	gInsFm3 0,FmIns_Sp_ClosedHat
-; 	gInsFm3 0,FmIns_Sp_OpenHat
-;
-; GemaTrk_NadieMCD:
-; 	gemaHead .blk,.patt,.inst,11
-; .blk:
-; 	binclude "sound/tracks/nadie_mcd_blk.bin"
-; 	align 2
-; .patt
-; 	binclude "sound/tracks/nadie_mcd_patt.bin"
-; 	align 2
-; .inst:
-; 	gInsPcm -12,PcmIns_NadieL,%10
-; 	gInsFm -36,FmIns_Piano_Aqua
-; 	gInsFm -12,FmIns_HBeat_tom
-; 	gInsPcm -12-12,PcmIns_PKick,%00
-; 	gInsPsg 0,$50,$70,$00,$06,$08,0
-; 	gInsFm 0,FmIns_Trumpet_1
-; 	gInsPcm 0-12,PcmIns_Piano,%00
-; 	gInsPcm -12-12,PcmIns_PTom,%00
-; 	gInsPcm -12,PcmIns_NadieR,%10
-;
-; GemaTrk_NadieMARS:
-; 	gemaHead .blk,.patt,.inst,11
-; .blk:
-; 	binclude "sound/tracks/nadie_blk.bin"
-; 	align 2
-; .patt
-; 	binclude "sound/tracks/nadie_patt.bin"
-; 	align 2
-; .inst:
-; 	gInsPwm 0,PwmIns_Nadie,%10
-; 	gInsFm -36,FmIns_Piano_Aqua
-; 	gInsFm -12,FmIns_HBeat_tom
-; 	gInsPwm -12,PwmIns_PKick,%00
-; 	gInsPsg 0,$50,$70,$00,$06,$08,0
-; 	gInsFm 0,FmIns_Trumpet_1
-; 	gInsPwm 0,PwmIns_Piano,%00
-; 	gInsPwm -12,PwmIns_PTom,%00
-; 	gInsNull

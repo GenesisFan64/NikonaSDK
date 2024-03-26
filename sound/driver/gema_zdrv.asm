@@ -2507,11 +2507,18 @@ dtbl_singl:
 		and	00110000b
 		rst	8
 		ld	e,a		; Save panning to e
+		ld	a,(iy+03h)
+		cp	40h
+		jr	z,.vpwm_siln
+		jr	nc,.vpwm_siln
+		ld	c,a
 		ld	a,(iy+08h)	; Read current volume
-		sub	a,(iy+03h)	; + MASTER vol
+		sub	a,c		; + MASTER vol
+		jr	.vpwm_much
+.vpwm_siln:
+		ld	a,-40h
+.vpwm_much:
 		neg	a
-		add	a,a
-	; no changes
 		and	11111100b
 		or	h		; Merge MSB freq
 		ld	bc,8
@@ -4224,8 +4231,6 @@ fmFreq_List:	dw 644
 
 ; ----------------------------------------
 ; DAC and PWM
-;
-; base C-5 freq: 16000hz
 ; ----------------------------------------
 
 psgFreq_List:
@@ -4243,8 +4248,6 @@ psgFreq_List:
 
 ; ----------------------------------------
 ; DAC and PWM shared list
-;
-; base C-5 freq: 16000hz
 ; ----------------------------------------
 
 ; TODO
@@ -4263,8 +4266,6 @@ wavFreq_List:
 
 ; ----------------------------------------
 ; SegaCD PCM
-;
-; base C-5 freq: 16000hz
 ; ----------------------------------------
 wavFreq_CdPcm:
 	;     C     C#     D      D#     E      F      F#     G      G#     A      A#     B

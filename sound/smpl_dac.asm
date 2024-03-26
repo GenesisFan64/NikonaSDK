@@ -13,7 +13,7 @@
 ; --------------------------------------------------------
 
 ; 	gSmplData Label,"filepath",loop_point(0-start)
- 	gSmplData PcmIns_test8,"sound/instr/smpl/test_8.wav",0
+;  	gSmplData PcmIns_test8,"sound/instr/smpl/test_8.wav",0
 ; 	gSmplData DacIns_Kick_techno,"sound/instr/smpl/ST-72_kick.wav",0
 ; 	gSmplData DacIns_Snare_techno,"sound/instr/smpl/ST-79_snare.wav",0
 ; 	gSmplData DacIns_Kick_wegot,"sound/instr/smpl/wegot_kick.wav",0
